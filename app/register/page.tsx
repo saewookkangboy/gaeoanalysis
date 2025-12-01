@@ -2,13 +2,14 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { safeNavigate } from '@/lib/navigation-error-handler';
 
 export default function RegisterPage() {
   const router = useRouter();
 
   // OAuth 로그인으로 전환되었으므로 로그인 페이지로 리다이렉트
   useEffect(() => {
-    router.replace('/login');
+    safeNavigate(() => router.replace('/login'), '/login');
   }, [router]);
 
   return (

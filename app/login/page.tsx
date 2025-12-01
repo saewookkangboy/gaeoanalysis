@@ -15,7 +15,13 @@ function LoginForm() {
   useEffect(() => {
     if (status === 'authenticated' && session?.user) {
       // 로그인 성공 시 메인 페이지로 리디렉션
-      router.push('/');
+      try {
+        router.push('/');
+      } catch (error) {
+        // 네비게이션 실패 시 전체 페이지 새로고침으로 대체
+        console.warn('네비게이션 실패, 전체 페이지 새로고침:', error);
+        window.location.href = '/';
+      }
     }
   }, [status, session, router]);
 
