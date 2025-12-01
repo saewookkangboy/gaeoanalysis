@@ -33,31 +33,31 @@ function LoginForm() {
         redirect: false,
       });
 
+      // NextAuth 응답 처리
       if (result?.error) {
-        // 더 구체적인 에러 메시지 표시
+        // 에러 메시지 처리
         let errorMessage = '이메일 또는 비밀번호가 올바르지 않습니다.';
         
         if (typeof result.error === 'string') {
-          if (result.error === 'CredentialsSignin') {
-            errorMessage = '이메일 또는 비밀번호가 올바르지 않습니다.';
-          } else {
+          // NextAuth가 전달한 에러 메시지 사용
+          if (result.error !== 'CredentialsSignin') {
             errorMessage = result.error;
           }
-        } else if (result.error && typeof result.error === 'object') {
-          // 객체인 경우 message 추출
-          errorMessage = (result.error as any)?.message || '로그인 중 오류가 발생했습니다.';
         }
         
         setError(errorMessage);
       } else if (result?.ok) {
+        // 로그인 성공
         router.push('/');
         router.refresh();
       } else {
+        // 예상치 못한 응답
         setError('로그인 중 오류가 발생했습니다.');
       }
     } catch (err: any) {
+      // 네트워크 오류 등 예외 처리
       console.error('Login error:', err);
-      setError(err?.message || '로그인 중 오류가 발생했습니다.');
+      setError('로그인 중 오류가 발생했습니다. 네트워크 연결을 확인해주세요.');
     } finally {
       setIsLoading(false);
     }

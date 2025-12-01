@@ -4,6 +4,7 @@ import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 
 export const authOptions: NextAuthOptions = {
+  secret: process.env.NEXTAUTH_SECRET,
   providers: [
     CredentialsProvider({
       name: 'Credentials',
@@ -34,7 +35,7 @@ export const authOptions: NextAuthOptions = {
         } catch (error: any) {
           console.error('Auth error:', error);
           
-          // Firebase 에러 메시지 처리
+          // Firebase 에러 메시지 처리 - 구체적인 메시지를 throw하여 클라이언트에 전달
           if (error.code === 'auth/user-not-found') {
             throw new Error('등록되지 않은 이메일입니다.');
           } else if (error.code === 'auth/wrong-password') {
@@ -76,5 +77,6 @@ export const authOptions: NextAuthOptions = {
       return session;
     },
   },
+  debug: process.env.NODE_ENV === 'development',
 };
 
