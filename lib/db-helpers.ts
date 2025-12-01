@@ -197,6 +197,18 @@ export function updateUserBlogUrl(userId: string, blogUrl: string | null) {
 }
 
 /**
+ * 사용자 삭제 (CASCADE로 관련 데이터도 함께 삭제됨)
+ */
+export function deleteUser(userId: string) {
+  return dbHelpers.transaction(() => {
+    // 외래 키 제약 조건으로 인해 관련 데이터(analyses, chat_conversations)도 자동 삭제됨
+    const stmt = db.prepare('DELETE FROM users WHERE id = ?');
+    const result = stmt.run(userId);
+    return result.changes > 0;
+  });
+}
+
+/**
  * 채팅 대화 이력 조회
  */
 export function getChatConversations(userId: string, analysisId?: string | null) {

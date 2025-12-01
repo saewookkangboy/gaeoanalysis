@@ -14,6 +14,7 @@
     "db:backup": "bash scripts/backup-db.sh",
     "db:restore": "bash scripts/restore-db.sh",
     "db:optimize": "npx tsx scripts/optimize-db.ts",
+    "firebase:delete-user": "npx tsx scripts/delete-firebase-user.ts",
     "push": "bash scripts/auto-push.sh"
   },
   "dependencies": {
@@ -45,6 +46,7 @@
     "@types/uuid": "^10.0.0",
     "eslint": "^9",
     "eslint-config-next": "16.0.6",
+    "firebase-admin": "^13.6.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
