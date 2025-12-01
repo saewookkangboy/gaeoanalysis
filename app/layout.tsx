@@ -55,7 +55,7 @@ export default function RootLayout({
               <SessionProvider>
                 <div className="flex min-h-screen flex-col">
                   <Navigation />
-                  <main className="flex-1">
+                  <main className="flex-1 flex flex-col">
                     {children}
                   </main>
                   <Footer />

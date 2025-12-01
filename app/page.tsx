@@ -242,8 +242,8 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-white">
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="flex-1 bg-white">
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         {/* URL 입력 섹션 */}
         <div className="mb-8 animate-fade-in">
           <div className="mx-auto max-w-2xl">
@@ -425,7 +425,7 @@ export default function Home() {
             </p>
         </div>
         )}
-      </main>
+      </div>
 
       {/* AI Agent - Lazy Loading */}
       {analysisData && (

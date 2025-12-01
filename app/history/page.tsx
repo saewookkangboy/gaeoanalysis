@@ -166,8 +166,8 @@ export default function HistoryPage() {
 
   if (selectedHistory && analysisData) {
     return (
-      <div className="min-h-screen bg-white">
-        <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <div className="flex-1 bg-white">
+        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
           {/* 헤더 */}
           <div className="mb-6 flex items-center justify-between">
             <div>
@@ -251,9 +251,8 @@ export default function HistoryPage() {
             {/* 콘텐츠 작성 가이드라인 */}
             <ContentGuidelines analysisData={analysisData} />
           </div>
-        </main>
 
-        {/* 종합 개선 체크리스트 모달 */}
+          {/* 종합 개선 체크리스트 모달 */}
         {analysisData && (
           <ComprehensiveChecklistModal
             isOpen={isChecklistModalOpen}
@@ -266,8 +265,8 @@ export default function HistoryPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="flex-1 bg-gray-50">
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="mb-6 flex items-center justify-between">
           <h1 className="text-2xl font-bold text-gray-900">분석 이력</h1>
           <Link
@@ -344,7 +343,7 @@ export default function HistoryPage() {
             </div>
           </>
         )}
-      </main>
+      </div>
     </div>
   );
 }

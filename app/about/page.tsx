@@ -4,8 +4,8 @@ import Link from 'next/link';
 
 export default function AboutPage() {
   return (
-    <div className="min-h-screen bg-white">
-      <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="flex-1 bg-white">
+      <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
         {/* Hero Section */}
         <div className="mb-16 text-center">
           <h1 className="mb-4 text-4xl sm:text-5xl font-bold text-gray-900">
@@ -380,7 +380,7 @@ export default function AboutPage() {
             </p>
           </div>
         </section>
-      </main>
+      </div>
     </div>
   );
 }
