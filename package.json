@@ -13,7 +13,8 @@
     "db:migrate": "npx tsx scripts/migrate-db.ts",
     "db:backup": "bash scripts/backup-db.sh",
     "db:restore": "bash scripts/restore-db.sh",
-    "db:optimize": "npx tsx scripts/optimize-db.ts"
+    "db:optimize": "npx tsx scripts/optimize-db.ts",
+    "push": "bash scripts/auto-push.sh"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
