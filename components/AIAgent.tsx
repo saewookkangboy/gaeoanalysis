@@ -52,9 +52,10 @@ export default function AIAgent({ analysisData, aioAnalysis }: AIAgentProps) {
       // 분석 데이터가 변경되었는지 확인 (새로운 분석인 경우)
       if (signature !== lastAnalysisSignature) {
         setLastAnalysisSignature(signature);
-        // 새로운 분석이면 추천 질문 초기화 및 재생성
+        // 새로운 분석이면 추천 질문 초기화 (새로운 질문 생성)
         setQuickQuestions([]);
-        // 메시지는 유지 (사용자가 계속 대화할 수 있도록)
+        // 메시지도 초기화 (새로운 세션)
+        setMessages([]);
       }
     }
   }, [analysisData, lastAnalysisSignature]);
