@@ -3,13 +3,13 @@ import CredentialsProvider from 'next-auth/providers/credentials';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 
+// NEXTAUTH_SECRET 확인
+if (!process.env.NEXTAUTH_SECRET && process.env.NODE_ENV === 'development') {
+  console.warn('⚠️ NEXTAUTH_SECRET이 설정되지 않았습니다.');
+}
+
 export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
-  // NEXTAUTH_SECRET이 없으면 경고
-  ...(process.env.NEXTAUTH_SECRET ? {} : {
-    // 개발 환경에서만 경고
-    ...(process.env.NODE_ENV === 'development' && console.warn('⚠️ NEXTAUTH_SECRET이 설정되지 않았습니다.')),
-  }),
   providers: [
     CredentialsProvider({
       name: 'Credentials',
