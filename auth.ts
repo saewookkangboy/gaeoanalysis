@@ -38,20 +38,32 @@ if (process.env.NODE_ENV === 'development' && authUrl) {
 }
 
 // 카카오 OAuth 제공자 설정
+// 카카오 개발자 문서: https://developers.kakao.com/docs/latest/ko/kakaologin/rest-api#request-code
 function Kakao(options: KakaoProviderOptions) {
   return {
     id: "kakao",
     name: "Kakao",
     type: "oauth" as const,
+    // 카카오 인가 코드 요청 URL
+    // 필수 파라미터: client_id, redirect_uri, response_type
+    // 선택 파라미터: scope
     authorization: {
       url: "https://kauth.kakao.com/oauth/authorize",
       params: {
-        scope: "profile_nickname profile_image account_email",
+        // response_type은 항상 "code" (OAuth 2.0 Authorization Code Flow)
         response_type: "code",
+        // scope는 공백으로 구분된 문자열
+        // 카카오는 동의 항목에 따라 scope를 자동으로 처리하므로 명시적으로 지정하지 않아도 됨
+        // 하지만 필요한 정보를 명시적으로 요청하기 위해 scope를 지정
+        scope: "profile_nickname profile_image account_email",
       },
     },
+    // 카카오 토큰 요청 URL
+    // NextAuth.js가 자동으로 grant_type=authorization_code를 추가합니다
     token: "https://kauth.kakao.com/oauth/token",
+    // 카카오 사용자 정보 조회 URL
     userinfo: "https://kapi.kakao.com/v2/user/me",
+    // 사용자 프로필 매핑
     profile(profile: any) {
       return {
         id: profile.id.toString(),
@@ -68,6 +80,8 @@ function Kakao(options: KakaoProviderOptions) {
     },
     clientId: options.clientId,
     clientSecret: options.clientSecret,
+    // 카카오는 PKCE를 지원하지 않으므로 state만 사용
+    checks: ["state"] as const,
   };
 }
 
