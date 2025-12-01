@@ -42,6 +42,7 @@ export default function RootLayout({
     <html lang="ko" suppressHydrationWarning>
       <body
         className={`${ibmPlexSansKR.variable} ${notoSansKR.variable} ${ibmPlexSans.variable} antialiased bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100`}
+        suppressHydrationWarning
       >
         <ErrorBoundary>
           <ThemeProvider>
