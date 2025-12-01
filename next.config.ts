@@ -6,7 +6,9 @@ const nextConfig: NextConfig = {
   experimental: {
     // Next.js 16 호환성
   },
-  // Chunk 로딩 에러 방지
+  // Turbopack 설정 (Next.js 16 기본)
+  turbopack: {},
+  // Chunk 로딩 에러 방지 (webpack은 fallback으로 유지)
   webpack: (config, { isServer }) => {
     if (!isServer) {
       // 클라이언트 사이드 chunk 로딩 최적화
