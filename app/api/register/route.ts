@@ -28,7 +28,7 @@ async function handleRegister(request: NextRequest) {
     validatedData = registerSchema.parse(body);
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-      const firstError = error.errors[0];
+      const firstError = error.issues[0];
       return createErrorResponse(
         'VALIDATION_ERROR',
         firstError.message || '입력값 검증에 실패했습니다.',
