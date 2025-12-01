@@ -3,24 +3,222 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --card-background: #ffffff;
+  --card-foreground: #171717;
+  --border-color: #e5e7eb;
+  --muted-background: #f9fafb;
+  --muted-foreground: #6b7280;
+}
+
+.dark {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+  --card-background: #1a1a1a;
+  --card-foreground: #ededed;
+  --border-color: #374151;
+  --muted-background: #1f1f1f;
+  --muted-foreground: #9ca3af;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-ibm-plex-sans-kr), var(--font-noto-sans-kr), sans-serif;
+  --font-mono: var(--font-ibm-plex-sans), monospace;
+  --font-family-sans: var(--font-ibm-plex-sans-kr), var(--font-noto-sans-kr), sans-serif;
+  --font-family-mono: var(--font-ibm-plex-sans), monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* 부드러운 전환 효과 */
+* {
+  transition-property: background-color, border-color, color, fill, stroke;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
+}
+
+/* 코드 블록 하이라이팅 스타일 */
+.hljs {
+  background: #1e1e1e !important;
+  color: #d4d4d4 !important;
+}
+
+.dark .hljs {
+  background: #0d1117 !important;
+  color: #c9d1d9 !important;
+}
+
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-literal,
+.hljs-title,
+.hljs-section,
+.hljs-doctag,
+.hljs-type,
+.hljs-name,
+.hljs-strong {
+  color: #ff7b72;
+}
+
+.hljs-string,
+.hljs-title,
+.hljs-section,
+.hljs-built_in,
+.hljs-literal,
+.hljs-type,
+.hljs-addition,
+.hljs-tag,
+.hljs-quote,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class {
+  color: #a5d6ff;
+}
+
+.hljs-comment,
+.hljs-deletion,
+.hljs-meta {
+  color: #8b949e;
+}
+
+.hljs-number {
+  color: #79c0ff;
+}
+
+.hljs-function,
+.hljs-attr {
+  color: #d2a8ff;
+}
+
+/* 스크롤바 스타일링 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--muted-background);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--muted-foreground);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--foreground);
+}
+
+/* 포커스 링 개선 */
+*:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* 애니메이션 */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
   }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.animate-slide-in {
+  animation: slideIn 0.3s ease-out;
+}
+
+.animate-pulse-slow {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-ibm-plex-sans-kr), var(--font-noto-sans-kr), sans-serif;
+}
+
+/* IBM Plex Sans KR 폰트 클래스 */
+.ibm-plex-sans-kr-thin {
+  font-family: var(--font-ibm-plex-sans-kr), sans-serif;
+  font-weight: 100;
+  font-style: normal;
+}
+
+.ibm-plex-sans-kr-extralight {
+  font-family: var(--font-ibm-plex-sans-kr), sans-serif;
+  font-weight: 200;
+  font-style: normal;
+}
+
+.ibm-plex-sans-kr-light {
+  font-family: var(--font-ibm-plex-sans-kr), sans-serif;
+  font-weight: 300;
+  font-style: normal;
+}
+
+.ibm-plex-sans-kr-regular {
+  font-family: var(--font-ibm-plex-sans-kr), sans-serif;
+  font-weight: 400;
+  font-style: normal;
+}
+
+.ibm-plex-sans-kr-medium {
+  font-family: var(--font-ibm-plex-sans-kr), sans-serif;
+  font-weight: 500;
+  font-style: normal;
+}
+
+.ibm-plex-sans-kr-semibold {
+  font-family: var(--font-ibm-plex-sans-kr), sans-serif;
+  font-weight: 600;
+  font-style: normal;
+}
+
+.ibm-plex-sans-kr-bold {
+  font-family: var(--font-ibm-plex-sans-kr), sans-serif;
+  font-weight: 700;
+  font-style: normal;
+}
+
+/* Noto Sans KR 폰트 클래스 */
+.noto-sans-kr {
+  font-family: var(--font-noto-sans-kr), sans-serif;
+  font-optical-sizing: auto;
+  font-style: normal;
+}
+
+/* IBM Plex Sans 폰트 클래스 */
+.ibm-plex-sans {
+  font-family: var(--font-ibm-plex-sans), sans-serif;
+  font-optical-sizing: auto;
+  font-style: normal;
+  font-variation-settings: "wdth" 100;
 }
