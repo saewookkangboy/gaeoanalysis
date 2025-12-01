@@ -2,9 +2,19 @@ import Database from 'better-sqlite3';
 import { join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
 
-const dbDir = join(process.cwd(), 'data');
+// Vercel 환경에서는 /tmp 디렉토리 사용, 로컬에서는 data 디렉토리 사용
+const dbDir = process.env.VERCEL 
+  ? '/tmp' 
+  : join(process.cwd(), 'data');
+
+// 디렉토리가 없으면 생성 (Vercel에서는 /tmp가 이미 존재하므로 안전)
 if (!existsSync(dbDir)) {
-  mkdirSync(dbDir, { recursive: true });
+  try {
+    mkdirSync(dbDir, { recursive: true });
+  } catch (error) {
+    // Vercel 환경에서 mkdirSync가 실패할 수 있으므로 에러 무시
+    console.warn('디렉토리 생성 실패 (무시됨):', error);
+  }
 }
 
 const dbPath = join(dbDir, 'gaeo.db');
