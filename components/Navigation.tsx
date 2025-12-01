@@ -41,7 +41,18 @@ export default function Navigation() {
                   {session.user.email}
                 </span>
                 <button
-                  onClick={() => signOut()}
+                  onClick={async () => {
+                    try {
+                      await signOut({ 
+                        callbackUrl: '/',
+                        redirect: true 
+                      });
+                    } catch (error) {
+                      console.error('로그아웃 오류:', error);
+                      // 로그아웃 실패 시에도 페이지 새로고침으로 세션 초기화 시도
+                      window.location.href = '/';
+                    }
+                  }}
                   className="rounded-md bg-gray-100 dark:bg-gray-800 px-3 sm:px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
                 >
                   로그아웃

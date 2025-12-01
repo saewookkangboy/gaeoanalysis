@@ -36,8 +36,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   // 로컬: http://localhost:3000 (또는 실제 사용 중인 포트)
   // 프로덕션: https://your-domain.com
   trustHost: true, // Vercel 등 호스팅 환경에서 자동으로 URL 감지
-  // AUTH_URL이 설정되어 있으면 명시적으로 사용
-  ...(authUrl && { basePath: undefined }), // basePath는 자동 감지 사용
+  // basePath는 기본값 '/api/auth' 사용 (명시적으로 설정하지 않음)
   providers: [
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID || '',
