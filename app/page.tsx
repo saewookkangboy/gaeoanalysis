@@ -297,14 +297,14 @@ export default function Home() {
               />
             </div>
 
-            {/* 차트 */}
-            <ScoreChart
+            {/* 차트 - 숨김 처리 */}
+            {/* <ScoreChart
               aeoScore={analysisData.aeoScore}
               geoScore={analysisData.geoScore}
               seoScore={analysisData.seoScore}
               overallScore={analysisData.overallScore}
               aioAnalysis={analysisData.aioAnalysis}
-            />
+            /> */}
 
             {/* 종합 점수 */}
             <div className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800 p-6 shadow-sm transition-all hover:shadow-md">
