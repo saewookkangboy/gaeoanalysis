@@ -361,7 +361,11 @@ export default function Home() {
               />
             </svg>
             <p className="text-lg font-medium">위에 URL을 입력하고 분석을 시작하세요.</p>
-            <p className="mt-2 text-sm">콘텐츠의 AEO, GEO, SEO 점수를 확인하고 개선 방안을 제시합니다.</p>
+            <p className="mt-2 text-sm">
+              콘텐츠의 AEO, GEO, SEO 점수를 확인하고 개선 방안을 제시합니다.
+              <br />
+              <span className="text-gray-500">(특정 블로그는 진단이 어려울 수 있습니다 - 네이버, 브런치 등)</span>
+            </p>
         </div>
         )}
       </main>
