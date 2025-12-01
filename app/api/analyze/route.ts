@@ -6,6 +6,7 @@ import { saveAnalysis, checkDuplicateAnalysis } from '@/lib/db-helpers';
 import { createErrorResponse, createSuccessResponse, withErrorHandling, sanitizeUrl } from '@/lib/api-utils';
 import { withRateLimit } from '@/lib/rate-limiter';
 import { cache, createCacheKey } from '@/lib/cache';
+import { addSecurityHeaders, handleCorsPreflight } from '@/lib/headers';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -103,6 +104,17 @@ const rateLimitedHandler = withRateLimit(
 )(withErrorHandling(handleAnalyze, '분석 중 오류가 발생했습니다.'));
 
 export async function POST(request: NextRequest) {
-  return rateLimitedHandler(request);
+  // OPTIONS 요청 처리 (CORS preflight)
+  const preflightResponse = handleCorsPreflight(request);
+  if (preflightResponse) {
+    return preflightResponse;
+  }
+
+  const response = await rateLimitedHandler(request);
+  return addSecurityHeaders(request, response);
+}
+
+export async function OPTIONS(request: NextRequest) {
+  return handleCorsPreflight(request) || new NextResponse(null, { status: 200 });
 }
 
