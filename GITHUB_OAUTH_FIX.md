@@ -14,11 +14,28 @@ GitHub OAuth App의 **Authorization callback URL**이 현재 애플리케이션�
 
 ## 해결 방법
 
-### 1단계: 현재 애플리케이션 URL 확인
+### 0단계: 정확한 콜백 URL 확인 (가장 중요!)
+
+**디버깅 엔드포인트 사용 (권장):**
+
+1. 개발 서버 실행 후 브라우저에서 다음 URL 접속:
+   ```
+   http://localhost:3000/api/auth/debug
+   ```
+   또는 프로덕션 환경:
+   ```
+   https://your-domain.com/api/auth/debug
+   ```
+
+2. 응답에서 `callbackUrls.github` 값을 확인
+3. 이 값이 GitHub OAuth App의 **Authorization callback URL**과 정확히 일치해야 합니다
+
+**수동 확인:**
 
 #### 로컬 개발 환경
-- URL: `http://localhost:3000`
-- 콜백 URL: `http://localhost:3000/api/auth/callback/github`
+- 현재 포트 확인: 터미널에서 `npm run dev` 실행 시 표시되는 포트
+- 일반적으로: `http://localhost:3000` 또는 `http://localhost:3001`
+- 콜백 URL: `http://localhost:3000/api/auth/callback/github` (또는 실제 포트)
 
 #### 프로덕션 환경 (Vercel)
 1. Vercel 대시보드에서 프로젝트 선택
@@ -26,29 +43,37 @@ GitHub OAuth App의 **Authorization callback URL**이 현재 애플리케이션�
 3. 또는 브라우저 주소창에서 확인
 4. 콜백 URL: `https://your-actual-domain.com/api/auth/callback/github`
 
-### 2단계: GitHub OAuth App 설정 수정
+### 1단계: GitHub OAuth App 설정 수정
 
 1. [GitHub Settings](https://github.com/settings/developers)에 접속
 2. **Developer settings** → **OAuth Apps** 클릭
 3. 해당 OAuth App 클릭 (또는 새로 생성)
 4. **Authorization callback URL** 필드 확인 및 수정:
 
-   **로컬 개발용:**
+   **⚠️ 중요: `/api/auth/debug` 엔드포인트에서 확인한 정확한 URL을 사용하세요!**
+
+   **로컬 개발용 (예시):**
    ```
    http://localhost:3000/api/auth/callback/github
    ```
+   또는 포트가 다른 경우:
+   ```
+   http://localhost:3001/api/auth/callback/github
+   ```
 
-   **프로덕션용:**
+   **프로덕션용 (예시):**
    ```
    https://your-actual-domain.com/api/auth/callback/github
    ```
 
    ⚠️ **중요 체크리스트:**
+   - [ ] `/api/auth/debug`에서 확인한 정확한 URL을 사용했는가?
    - [ ] 프로토콜이 정확한가? (`http` vs `https`)
-   - [ ] 포트 번호가 포함되어 있는가? (로컬의 경우 `:3000`)
+   - [ ] 포트 번호가 포함되어 있는가? (로컬의 경우 `:3000` 또는 실제 포트)
    - [ ] 경로가 정확한가? (`/api/auth/callback/github`)
    - [ ] 마지막에 슬래시(`/`)가 없는가?
    - [ ] 도메인이 실제 배포된 도메인과 일치하는가?
+   - [ ] 대소문자가 정확한가? (일반적으로 소문자)
 
 5. **Update application** 클릭하여 저장
 
