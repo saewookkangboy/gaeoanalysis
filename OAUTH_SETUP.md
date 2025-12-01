@@ -44,12 +44,30 @@
 1. **Application name**: `GAEO Analysis` (또는 원하는 이름)
 2. **Homepage URL**: 
    - 로컬 개발: `http://localhost:3000`
-   - 프로덕션: `https://gaeoanalysis.vercel.app`
-3. **Authorization callback URL**:
+   - 프로덕션: 실제 배포된 도메인 (예: `https://gaeoanalysis.vercel.app`)
+3. **Authorization callback URL** ⚠️ **중요**: 정확히 다음 형식으로 입력해야 합니다:
    - 로컬 개발: `http://localhost:3000/api/auth/callback/github`
-   - 프로덕션: `https://gaeoanalysis.vercel.app/api/auth/callback/github`
+   - 프로덕션: `https://your-actual-domain.com/api/auth/callback/github`
+   - **주의사항**:
+     - 프로토콜(`http` vs `https`)이 정확해야 합니다
+     - 포트 번호가 포함되어야 합니다 (로컬의 경우 `:3000`)
+     - 경로는 정확히 `/api/auth/callback/github`이어야 합니다
+     - 마지막에 슬래시(`/`)를 붙이지 마세요
 4. **Register application** 클릭
 5. **Client ID**와 **Client secrets** 복사 (Generate a new client secret 클릭)
+
+### 2.3 기존 OAuth App 수정 (redirect_uri 오류 발생 시)
+
+만약 "The redirect_uri is not associated with this application" 오류가 발생하면:
+
+1. [GitHub Settings](https://github.com/settings/developers) → **OAuth Apps**로 이동
+2. 해당 OAuth App 클릭
+3. **Authorization callback URL** 필드를 확인하고 수정:
+   - 현재 애플리케이션의 정확한 도메인과 포트를 확인
+   - 로컬 개발: `http://localhost:3000/api/auth/callback/github`
+   - 프로덕션: `https://your-actual-domain.com/api/auth/callback/github`
+4. **Update application** 클릭하여 저장
+5. 개발 서버 재시작 (`npm run dev`)
 
 ## 3. 환경 변수 설정
 
@@ -133,10 +151,28 @@ npm run dev
 - Google Cloud Console에서 승인된 리디렉션 URI가 정확한지 확인
 - 프로토콜(`http` vs `https`), 포트, 경로가 정확히 일치해야 함
 
-### 5.2 "Bad credentials" 에러 (GitHub)
+### 5.2 "The redirect_uri is not associated with this application" 에러 (GitHub)
+
+**가장 흔한 원인**: GitHub OAuth App의 Authorization callback URL이 현재 애플리케이션 URL과 일치하지 않음
+
+**해결 방법**:
+1. 현재 애플리케이션의 정확한 URL 확인:
+   - 로컬: `http://localhost:3000`
+   - 프로덕션: Vercel 대시보드에서 확인하거나 브라우저 주소창 확인
+2. GitHub OAuth App 설정 확인:
+   - [GitHub Settings](https://github.com/settings/developers) → **OAuth Apps** → 해당 앱 클릭
+   - **Authorization callback URL**이 정확히 `https://your-domain.com/api/auth/callback/github` 형식인지 확인
+   - 프로토콜(`http` vs `https`), 포트, 경로가 모두 정확해야 함
+3. 여러 환경 사용 시:
+   - GitHub OAuth App은 하나의 콜백 URL만 허용
+   - 개발용과 프로덕션용 OAuth App을 별도로 생성하는 것을 권장
+   - 또는 개발/프로덕션 환경에 따라 OAuth App 설정을 수동으로 변경
+
+### 5.3 "Bad credentials" 에러 (GitHub)
 
 - GitHub OAuth App의 Client ID와 Client Secret이 올바른지 확인
 - Client Secret이 만료되지 않았는지 확인 (만료 시 재생성 필요)
+- 환경 변수 이름이 정확한지 확인 (`GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`)
 
 ### 5.3 환경 변수 확인
 

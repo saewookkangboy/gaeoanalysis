@@ -13,6 +13,10 @@ if (!process.env.AUTH_SECRET && process.env.NODE_ENV === 'development') {
 }
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  // NextAuth.js v5는 AUTH_URL을 자동으로 감지하지만, 명시적으로 설정 권장
+  // 로컬: http://localhost:3000
+  // 프로덕션: https://your-domain.com
+  trustHost: true, // Vercel 등 호스팅 환경에서 자동으로 URL 감지
   providers: [
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID || '',
