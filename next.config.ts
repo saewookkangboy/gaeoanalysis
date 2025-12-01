@@ -32,6 +32,60 @@ const nextConfig: NextConfig = {
     }
     return config;
   },
+  // HTTP 헤더 설정 (Trusted Types 오류 해결)
+  async headers() {
+    return [
+      {
+        // OAuth 콜백 및 인증 관련 경로에 적용
+        source: '/api/auth/:path*',
+        headers: [
+          {
+            key: 'Content-Security-Policy',
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://*.googleapis.com",
+              "style-src 'self' 'unsafe-inline'",
+              "img-src 'self' data: https:",
+              "font-src 'self' data:",
+              "connect-src 'self' https://accounts.google.com https://*.googleapis.com https://*.google.com",
+              "frame-src 'self' https://accounts.google.com",
+              "object-src 'none'",
+              "base-uri 'self'",
+              "form-action 'self'",
+              "frame-ancestors 'none'",
+              "upgrade-insecure-requests",
+            ].join('; '),
+          },
+          {
+            key: 'Permissions-Policy',
+            value: 'trusted-types=*',
+          },
+        ],
+      },
+      {
+        // 모든 페이지에 기본 보안 헤더 적용
+        source: '/:path*',
+        headers: [
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
+          {
+            key: 'X-Frame-Options',
+            value: 'DENY',
+          },
+          {
+            key: 'X-XSS-Protection',
+            value: '1; mode=block',
+          },
+          {
+            key: 'Referrer-Policy',
+            value: 'strict-origin-when-cross-origin',
+          },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;

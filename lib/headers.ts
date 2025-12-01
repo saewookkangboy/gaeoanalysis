@@ -32,6 +32,28 @@ export function addSecurityHeaders(
   response.headers.set('X-Frame-Options', 'DENY');
   response.headers.set('X-XSS-Protection', '1; mode=block');
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  
+  // Trusted Types 오류 해결을 위한 CSP 헤더 (OAuth 콜백 경로에만)
+  if (request.nextUrl.pathname.startsWith('/api/auth')) {
+    response.headers.set(
+      'Content-Security-Policy',
+      [
+        "default-src 'self'",
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://*.googleapis.com",
+        "style-src 'self' 'unsafe-inline'",
+        "img-src 'self' data: https:",
+        "font-src 'self' data:",
+        "connect-src 'self' https://accounts.google.com https://*.googleapis.com https://*.google.com",
+        "frame-src 'self' https://accounts.google.com",
+        "object-src 'none'",
+        "base-uri 'self'",
+        "form-action 'self'",
+        "frame-ancestors 'none'",
+        "upgrade-insecure-requests",
+      ].join('; ')
+    );
+    response.headers.set('Permissions-Policy', 'trusted-types=*');
+  }
 
   // API 라우트에 대한 추가 헤더
   if (request.nextUrl.pathname.startsWith('/api')) {
