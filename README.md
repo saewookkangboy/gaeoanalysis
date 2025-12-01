@@ -317,4 +317,4 @@ ChatGPT, Perplexity, Gemini, Claude 각 AI 모델의 특성을 반영하여 콘�
 
 ## 라이선스
 
-chuhyo@troe.kr
+chunghyo@troe.kr

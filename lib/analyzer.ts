@@ -1,6 +1,7 @@
 import * as cheerio from 'cheerio';
 import { calculateAIOCitationScores, generateAIOCitationAnalysis, AIOCitationAnalysis } from './ai-citation-analyzer';
 import { SEO_GUIDELINES, getImprovementPriority, getContentWritingGuidelines } from './seo-guidelines';
+import { withRetry } from './retry';
 
 export interface AnalysisResult {
   aeoScore: number;
@@ -21,34 +22,51 @@ export interface Insight {
 
 export async function analyzeContent(url: string): Promise<AnalysisResult> {
   try {
-    // 타임아웃을 위한 AbortController 생성
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30초 타임아웃
+    // URL fetch (재시도 로직 포함)
+    const html = await withRetry(
+      async () => {
+        // 타임아웃을 위한 AbortController 생성
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10초 타임아웃
 
-    // 더 완전한 브라우저 헤더 설정
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
-        'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Connection': 'keep-alive',
-        'Upgrade-Insecure-Requests': '1',
-        'Sec-Fetch-Dest': 'document',
-        'Sec-Fetch-Mode': 'navigate',
-        'Sec-Fetch-Site': 'none',
-        'Cache-Control': 'max-age=0',
+        try {
+          // 더 완전한 브라우저 헤더 설정
+          const response = await fetch(url, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+              'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+              'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
+              'Accept-Encoding': 'gzip, deflate, br',
+              'Connection': 'keep-alive',
+              'Upgrade-Insecure-Requests': '1',
+              'Sec-Fetch-Dest': 'document',
+              'Sec-Fetch-Mode': 'navigate',
+              'Sec-Fetch-Site': 'none',
+              'Cache-Control': 'max-age=0',
+            },
+            signal: controller.signal,
+          });
+
+          clearTimeout(timeoutId);
+
+          if (!response.ok) {
+            throw new Error(`Failed to fetch URL: ${response.status} ${response.statusText}`);
+          }
+
+          return await response.text();
+        } catch (error) {
+          clearTimeout(timeoutId);
+          throw error;
+        }
       },
-      signal: controller.signal,
-    });
-
-    clearTimeout(timeoutId);
+      {
+        maxAttempts: 3,
+        initialDelay: 1000,
+        backoffMultiplier: 2,
+      }
+    );
     
-    if (!response.ok) {
-      throw new Error(`Failed to fetch URL: ${response.status} ${response.statusText}`);
-    }
-
-    const html = await response.text();
+    // HTML 파싱
     const $ = cheerio.load(html);
 
     // SEO 점수 계산

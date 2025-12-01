@@ -1,29 +1,60 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { buildAIAgentPrompt } from '@/lib/ai-agent-prompt';
+import { createErrorResponse, createSuccessResponse, withErrorHandling } from '@/lib/api-utils';
+import { withRateLimit } from '@/lib/rate-limiter';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { z } from 'zod';
 
 // Next.js API 라우트 응답 크기 제한 해제 (긴 AI 응답을 위해)
 export const maxDuration = 60; // 60초 타임아웃
 export const dynamic = 'force-dynamic';
 
-export async function POST(request: NextRequest) {
-  try {
-    const { message, analysisData, aioAnalysis, conversationHistory } = await request.json();
+// 입력 스키마 정의
+const chatSchema = z.object({
+  message: z.string().min(1, '메시지가 필요합니다.').max(2000, '메시지는 2000자 이하여야 합니다.'),
+  analysisData: z.any().optional(),
+  aioAnalysis: z.any().optional(),
+  conversationHistory: z.array(z.any()).optional(),
+});
 
-    if (!message || typeof message !== 'string') {
-      return NextResponse.json(
-        { error: '메시지가 필요합니다.' },
-        { status: 400 }
-      );
-    }
+// 레이트 리미트 키 생성
+const getChatRateLimitKey = (request: NextRequest, userId?: string): string => {
+  if (userId) {
+    return `chat:user:${userId}`;
+  }
+  const ip = request.headers.get('x-forwarded-for') || 
+             request.headers.get('x-real-ip') || 
+             'unknown';
+  return `chat:ip:${ip}`;
+};
 
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json(
-        { error: 'Gemini API 키가 설정되지 않았습니다.' },
-        { status: 500 }
-      );
-    }
+async function handleChat(request: NextRequest) {
+  const body = await request.json();
+  const { message, analysisData, aioAnalysis, conversationHistory } = chatSchema.parse(body);
+
+  // 메시지 길이 제한 (XSS 방지를 위한 기본 검증)
+  if (message.length > 2000) {
+    return createErrorResponse(
+      'VALIDATION_ERROR',
+      '메시지는 2000자 이하여야 합니다.',
+      400
+    );
+  }
+
+  // 세션 확인
+  const session = await getServerSession(authOptions);
+  const userId = session?.user?.id;
+
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    return createErrorResponse(
+      'CONFIG_ERROR',
+      'Gemini API 키가 설정되지 않았습니다.',
+      500
+    );
+  }
 
     const genAI = new GoogleGenerativeAI(apiKey);
     // 최신 Gemini 모델 사용 (gemini-2.5-flash)
@@ -44,7 +75,7 @@ export async function POST(request: NextRequest) {
       aioAnalysis: aioAnalysis || null,
     };
 
-    const prompt = buildAIAgentPrompt(message, context);
+  const prompt = buildAIAgentPrompt(message, context);
 
     // 스트리밍으로 전체 응답 수집
     let fullText = '';
@@ -84,13 +115,23 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ message: fullText });
-  } catch (error) {
-    console.error('Chat error:', error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : '챗봇 응답 생성 중 오류가 발생했습니다.' },
-      { status: 500 }
-    );
-  }
+  return createSuccessResponse({ message: fullText });
+}
+
+// 레이트 리미트 키 생성 함수
+const getChatRateLimitKeyAsync = async (request: NextRequest): Promise<string> => {
+  const session = await getServerSession(authOptions);
+  return getChatRateLimitKey(request, session?.user?.id);
+};
+
+// 레이트 리미트 적용된 핸들러 (사용자당 1분에 20회)
+const rateLimitedHandler = withRateLimit(
+  20, // 1분에 20회
+  60 * 1000, // 1분
+  getChatRateLimitKeyAsync
+)(withErrorHandling(handleChat, '챗봇 응답 생성 중 오류가 발생했습니다.'));
+
+export async function POST(request: NextRequest) {
+  return rateLimitedHandler(request);
 }
 
