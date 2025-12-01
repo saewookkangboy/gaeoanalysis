@@ -253,13 +253,14 @@ export default function HistoryPage() {
           </div>
 
           {/* 종합 개선 체크리스트 모달 */}
-        {analysisData && (
-          <ComprehensiveChecklistModal
-            isOpen={isChecklistModalOpen}
-            onClose={() => setIsChecklistModalOpen(false)}
-            analysisData={analysisData}
-          />
-        )}
+          {analysisData && (
+            <ComprehensiveChecklistModal
+              isOpen={isChecklistModalOpen}
+              onClose={() => setIsChecklistModalOpen(false)}
+              analysisData={analysisData}
+            />
+          )}
+        </div>
       </div>
     );
   }
