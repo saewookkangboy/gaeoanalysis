@@ -110,6 +110,15 @@ const rateLimitedHandler = withRateLimit(
 )(wrappedHandler);
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  // Vercel 배포 환경 디버깅
+  if (process.env.VERCEL) {
+    console.log('[Vercel] POST 요청 받음:', {
+      method: request.method,
+      url: request.url,
+      pathname: request.nextUrl.pathname,
+    });
+  }
+  
   return rateLimitedHandler(request);
 }
 
