@@ -1,14 +1,23 @@
 'use client';
 
 import { useState, useEffect, Suspense } from 'react';
-import { signIn } from 'next-auth/react';
+import { signIn, useSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { data: session, status } = useSession();
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState<string | null>(null);
+
+  // 로그인 성공 후 세션 확인 및 리디렉션
+  useEffect(() => {
+    if (status === 'authenticated' && session?.user) {
+      // 로그인 성공 시 메인 페이지로 리디렉션
+      router.push('/');
+    }
+  }, [status, session, router]);
 
   // 에러 메시지 표시
   useEffect(() => {
@@ -50,12 +59,21 @@ function LoginForm() {
         console.error(`${provider} 로그인 오류:`, result.error);
         setError(`${provider === 'google' ? 'Google' : 'GitHub'} 로그인 중 오류가 발생했습니다.`);
         setIsLoading(null);
+      } else if (result?.url) {
+        // OAuth 리디렉션 URL이 있는 경우 (OAuth 제공자 페이지로 이동)
+        // 이 경우는 OAuth 인증 페이지로 리디렉션하는 것이므로 isLoading 유지
+        window.location.href = result.url;
       } else if (result?.ok) {
-        // 로그인 성공 시 메인 페이지로 리디렉션
-        window.location.href = '/';
+        // 로그인 성공 시 (콜백에서 돌아온 경우)
+        // 세션 확인 후 리디렉션은 useEffect에서 처리
+        setIsLoading(null);
       } else {
-        // 리디렉션이 필요한 경우 (OAuth 페이지로 이동)
-        // signIn이 자동으로 리디렉션하므로 여기서는 아무것도 하지 않음
+        // 결과가 없는 경우, 기본적으로 리디렉션 허용
+        // NextAuth가 자동으로 처리하도록 redirect: true로 다시 시도
+        await signIn(provider, {
+          callbackUrl: '/',
+          redirect: true,
+        });
       }
     } catch (err: any) {
       console.error(`${provider} 로그인 예외:`, err);
