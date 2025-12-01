@@ -96,19 +96,30 @@ async function handleAnalyze(request: NextRequest) {
   return createSuccessResponse(response);
 }
 
+// 에러 핸들링 적용된 핸들러
+const errorHandledHandler = withErrorHandling(handleAnalyze, '분석 중 오류가 발생했습니다.');
+
 // 레이트 리미트 적용된 핸들러
 const rateLimitedHandler = withRateLimit(
   10, // 1분에 10회
   60 * 1000, // 1분
   getRateLimitKey
-)(withErrorHandling(handleAnalyze, '분석 중 오류가 발생했습니다.'));
+)(errorHandledHandler);
 
 export async function POST(request: NextRequest) {
+  console.log('[Analyze API] POST 요청 받음:', {
+    method: request.method,
+    url: request.url,
+    pathname: request.nextUrl.pathname,
+    headers: Object.fromEntries(request.headers.entries()),
+  });
+
   try {
     const response = await rateLimitedHandler(request);
+    console.log('[Analyze API] 응답 생성 완료:', response.status);
     return addSecurityHeaders(request, response);
   } catch (error) {
-    console.error('Analyze API error:', error);
+    console.error('[Analyze API] 에러 발생:', error);
     const errorResponse = createErrorResponse(
       'INTERNAL_ERROR',
       error instanceof Error ? error.message : '분석 중 오류가 발생했습니다.',
