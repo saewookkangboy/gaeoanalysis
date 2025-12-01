@@ -7,6 +7,7 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import { ToastProvider } from "@/components/Toast";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Navigation from "@/components/Navigation";
+import Footer from "@/components/Footer";
 import ContentProtection from "@/components/ContentProtection";
 import '@/lib/navigation-error-handler'; // 네비게이션 오류 핸들러 초기화
 
@@ -52,8 +53,13 @@ export default function RootLayout({
           <ThemeProvider>
             <ToastProvider>
               <SessionProvider>
-                <Navigation />
-                {children}
+                <div className="flex min-h-screen flex-col">
+                  <Navigation />
+                  <main className="flex-1">
+                    {children}
+                  </main>
+                  <Footer />
+                </div>
               </SessionProvider>
             </ToastProvider>
           </ThemeProvider>
