@@ -191,15 +191,15 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-white">
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         {/* URL 입력 섹션 */}
         <div className="mb-8 animate-fade-in">
           <div className="mx-auto max-w-2xl">
-            <h1 className="mb-4 text-center text-3xl font-bold text-gray-900 dark:text-gray-100">
+            <h1 className="mb-4 text-center text-3xl font-bold text-gray-900">
               GAEO Analysis by allrounder
             </h1>
-            <p className="mb-6 text-center text-gray-600 dark:text-gray-400">
+            <p className="mb-6 text-center text-gray-600">
               URL을 입력하여 콘텐츠의 AEO, GEO, SEO 점수를 분석하세요
             </p>
             <div className="flex flex-col sm:flex-row gap-2">
@@ -213,7 +213,7 @@ export default function Home() {
               <button
                 onClick={() => handleAnalyze()}
                 disabled={isAnalyzing || !url.trim()}
-                className="rounded-md bg-blue-600 dark:bg-blue-500 px-6 py-3 text-sm font-medium text-white hover:bg-blue-700 dark:hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-105 active:scale-95"
+                className="rounded-md border border-gray-300 bg-white px-6 py-3 text-sm font-medium text-black hover:bg-black hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                 aria-label="분석 시작"
               >
                 {isAnalyzing ? (
@@ -229,7 +229,7 @@ export default function Home() {
             
             {/* 진행 상태 표시 */}
             {isAnalyzing && currentStep !== 'idle' && (
-              <div className="mt-4 rounded-md border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 p-4">
+              <div className="mt-4 rounded-md border border-sky-200 bg-sky-50 p-4">
                 <ProgressBar
                   steps={analysisSteps}
                   currentStep={
@@ -241,7 +241,7 @@ export default function Home() {
               </div>
             )}
             {error && (
-              <div className="mt-4 rounded-md bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-4 text-sm text-red-800 dark:text-red-300 animate-slide-in">
+              <div className="mt-4 rounded-md bg-gray-50 border border-gray-300 p-4 text-sm text-gray-800 animate-slide-in">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1">
                     <p className="font-medium">{error}</p>
@@ -254,7 +254,7 @@ export default function Home() {
                   <button
                     onClick={handleRetry}
                     disabled={isAnalyzing}
-                    className="rounded-md bg-red-600 dark:bg-red-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 dark:hover:bg-red-600 disabled:opacity-50 transition-colors"
+                    className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-black hover:bg-black hover:text-white disabled:opacity-50 transition-all"
                   >
                     다시 시도
                   </button>
@@ -283,17 +283,17 @@ export default function Home() {
               <ScoreCard
                 title="AEO 점수"
                 score={analysisData.aeoScore}
-                color="bg-blue-500"
+                color="bg-sky-500"
               />
               <ScoreCard
                 title="GEO 점수"
                 score={analysisData.geoScore}
-                color="bg-purple-500"
+                color="bg-sky-500"
               />
               <ScoreCard
                 title="SEO 점수"
                 score={analysisData.seoScore}
-                color="bg-green-500"
+                color="bg-sky-500"
               />
             </div>
 
@@ -307,19 +307,19 @@ export default function Home() {
             /> */}
 
             {/* 종합 점수 */}
-            <div className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800 p-6 shadow-sm transition-all hover:shadow-md">
+            <div className="rounded-lg border border-gray-300 bg-white p-6 shadow-sm transition-all hover:shadow-md">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">종합 점수</h3>
-                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  <h3 className="text-lg font-semibold text-gray-900">종합 점수</h3>
+                  <p className="mt-1 text-sm text-gray-500">
                     AEO, GEO, SEO 점수의 평균
                   </p>
                 </div>
                 <div className="text-left sm:text-right">
-                  <div className="text-4xl font-bold text-gray-900 dark:text-gray-100">
+                  <div className="text-4xl font-bold text-sky-600">
                     {analysisData.overallScore}
                   </div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400">/ 100</div>
+                  <div className="text-sm text-gray-500">/ 100</div>
                 </div>
               </div>
             </div>
@@ -345,9 +345,9 @@ export default function Home() {
 
         {/* 빈 상태 */}
         {!analysisData && !isAnalyzing && (
-          <div className="text-center text-gray-500 dark:text-gray-400 py-12">
+          <div className="text-center text-gray-500 py-12">
             <svg
-              className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-600 mb-4"
+              className="mx-auto h-12 w-12 text-gray-400 mb-4"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"

@@ -9,24 +9,48 @@ import { z } from 'zod';
 const registerSchema = z.object({
   email: z.string().email('유효하지 않은 이메일입니다.'),
   password: z.string().min(6, '비밀번호는 최소 6자 이상이어야 합니다.'),
-  blogUrl: z.string().url('유효하지 않은 URL입니다.').optional().nullable(),
+  blogUrl: z
+    .string()
+    .optional()
+    .nullable()
+    .refine(
+      (val) => !val || val === '' || z.string().url().safeParse(val).success,
+      { message: '유효하지 않은 URL입니다.' }
+    ),
 });
 
 async function handleRegister(request: NextRequest) {
   const body = await request.json();
-  const { email, password, blogUrl } = registerSchema.parse(body);
+  
+  // 스키마 검증
+  let validatedData;
+  try {
+    validatedData = registerSchema.parse(body);
+  } catch (error: any) {
+    if (error instanceof z.ZodError) {
+      const firstError = error.errors[0];
+      return createErrorResponse(
+        'VALIDATION_ERROR',
+        firstError.message || '입력값 검증에 실패했습니다.',
+        400
+      );
+    }
+    throw error;
+  }
+
+  const { email, password, blogUrl } = validatedData;
 
   if (!auth) {
     return createErrorResponse(
       'CONFIG_ERROR',
-      'Firebase가 초기화되지 않았습니다.',
+      'Firebase가 초기화되지 않았습니다. 환경 변수를 확인해주세요.',
       500
     );
   }
 
   // blogUrl sanitization
   let sanitizedBlogUrl: string | null = null;
-  if (blogUrl) {
+  if (blogUrl && blogUrl.trim() !== '') {
     try {
       sanitizedBlogUrl = sanitizeUrl(blogUrl);
     } catch (error) {
@@ -38,21 +62,44 @@ async function handleRegister(request: NextRequest) {
     }
   }
 
-  const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-  const userId = userCredential.user.uid;
+  try {
+    // Firebase에 사용자 생성
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    const userId = userCredential.user.uid;
 
-  // 사용자 정보를 DB에 저장 (트랜잭션 사용)
-  createUser({
-    id: userId,
-    email,
-    blogUrl: sanitizedBlogUrl,
-  });
+    // 사용자 정보를 DB에 저장 (트랜잭션 사용)
+    createUser({
+      id: userId,
+      email,
+      blogUrl: sanitizedBlogUrl,
+    });
 
-  return createSuccessResponse({
-    success: true,
-    userId,
-    email,
-  });
+    return createSuccessResponse({
+      success: true,
+      userId,
+      email,
+    });
+  } catch (error: any) {
+    // Firebase 에러 처리
+    let errorMessage = '회원가입 중 오류가 발생했습니다.';
+    let errorCode = 'REGISTRATION_ERROR';
+
+    if (error.code === 'auth/email-already-in-use') {
+      errorMessage = '이미 사용 중인 이메일입니다.';
+      errorCode = 'EMAIL_EXISTS';
+    } else if (error.code === 'auth/invalid-email') {
+      errorMessage = '유효하지 않은 이메일 형식입니다.';
+      errorCode = 'INVALID_EMAIL';
+    } else if (error.code === 'auth/weak-password') {
+      errorMessage = '비밀번호가 너무 약합니다. 더 강한 비밀번호를 사용해주세요.';
+      errorCode = 'WEAK_PASSWORD';
+    } else if (error.code === 'auth/operation-not-allowed') {
+      errorMessage = '이메일/비밀번호 로그인이 활성화되지 않았습니다.';
+      errorCode = 'OPERATION_NOT_ALLOWED';
+    }
+
+    return createErrorResponse(errorCode, errorMessage, 400);
+  }
 }
 
 export async function POST(request: NextRequest) {

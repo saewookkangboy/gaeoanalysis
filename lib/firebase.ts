@@ -13,22 +13,18 @@ const firebaseConfig = {
 let app: FirebaseApp | undefined;
 let auth: Auth | undefined;
 
-if (typeof window === 'undefined' && firebaseConfig.apiKey) {
-  // 서버 사이드
-  if (getApps().length === 0) {
-    app = initializeApp(firebaseConfig);
-  } else {
-    app = getApps()[0];
+// Firebase 초기화 (서버/클라이언트 모두 지원)
+if (firebaseConfig.apiKey) {
+  try {
+    if (getApps().length === 0) {
+      app = initializeApp(firebaseConfig);
+    } else {
+      app = getApps()[0];
+    }
+    auth = getAuth(app);
+  } catch (error) {
+    console.error('Firebase 초기화 오류:', error);
   }
-  auth = getAuth(app);
-} else if (typeof window !== 'undefined' && firebaseConfig.apiKey) {
-  // 클라이언트 사이드
-  if (getApps().length === 0) {
-    app = initializeApp(firebaseConfig);
-  } else {
-    app = getApps()[0];
-  }
-  auth = getAuth(app);
 }
 
 export { app, auth };

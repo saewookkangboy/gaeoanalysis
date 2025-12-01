@@ -2,12 +2,20 @@
 
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #000000;
   --card-background: #ffffff;
-  --card-foreground: #171717;
-  --border-color: #e5e7eb;
+  --card-foreground: #000000;
+  --border-color: #d1d5db;
   --muted-background: #f9fafb;
   --muted-foreground: #6b7280;
+  --sky-blue: #0ea5e9;
+  --sky-blue-light: #e0f2fe;
+  --sky-blue-dark: #0284c7;
+  --button-border: #d1d5db;
+  --button-bg: #ffffff;
+  --button-text: #000000;
+  --button-hover-bg: #000000;
+  --button-hover-text: #ffffff;
 }
 
 .dark {
