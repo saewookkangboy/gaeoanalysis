@@ -64,16 +64,22 @@ NEXTAUTH_URL=http://localhost:3000
 NEXTAUTH_SECRET=your-secret-key-here
 
 # Firebase (위에서 복사한 정보를 입력)
-NEXT_PUBLIC_FIREBASE_API_KEY=AIza...
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-project-id
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=123456789
-NEXT_PUBLIC_FIREBASE_APP_ID=1:123456789:web:abcdef
+# 예시: gaeo-analysis 프로젝트
+NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSyDwzXXYi6fo3yYRcWEjaszVfoakgWdh9IY
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=gaeo-analysis.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=gaeo-analysis
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=gaeo-analysis.firebasestorage.app
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=724180779028
+NEXT_PUBLIC_FIREBASE_APP_ID=1:724180779028:web:9896de5ffff4a19227a701
+
+# Firebase Analytics (선택 사항)
+# NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=G-RG7VRRSKTX
 
 # Gemini API
 GEMINI_API_KEY=your-gemini-api-key
 ```
+
+**참고:** 위의 Firebase 설정 값은 예시입니다. Firebase Console에서 복사한 실제 값을 사용하세요.
 
 ### 4.3 NEXTAUTH_SECRET 생성
 터미널에서 다음 명령어를 실행하여 시크릿 키를 생성합니다:
