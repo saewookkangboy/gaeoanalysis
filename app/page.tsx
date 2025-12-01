@@ -19,7 +19,29 @@ import { storage } from '@/lib/storage';
 import { fetchWithRetry } from '@/lib/fetch-with-retry';
 
 // 코드 스플리팅: AIAgent는 필요할 때만 로드
-const AIAgent = lazy(() => import('@/components/AIAgent'));
+// 에러 핸들링을 포함한 안전한 lazy loading
+const AIAgent = lazy(() => {
+  return import('@/components/AIAgent').catch((error) => {
+    console.error('AIAgent chunk 로드 실패:', error);
+    // 페이지 새로고침으로 재시도
+    if (typeof window !== 'undefined' && error.message?.includes('chunk')) {
+      console.warn('Chunk 로드 실패, 페이지를 새로고침합니다...');
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+    }
+    // 에러 발생 시 빈 컴포넌트 반환
+    return { 
+      default: () => (
+        <div className="fixed bottom-6 right-6 z-40 rounded-lg border border-gray-300 bg-white p-4 shadow-lg">
+          <div className="text-sm text-gray-600">
+            AI Agent를 불러올 수 없습니다. 페이지를 새로고침해주세요.
+          </div>
+        </div>
+      )
+    };
+  });
+});
 
 type AnalysisStep = 'idle' | 'fetching' | 'parsing' | 'analyzing' | 'complete';
 
@@ -380,7 +402,16 @@ export default function Home() {
 
       {/* AI Agent - Lazy Loading */}
       {analysisData && (
-        <Suspense fallback={null}>
+        <Suspense fallback={
+          <div className="fixed bottom-6 right-6 z-40">
+            <div className="rounded-lg border border-gray-300 bg-white p-4 shadow-lg">
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <span className="animate-pulse">●</span>
+                AI Agent 로딩 중...
+              </div>
+            </div>
+          </div>
+        }>
           <AIAgent analysisData={analysisData} aioAnalysis={analysisData?.aioAnalysis || null} />
         </Suspense>
       )}
