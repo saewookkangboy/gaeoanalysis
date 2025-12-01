@@ -7,6 +7,10 @@ import Link from 'next/link';
 import ScoreCard from '@/components/ScoreCard';
 import AIOCitationCards from '@/components/AIOCitationCards';
 import InsightList from '@/components/InsightList';
+import ContentGuidelines from '@/components/ContentGuidelines';
+import CopyButton from '@/components/CopyButton';
+import ShareButton from '@/components/ShareButton';
+import ComprehensiveChecklistModal from '@/components/ComprehensiveChecklistModal';
 import { AnalysisResult } from '@/lib/analyzer';
 import { AIOCitationAnalysis } from '@/lib/ai-citation-analyzer';
 
@@ -34,6 +38,7 @@ export default function HistoryPage() {
   const [loading, setLoading] = useState(true);
   const [selectedHistory, setSelectedHistory] = useState<HistoryItem | null>(null);
   const [analysisData, setAnalysisData] = useState<AnalysisResult | null>(null);
+  const [isChecklistModalOpen, setIsChecklistModalOpen] = useState(false);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -161,7 +166,7 @@ export default function HistoryPage() {
 
   if (selectedHistory && analysisData) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-white">
         <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
           {/* 헤더 */}
           <div className="mb-6 flex items-center justify-between">
@@ -170,6 +175,7 @@ export default function HistoryPage() {
                 onClick={() => {
                   setSelectedHistory(null);
                   setAnalysisData(null);
+                  setIsChecklistModalOpen(false);
                 }}
                 className="mb-2 text-sm text-blue-600 hover:text-blue-700"
               >
@@ -183,36 +189,44 @@ export default function HistoryPage() {
             </div>
           </div>
 
-          {/* 분석 결과 */}
-          <div className="space-y-6">
+          {/* 분석 결과 섹션 - 실제 분석 결과와 동일한 포맷 */}
+          <div className="space-y-6 animate-fade-in">
             {/* 점수 카드 */}
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               <ScoreCard
                 title="AEO 점수"
                 score={analysisData.aeoScore}
-                color="bg-blue-500"
+                color="bg-sky-500"
               />
               <ScoreCard
                 title="GEO 점수"
                 score={analysisData.geoScore}
-                color="bg-purple-500"
+                color="bg-sky-500"
               />
               <ScoreCard
                 title="SEO 점수"
                 score={analysisData.seoScore}
-                color="bg-green-500"
+                color="bg-sky-500"
               />
             </div>
 
             {/* 종합 점수 */}
-            <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-              <div className="flex items-center justify-between">
+            <div 
+              className="rounded-lg border border-gray-300 bg-white p-6 shadow-sm transition-all hover:shadow-md cursor-pointer"
+              onClick={() => setIsChecklistModalOpen(true)}
+            >
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900">종합 점수</h3>
-                  <p className="mt-1 text-sm text-gray-500">AEO, GEO, SEO 점수의 평균</p>
+                  <p className="mt-1 text-sm text-gray-500">
+                    AEO, GEO, SEO 점수의 평균
+                  </p>
+                  <p className="mt-2 text-xs text-sky-600 font-medium">
+                    클릭하여 종합 개선 체크리스트 보기 →
+                  </p>
                 </div>
-                <div className="text-right">
-                  <div className="text-4xl font-bold text-gray-900">
+                <div className="text-left sm:text-right">
+                  <div className="text-4xl font-bold text-sky-600">
                     {analysisData.overallScore}
                   </div>
                   <div className="text-sm text-gray-500">/ 100</div>
@@ -225,10 +239,28 @@ export default function HistoryPage() {
               <AIOCitationCards analysis={analysisData.aioAnalysis} />
             )}
 
+            {/* 액션 버튼 */}
+            <div className="flex justify-end gap-2">
+              <ShareButton analysisData={analysisData} url={selectedHistory.url} />
+              <CopyButton analysisData={analysisData} url={selectedHistory.url} />
+            </div>
+
             {/* 개선 가이드 */}
             <InsightList insights={analysisData.insights} />
+
+            {/* 콘텐츠 작성 가이드라인 */}
+            <ContentGuidelines analysisData={analysisData} />
           </div>
         </main>
+
+        {/* 종합 개선 체크리스트 모달 */}
+        {analysisData && (
+          <ComprehensiveChecklistModal
+            isOpen={isChecklistModalOpen}
+            onClose={() => setIsChecklistModalOpen(false)}
+            analysisData={analysisData}
+          />
+        )}
       </div>
     );
   }
