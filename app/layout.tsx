@@ -7,6 +7,7 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import { ToastProvider } from "@/components/Toast";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Navigation from "@/components/Navigation";
+import ContentProtection from "@/components/ContentProtection";
 
 const ibmPlexSansKR = IBM_Plex_Sans_KR({
   variable: "--font-ibm-plex-sans-kr",
@@ -46,6 +47,7 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         <ErrorBoundary>
+          <ContentProtection />
           <ThemeProvider>
             <ToastProvider>
               <SessionProvider>

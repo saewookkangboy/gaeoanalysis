@@ -171,6 +171,37 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-ibm-plex-sans-kr), var(--font-noto-sans-kr), sans-serif;
+  /* 텍스트 선택 방지 */
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  /* 드래그 방지 */
+  -webkit-user-drag: none;
+  -khtml-user-drag: none;
+  -moz-user-drag: none;
+  -o-user-drag: none;
+  user-drag: none;
+}
+
+/* CopyButton 영역은 텍스트 선택 허용 */
+[data-allow-copy="true"],
+[data-allow-copy="true"] * {
+  -webkit-user-select: text !important;
+  -moz-user-select: text !important;
+  -ms-user-select: text !important;
+  user-select: text !important;
+}
+
+/* 입력 필드와 텍스트 영역은 텍스트 선택 허용 */
+input,
+textarea,
+[contenteditable="true"],
+[role="textbox"] {
+  -webkit-user-select: text !important;
+  -moz-user-select: text !important;
+  -ms-user-select: text !important;
+  user-select: text !important;
 }
 
 /* IBM Plex Sans KR 폰트 클래스 */

@@ -61,8 +61,10 @@ ${insight.message}`
     <button
       onClick={handleCopy}
       disabled={!analysisData}
+      data-allow-copy="true"
       className="flex items-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-black hover:bg-black hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all"
       aria-label="분석 결과 복사"
+      onContextMenu={(e) => e.stopPropagation()}
     >
       {copied ? (
         <>
