@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { analyzeContent } from '@/lib/analyzer';
-import { saveAnalysis, checkDuplicateAnalysis, getUser, createUser } from '@/lib/db-helpers';
+import { saveAnalysis, checkDuplicateAnalysis, getUser, createUser, getUserAnalyses } from '@/lib/db-helpers';
 import { createErrorResponse, createSuccessResponse, withErrorHandling, sanitizeUrl } from '@/lib/api-utils';
 import { withRateLimit } from '@/lib/rate-limiter';
 import { cache, createCacheKey } from '@/lib/cache';
@@ -97,17 +97,33 @@ async function handleAnalyze(request: NextRequest) {
         insights: result.insights,
         aioScores: result.aioAnalysis?.scores,
       });
-      console.log('✅ 분석 결과 저장 성공:', { 
-        analysisId: savedId, 
-        userId, 
-        url: sanitizedUrl,
-        scores: {
-          aeo: result.aeoScore,
-          geo: result.geoScore,
-          seo: result.seoScore,
-          overall: result.overallScore
-        }
-      });
+      
+      // 저장 후 즉시 확인
+      const savedAnalyses = getUserAnalyses(userId, { limit: 10 });
+      const savedRecord = savedAnalyses.find(a => a.id === savedId);
+      
+      if (savedRecord) {
+        console.log('✅ 분석 결과 저장 및 확인 성공:', { 
+          analysisId: savedId, 
+          userId, 
+          url: sanitizedUrl,
+          savedAt: savedRecord.createdAt,
+          totalAnalyses: savedAnalyses.length,
+          scores: {
+            aeo: result.aeoScore,
+            geo: result.geoScore,
+            seo: result.seoScore,
+            overall: result.overallScore
+          }
+        });
+      } else {
+        console.warn('⚠️ 분석 저장은 성공했지만 조회되지 않음:', { 
+          analysisId: savedId, 
+          userId,
+          totalAnalyses: savedAnalyses.length,
+          allAnalysisIds: savedAnalyses.map(a => a.id)
+        });
+      }
     } catch (error: any) {
       console.error('❌ 분석 저장 오류:', {
         error: error.message,
@@ -148,7 +164,27 @@ async function handleAnalyze(request: NextRequest) {
             insights: result.insights,
             aioScores: result.aioAnalysis?.scores,
           });
-          console.log('✅ 분석 저장 재시도 성공:', { analysisId: savedId, userId: finalUserId, url: sanitizedUrl });
+          
+          // 저장 후 즉시 확인
+          const savedAnalyses = getUserAnalyses(finalUserId, { limit: 10 });
+          const savedRecord = savedAnalyses.find(a => a.id === savedId);
+          
+          if (savedRecord) {
+            console.log('✅ 분석 저장 재시도 및 확인 성공:', { 
+              analysisId: savedId, 
+              userId: finalUserId, 
+              url: sanitizedUrl,
+              savedAt: savedRecord.createdAt,
+              totalAnalyses: savedAnalyses.length
+            });
+          } else {
+            console.warn('⚠️ 분석 저장 재시도는 성공했지만 조회되지 않음:', { 
+              analysisId: savedId, 
+              userId: finalUserId,
+              totalAnalyses: savedAnalyses.length,
+              allAnalysisIds: savedAnalyses.map(a => a.id)
+            });
+          }
         } catch (retryError: any) {
           console.error('❌ 분석 저장 재시도 실패:', {
             error: retryError.message,
