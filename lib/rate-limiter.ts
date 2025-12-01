@@ -1,3 +1,5 @@
+import { NextRequest, NextResponse } from 'next/server';
+
 /**
  * 간단한 메모리 기반 레이트 리미터
  * 프로덕션 환경에서는 Redis 등을 사용하는 것을 권장합니다.

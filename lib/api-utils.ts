@@ -56,7 +56,7 @@ export function withValidation<T>(
           'VALIDATION_ERROR',
           '입력 검증 실패',
           400,
-          error.errors
+          error.issues
         );
       }
       throw error;

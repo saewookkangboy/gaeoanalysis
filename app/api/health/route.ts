@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { dbHelpers } from '@/lib/db';
-import { cache, rateLimiter } from '@/lib/cache';
+import { cache } from '@/lib/cache';
 
 /**
  * 헬스 체크 엔드포인트
@@ -36,9 +36,7 @@ export async function GET() {
 
   // 데이터베이스 연결 테스트
   try {
-    const dbStats = dbHelpers.safeQuery(() => {
-      return dbHelpers.getStats();
-    }, '데이터베이스 연결 실패');
+    const dbStats = dbHelpers.getStats();
     
     health.services.database = {
       connected: true,
