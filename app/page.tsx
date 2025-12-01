@@ -14,6 +14,7 @@ import ProgressBar from '@/components/ProgressBar';
 import SkeletonLoader from '@/components/SkeletonLoader';
 import UrlInput from '@/components/UrlInput';
 import ShareButton from '@/components/ShareButton';
+import ComprehensiveChecklistModal from '@/components/ComprehensiveChecklistModal';
 import { storage } from '@/lib/storage';
 import { fetchWithRetry } from '@/lib/fetch-with-retry';
 
@@ -31,6 +32,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState<AnalysisStep>('idle');
   const [retryCount, setRetryCount] = useState(0);
+  const [isChecklistModalOpen, setIsChecklistModalOpen] = useState(false);
 
   // 새 세션 시작: 페이지 로드 시 이전 분석 결과 초기화
   useEffect(() => {
@@ -307,12 +309,18 @@ export default function Home() {
             /> */}
 
             {/* 종합 점수 */}
-            <div className="rounded-lg border border-gray-300 bg-white p-6 shadow-sm transition-all hover:shadow-md">
+            <div 
+              className="rounded-lg border border-gray-300 bg-white p-6 shadow-sm transition-all hover:shadow-md cursor-pointer"
+              onClick={() => setIsChecklistModalOpen(true)}
+            >
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900">종합 점수</h3>
                   <p className="mt-1 text-sm text-gray-500">
                     AEO, GEO, SEO 점수의 평균
+                  </p>
+                  <p className="mt-2 text-xs text-sky-600 font-medium">
+                    클릭하여 종합 개선 체크리스트 보기 →
                   </p>
                 </div>
                 <div className="text-left sm:text-right">
@@ -375,6 +383,15 @@ export default function Home() {
         <Suspense fallback={null}>
           <AIAgent analysisData={analysisData} aioAnalysis={analysisData?.aioAnalysis || null} />
         </Suspense>
+      )}
+
+      {/* 종합 개선 체크리스트 모달 */}
+      {analysisData && (
+        <ComprehensiveChecklistModal
+          isOpen={isChecklistModalOpen}
+          onClose={() => setIsChecklistModalOpen(false)}
+          analysisData={analysisData}
+        />
       )}
     </div>
   );

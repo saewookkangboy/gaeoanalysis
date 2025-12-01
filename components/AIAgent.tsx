@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
@@ -26,9 +26,10 @@ export default function AIAgent({ analysisData, aioAnalysis }: AIAgentProps) {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [quickQuestions, setQuickQuestions] = useState<string[]>(() => getQuickQuestions(analysisData));
+  const [quickQuestions, setQuickQuestions] = useState<string[]>([]);
   const [analysisId, setAnalysisId] = useState<string | null>(null);
   const [isGeneratingSuggestions, setIsGeneratingSuggestions] = useState(false);
+  const [lastAnalysisSignature, setLastAnalysisSignature] = useState<string | null>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -38,35 +39,28 @@ export default function AIAgent({ analysisData, aioAnalysis }: AIAgentProps) {
     scrollToBottom();
   }, [messages]);
 
-  // 분석 데이터에서 ID 추출
+  // 분석 데이터에서 ID 추출 및 변경 감지
   useEffect(() => {
-    if (analysisData && 'id' in analysisData) {
-      setAnalysisId((analysisData as any).id);
-    }
-  }, [analysisData]);
-
-  // 분석 데이터가 변경되면 환영 메시지 표시 및 이전 대화 로드
-  useEffect(() => {
-    if (analysisData && messages.length === 0 && isOpen) {
-      // 이전 대화 이력 로드
-      if (analysisId) {
-        loadChatHistory();
-      }
-
-      const welcomeMessage: Message = {
-        role: 'assistant',
-        content: `안녕하세요! 👋 GAEO 분석 결과를 확인했습니다.\n\n📊 현재 점수:\n- 종합 점수: ${analysisData.overallScore}/100\n- AEO: ${analysisData.aeoScore}/100\n- GEO: ${analysisData.geoScore}/100\n- SEO: ${analysisData.seoScore}/100\n\n어떤 부분에 대해 궁금하신가요? 아래 빠른 질문을 선택하거나 직접 질문해주세요!`,
-        timestamp: new Date(),
-      };
-      setMessages([welcomeMessage]);
+    if (analysisData) {
+      // 분석 데이터의 고유 시그니처 생성 (점수 조합으로 고유성 판단)
+      const signature = `${analysisData.overallScore}-${analysisData.aeoScore}-${analysisData.geoScore}-${analysisData.seoScore}`;
       
-      // 초기 추천 질문 생성
-      generateSuggestions();
+      // ID가 있으면 사용, 없으면 시그니처 사용
+      const currentId = (analysisData as any).id || signature;
+      setAnalysisId(currentId);
+      
+      // 분석 데이터가 변경되었는지 확인 (새로운 분석인 경우)
+      if (signature !== lastAnalysisSignature) {
+        setLastAnalysisSignature(signature);
+        // 새로운 분석이면 추천 질문 초기화 및 재생성
+        setQuickQuestions([]);
+        // 메시지는 유지 (사용자가 계속 대화할 수 있도록)
+      }
     }
-  }, [analysisData, isOpen, analysisId]);
+  }, [analysisData, lastAnalysisSignature]);
 
-  // 추천 질문 생성 함수
-  const generateSuggestions = async () => {
+  // 추천 질문 생성 함수 (useCallback으로 메모이제이션)
+  const generateSuggestions = useCallback(async () => {
     if (!analysisData) return;
     
     setIsGeneratingSuggestions(true);
@@ -93,14 +87,72 @@ export default function AIAgent({ analysisData, aioAnalysis }: AIAgentProps) {
         const data = await response.json();
         if (data.questions && data.questions.length > 0) {
           setQuickQuestions(data.questions);
+        } else {
+          // API가 질문을 반환하지 않으면 기본 질문 사용
+          setQuickQuestions(getQuickQuestions(analysisData));
         }
+      } else {
+        // API 실패 시 기본 질문 사용
+        setQuickQuestions(getQuickQuestions(analysisData));
       }
     } catch (error) {
       console.error('추천 질문 생성 실패:', error);
+      // 에러 발생 시 기본 질문 사용
+      setQuickQuestions(getQuickQuestions(analysisData));
     } finally {
       setIsGeneratingSuggestions(false);
     }
-  };
+  }, [analysisData, aioAnalysis, messages]);
+
+  // 분석 데이터가 변경되거나 추천 질문이 없을 때 생성
+  useEffect(() => {
+    if (analysisData && quickQuestions.length === 0) {
+      // 분석 데이터가 있고 추천 질문이 없으면 생성
+      generateSuggestions();
+    }
+  }, [analysisData, quickQuestions.length, generateSuggestions]);
+
+  // 분석 데이터가 변경되면 환영 메시지 표시 및 이전 대화 로드
+  useEffect(() => {
+    if (analysisData && messages.length === 0 && isOpen) {
+      // 이전 대화 이력 로드
+      if (analysisId) {
+        loadChatHistory();
+      }
+
+      const welcomeMessage: Message = {
+        role: 'assistant',
+        content: `안녕하세요! 👋 GAEO 분석 결과를 확인했습니다.\n\n📊 현재 점수:\n- 종합 점수: ${analysisData.overallScore}/100\n- AEO: ${analysisData.aeoScore}/100\n- GEO: ${analysisData.geoScore}/100\n- SEO: ${analysisData.seoScore}/100\n\n어떤 부분에 대해 궁금하신가요? 아래 빠른 질문을 선택하거나 직접 질문해주세요!`,
+        timestamp: new Date(),
+      };
+      setMessages([welcomeMessage]);
+    }
+  }, [analysisData, isOpen, analysisId]);
+
+  // 분석 데이터가 변경되거나 추천 질문이 없을 때 생성
+  useEffect(() => {
+    if (analysisData && quickQuestions.length === 0) {
+      // 분석 데이터가 있고 추천 질문이 없으면 생성
+      generateSuggestions();
+    }
+  }, [analysisData, quickQuestions.length, generateSuggestions]);
+
+  // 분석 데이터가 변경되면 환영 메시지 표시 및 이전 대화 로드
+  useEffect(() => {
+    if (analysisData && messages.length === 0 && isOpen) {
+      // 이전 대화 이력 로드
+      if (analysisId) {
+        loadChatHistory();
+      }
+
+      const welcomeMessage: Message = {
+        role: 'assistant',
+        content: `안녕하세요! 👋 GAEO 분석 결과를 확인했습니다.\n\n📊 현재 점수:\n- 종합 점수: ${analysisData.overallScore}/100\n- AEO: ${analysisData.aeoScore}/100\n- GEO: ${analysisData.geoScore}/100\n- SEO: ${analysisData.seoScore}/100\n\n어떤 부분에 대해 궁금하신가요? 아래 빠른 질문을 선택하거나 직접 질문해주세요!`,
+        timestamp: new Date(),
+      };
+      setMessages([welcomeMessage]);
+    }
+  }, [analysisData, isOpen, analysisId]);
 
   const loadChatHistory = async () => {
     if (!analysisId) return;
