@@ -390,7 +390,7 @@ export default function Home() {
                 d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
               />
             </svg>
-            <p className="text-lg font-medium">위에 URL을 입력하고 분석을 시작하세요.</p>
+            <p className="text-lg font-medium">URL 입력 후, '분석 시작' 을 진행하세요!</p>
             <p className="mt-2 text-sm">
               콘텐츠의 AEO, GEO, SEO 점수를 확인하고 개선 방안을 제시합니다.
               <br />
