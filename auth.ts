@@ -45,7 +45,17 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     signIn: '/login',
   },
   callbacks: {
-    async signIn({ user, account }) {
+    async signIn({ user, account, profile }) {
+      // OAuth 로그인 시 디버깅 정보 출력
+      if (process.env.NODE_ENV === 'development' && account) {
+        const callbackUrl = `${authUrl || 'http://localhost:3000'}/api/auth/callback/${account.provider}`;
+        console.log('🔐 OAuth 로그인 시도:', {
+          provider: account.provider,
+          expectedCallbackUrl: callbackUrl,
+          accountId: account.providerAccountId,
+        });
+      }
+
       // OAuth 로그인 시 사용자 정보를 DB에 저장
       if (user?.email && user?.id) {
         try {
