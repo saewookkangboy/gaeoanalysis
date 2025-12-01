@@ -10,10 +10,8 @@ if (!process.env.NEXTAUTH_SECRET && process.env.NODE_ENV === 'development') {
 
 export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
-  // NEXTAUTH_URL이 없으면 자동 감지 (Vercel 환경에서 중요)
-  ...(process.env.NEXTAUTH_URL ? {} : {
-    // Vercel에서는 자동으로 감지되지만, 명시적으로 설정하는 것이 좋음
-  }),
+  // Vercel 환경에서는 NEXTAUTH_URL이 자동으로 설정되지만, 명시적으로 설정하는 것이 좋음
+  // 로컬 개발 환경에서는 http://localhost:3000으로 설정
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID || '',
