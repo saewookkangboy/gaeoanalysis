@@ -1,35 +1,33 @@
-import { NextAuthOptions } from 'next-auth';
-import GoogleProvider from 'next-auth/providers/google';
-import GitHubProvider from 'next-auth/providers/github';
-import { createUser, getUser } from '@/lib/db-helpers';
+import NextAuth from "next-auth";
+import Google from "next-auth/providers/google";
+import GitHub from "next-auth/providers/github";
+import { createUser, getUser } from "@/lib/db-helpers";
 
-// NEXTAUTH_SECRET 확인
-if (!process.env.NEXTAUTH_SECRET && process.env.NODE_ENV === 'development') {
-  console.warn('⚠️ NEXTAUTH_SECRET이 설정되지 않았습니다.');
+// AUTH_SECRET 확인
+if (!process.env.AUTH_SECRET && process.env.NODE_ENV === 'development') {
+  console.warn('⚠️ AUTH_SECRET이 설정되지 않았습니다.');
+  // v4 호환성을 위해 NEXTAUTH_SECRET도 확인
+  if (process.env.NEXTAUTH_SECRET) {
+    console.warn('⚠️ NEXTAUTH_SECRET을 사용 중입니다. AUTH_SECRET으로 변경해주세요.');
+  }
 }
 
-export const authOptions: NextAuthOptions = {
-  secret: process.env.NEXTAUTH_SECRET,
-  // NEXTAUTH_URL은 Vercel에서 자동으로 설정되지만, 명시적으로 설정하는 것이 좋음
-  // App Router에서는 basePath와 함께 사용될 수 있음
+export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
-    GoogleProvider({
+    Google({
       clientId: process.env.GOOGLE_CLIENT_ID || '',
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
     }),
-    GitHubProvider({
+    GitHub({
       clientId: process.env.GITHUB_CLIENT_ID || '',
       clientSecret: process.env.GITHUB_CLIENT_SECRET || '',
     }),
   ],
-  session: {
-    strategy: 'jwt',
-  },
   pages: {
     signIn: '/login',
   },
   callbacks: {
-    async signIn({ user, account, profile }) {
+    async signIn({ user, account }) {
       // OAuth 로그인 시 사용자 정보를 DB에 저장
       if (user?.email && user?.id) {
         try {
@@ -73,5 +71,6 @@ export const authOptions: NextAuthOptions = {
     },
   },
   debug: process.env.NODE_ENV === 'development',
-};
+  secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET, // v4 호환성
+});
 

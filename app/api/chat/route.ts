@@ -3,8 +3,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { buildAIAgentPrompt } from '@/lib/ai-agent-prompt';
 import { createErrorResponse, createSuccessResponse, withErrorHandling } from '@/lib/api-utils';
 import { withRateLimit } from '@/lib/rate-limiter';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { auth } from '@/auth';
 import { z } from 'zod';
 
 // Next.js API 라우트 응답 크기 제한 해제 (긴 AI 응답을 위해)
@@ -44,7 +43,7 @@ async function handleChat(request: NextRequest) {
   }
 
   // 세션 확인
-  const session = await getServerSession(authOptions);
+  const session = await auth();
   const userId = session?.user?.id;
 
   const apiKey = process.env.GEMINI_API_KEY;
@@ -120,7 +119,7 @@ async function handleChat(request: NextRequest) {
 
 // 레이트 리미트 키 생성 함수
 const getChatRateLimitKeyAsync = async (request: NextRequest): Promise<string> => {
-  const session = await getServerSession(authOptions);
+  const session = await auth();
   return getChatRateLimitKey(request, session?.user?.id);
 };
 

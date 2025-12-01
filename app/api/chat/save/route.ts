@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { auth } from '@/auth';
 import { saveOrUpdateChatConversation } from '@/lib/db-helpers';
 import { createErrorResponse, createSuccessResponse, withErrorHandling } from '@/lib/api-utils';
 import { z } from 'zod';
@@ -17,7 +16,7 @@ const chatSaveSchema = z.object({
 });
 
 async function handleChatSave(request: NextRequest) {
-  const session = await getServerSession(authOptions);
+  const session = await auth();
 
   if (!session?.user?.id) {
     return createErrorResponse(

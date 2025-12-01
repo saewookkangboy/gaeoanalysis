@@ -58,9 +58,9 @@
 `.env.local` 파일에 다음 환경 변수를 추가합니다:
 
 ```env
-# NextAuth
-NEXTAUTH_URL=http://localhost:3000
-NEXTAUTH_SECRET=your-secret-key-here
+# NextAuth v5 (AUTH_SECRET 사용)
+AUTH_SECRET=your-secret-key-here
+# 참고: NEXTAUTH_SECRET도 호환성을 위해 지원되지만, AUTH_SECRET 사용 권장
 
 # Google OAuth
 GOOGLE_CLIENT_ID=your-google-client-id
@@ -89,15 +89,14 @@ GEMINI_API_KEY=your-gemini-api-key
 3. 다음 환경 변수 추가:
 
 ```
-NEXTAUTH_URL=https://gaeoanalysis.vercel.app
-NEXTAUTH_SECRET=<your-secret-key>
+AUTH_SECRET=<your-secret-key>
 GOOGLE_CLIENT_ID=<your-google-client-id>
 GOOGLE_CLIENT_SECRET=<your-google-client-secret>
 GITHUB_CLIENT_ID=<your-github-client-id>
 GITHUB_CLIENT_SECRET=<your-github-client-secret>
 ```
 
-### 3.3 NEXTAUTH_SECRET 생성
+### 3.3 AUTH_SECRET 생성
 
 터미널에서 다음 명령어를 실행하여 시크릿 키를 생성합니다:
 
@@ -105,7 +104,13 @@ GITHUB_CLIENT_SECRET=<your-github-client-secret>
 openssl rand -base64 32
 ```
 
-생성된 키를 `NEXTAUTH_SECRET`에 입력합니다.
+또는 NextAuth v5의 공식 명령어를 사용할 수 있습니다:
+
+```bash
+npx auth secret
+```
+
+생성된 키를 `AUTH_SECRET`에 입력합니다.
 
 ## 4. 테스트
 

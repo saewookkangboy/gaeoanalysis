@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { auth } from '@/auth';
 import { analyzeContent } from '@/lib/analyzer';
 import { saveAnalysis, checkDuplicateAnalysis } from '@/lib/db-helpers';
 import { createErrorResponse, createSuccessResponse, withErrorHandling, sanitizeUrl } from '@/lib/api-utils';
@@ -17,7 +16,7 @@ const analyzeSchema = z.object({
 
 // 레이트 리미트 설정: IP당 1분에 10회, 사용자당 1시간에 50회
 const getRateLimitKey = async (request: NextRequest): Promise<string> => {
-  const session = await getServerSession(authOptions);
+  const session = await auth();
   const userId = session?.user?.id;
   
   if (userId) {
@@ -37,7 +36,7 @@ async function handleAnalyze(request: NextRequest) {
   const sanitizedUrl = sanitizeUrl(url);
 
   // 세션 확인
-  const session = await getServerSession(authOptions);
+  const session = await auth();
   const userId = session?.user?.id;
 
   // 캐시 키 생성
