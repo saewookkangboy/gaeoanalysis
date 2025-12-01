@@ -96,8 +96,8 @@ async function handleAnalyze(request: NextRequest) {
   return createSuccessResponse(response);
 }
 
-// 최종 핸들러: 에러 핸들링 + 보안 헤더
-async function handleWithSecurity(request: NextRequest): Promise<NextResponse> {
+// 최종 핸들러 래퍼
+async function wrappedHandler(request: NextRequest): Promise<NextResponse> {
   const response = await withErrorHandling(handleAnalyze, '분석 중 오류가 발생했습니다.')(request);
   return addSecurityHeaders(request, response);
 }
@@ -107,7 +107,7 @@ const rateLimitedHandler = withRateLimit(
   10, // 1분에 10회
   60 * 1000, // 1분
   getRateLimitKey
-)(handleWithSecurity);
+)(wrappedHandler);
 
 export async function POST(request: NextRequest) {
   return rateLimitedHandler(request);

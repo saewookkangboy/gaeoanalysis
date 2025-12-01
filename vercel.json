@@ -6,6 +6,7 @@
     "app/api/chat/route.ts": {
       "maxDuration": 60
     }
-  }
+  },
+  "crons": []
 }
 
