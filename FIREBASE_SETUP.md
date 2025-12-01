@@ -63,23 +63,25 @@ const firebaseConfig = {
 NEXTAUTH_URL=http://localhost:3000
 NEXTAUTH_SECRET=your-secret-key-here
 
-# Firebase (위에서 복사한 정보를 입력)
-# 예시: gaeo-analysis 프로젝트
-NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSyDwzXXYi6fo3yYRcWEjaszVfoakgWdh9IY
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=gaeo-analysis.firebaseapp.com
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=gaeo-analysis
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=gaeo-analysis.firebasestorage.app
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=724180779028
-NEXT_PUBLIC_FIREBASE_APP_ID=1:724180779028:web:9896de5ffff4a19227a701
+# Firebase (Firebase Console에서 복사한 실제 값을 입력하세요)
+NEXT_PUBLIC_FIREBASE_API_KEY=your-firebase-api-key
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-project-id
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=123456789
+NEXT_PUBLIC_FIREBASE_APP_ID=1:123456789:web:abcdef123456
 
 # Firebase Analytics (선택 사항)
-# NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=G-RG7VRRSKTX
+# NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=G-XXXXXXXXXX
 
 # Gemini API
 GEMINI_API_KEY=your-gemini-api-key
 ```
 
-**참고:** 위의 Firebase 설정 값은 예시입니다. Firebase Console에서 복사한 실제 값을 사용하세요.
+**⚠️ 보안 주의사항:**
+- `.env.local` 파일은 절대 Git에 커밋하지 마세요 (이미 `.gitignore`에 포함되어 있습니다).
+- 실제 Firebase API 키와 시크릿 키를 문서나 코드에 하드코딩하지 마세요.
+- 프로덕션 환경에서는 Vercel 등의 플랫폼 환경 변수 설정을 사용하세요.
 
 ### 4.3 NEXTAUTH_SECRET 생성
 터미널에서 다음 명령어를 실행하여 시크릿 키를 생성합니다:
@@ -99,25 +101,62 @@ AI 챗봇 기능을 사용하려면 Google Gemini API 키가 필요합니다.
 3. **"Create API Key"** 버튼을 클릭합니다.
 4. 생성된 API 키를 복사하여 `.env.local`의 `GEMINI_API_KEY`에 입력합니다.
 
-## 6. 설정 확인
+## 6. Vercel 배포 환경 설정
 
-### 6.1 파일 확인
+### 6.1 Vercel 환경 변수 설정
+프로덕션 배포 시 Vercel Dashboard에서 환경 변수를 설정해야 합니다:
+
+1. [Vercel Dashboard](https://vercel.com/dashboard)에 접속합니다.
+2. 프로젝트 선택 → **Settings** → **Environment Variables**로 이동합니다.
+3. 다음 환경 변수들을 추가합니다:
+   - `NEXTAUTH_URL`: 배포된 도메인 (예: `https://gaeoanalysis.vercel.app`)
+   - `NEXTAUTH_SECRET`: 로컬에서 생성한 시크릿 키
+   - `NEXT_PUBLIC_FIREBASE_API_KEY`: Firebase API 키
+   - `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`: Firebase Auth 도메인
+   - `NEXT_PUBLIC_FIREBASE_PROJECT_ID`: Firebase 프로젝트 ID
+   - `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`: Firebase Storage 버킷
+   - `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`: Firebase Messaging Sender ID
+   - `NEXT_PUBLIC_FIREBASE_APP_ID`: Firebase App ID
+   - `GEMINI_API_KEY`: Gemini API 키
+
+**⚠️ 중요:** 환경 변수 설정 후 배포를 다시 실행해야 변경사항이 적용됩니다.
+
+## 7. 설정 확인
+
+### 7.1 파일 확인
 `.env.local` 파일이 `.gitignore`에 포함되어 있는지 확인합니다 (이미 설정되어 있습니다).
 
-### 6.2 개발 서버 실행
+### 7.2 개발 서버 실행
 터미널에서 다음 명령어를 실행합니다:
 
 ```bash
 npm run dev
 ```
 
-### 6.3 테스트
+### 7.3 테스트
 1. 브라우저에서 `http://localhost:3000`에 접속합니다.
 2. **"회원가입"** 페이지로 이동합니다.
 3. 이메일과 비밀번호를 입력하여 계정을 생성합니다.
 4. 로그인이 정상적으로 작동하는지 확인합니다.
 
-## 문제 해결
+## 8. 보안 모범 사례
+
+### 8.1 환경 변수 관리
+- ✅ `.env.local` 파일은 로컬 개발용으로만 사용
+- ✅ 프로덕션 환경에서는 플랫폼 환경 변수 사용 (Vercel, AWS 등)
+- ✅ API 키와 시크릿은 절대 Git에 커밋하지 않음
+- ✅ 코드 리뷰 시 환경 변수 값이 노출되지 않도록 주의
+
+### 8.2 Firebase 보안 규칙
+- Firebase Console → **Authentication** → **Settings**에서 승인된 도메인 확인
+- Firebase Console → **Firestore Database** → **Rules**에서 데이터베이스 보안 규칙 설정
+- Firebase Console → **Storage** → **Rules**에서 스토리지 보안 규칙 설정
+
+### 8.3 API 키 제한
+- Firebase Console → **프로젝트 설정** → **일반** → **API 키**에서 키 제한 설정
+- HTTP 리퍼러(웹사이트) 제한을 설정하여 특정 도메인에서만 사용 가능하도록 제한
+
+## 9. 문제 해결
 
 ### Firebase 초기화 오류
 - `.env.local` 파일이 프로젝트 루트에 있는지 확인합니다.
