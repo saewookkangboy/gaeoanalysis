@@ -44,10 +44,10 @@ const nextConfig: NextConfig = {
             value: [
               "default-src 'self'",
               "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://*.googleapis.com",
-              "style-src 'self' 'unsafe-inline'",
+              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "img-src 'self' data: https:",
-              "font-src 'self' data:",
-              "connect-src 'self' https://accounts.google.com https://*.googleapis.com https://*.google.com",
+              "font-src 'self' data: https://fonts.gstatic.com",
+              "connect-src 'self' https://accounts.google.com https://*.googleapis.com https://*.google.com https://fonts.googleapis.com",
               "frame-src 'self' https://accounts.google.com",
               "object-src 'none'",
               "base-uri 'self'",
@@ -63,7 +63,7 @@ const nextConfig: NextConfig = {
         ],
       },
       {
-        // 모든 페이지에 기본 보안 헤더 적용
+        // 모든 페이지에 기본 보안 헤더 및 CSP 적용
         source: '/:path*',
         headers: [
           {
@@ -81,6 +81,22 @@ const nextConfig: NextConfig = {
           {
             key: 'Referrer-Policy',
             value: 'strict-origin-when-cross-origin',
+          },
+          {
+            key: 'Content-Security-Policy',
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.googleapis.com https://*.vercel-insights.com",
+              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+              "img-src 'self' data: https:",
+              "font-src 'self' data: https://fonts.gstatic.com",
+              "connect-src 'self' https://*.googleapis.com https://*.google.com https://fonts.googleapis.com https://*.vercel-insights.com",
+              "frame-src 'self'",
+              "object-src 'none'",
+              "base-uri 'self'",
+              "form-action 'self'",
+              "frame-ancestors 'none'",
+            ].join('; '),
           },
         ],
       },

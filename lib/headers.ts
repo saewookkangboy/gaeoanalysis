@@ -40,10 +40,10 @@ export function addSecurityHeaders(
       [
         "default-src 'self'",
         "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://*.googleapis.com",
-        "style-src 'self' 'unsafe-inline'",
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
         "img-src 'self' data: https:",
-        "font-src 'self' data:",
-        "connect-src 'self' https://accounts.google.com https://*.googleapis.com https://*.google.com",
+        "font-src 'self' data: https://fonts.gstatic.com",
+        "connect-src 'self' https://accounts.google.com https://*.googleapis.com https://*.google.com https://fonts.googleapis.com",
         "frame-src 'self' https://accounts.google.com",
         "object-src 'none'",
         "base-uri 'self'",
