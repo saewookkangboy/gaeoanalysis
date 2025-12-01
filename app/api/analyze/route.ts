@@ -109,7 +109,7 @@ const rateLimitedHandler = withRateLimit(
 )(handleWithErrorAndSecurity);
 
 export async function POST(request: NextRequest) {
-  return rateLimitedHandler(request);
+  return await rateLimitedHandler(request);
 }
 
 // GET 메서드도 추가 (405 에러 방지)
@@ -122,6 +122,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function OPTIONS(request: NextRequest) {
-  return handleCorsPreflight(request) || new NextResponse(null, { status: 200 });
+  const preflightResponse = handleCorsPreflight(request);
+  return preflightResponse || addSecurityHeaders(request, new NextResponse(null, { status: 200 }));
 }
 

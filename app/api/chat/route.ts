@@ -131,6 +131,6 @@ const rateLimitedHandler = withRateLimit(
 )(withErrorHandling(handleChat, '챗봇 응답 생성 중 오류가 발생했습니다.'));
 
 export async function POST(request: NextRequest) {
-  return rateLimitedHandler(request);
+  return await rateLimitedHandler(request);
 }
 

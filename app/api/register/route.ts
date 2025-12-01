@@ -147,10 +147,11 @@ async function handleRegisterWithSecurity(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  return handleRegisterWithSecurity(request);
+  return await handleRegisterWithSecurity(request);
 }
 
 export async function OPTIONS(request: NextRequest) {
-  return handleCorsPreflight(request) || new NextResponse(null, { status: 200 });
+  const preflightResponse = handleCorsPreflight(request);
+  return preflightResponse || addSecurityHeaders(request, new NextResponse(null, { status: 200 }));
 }
 
