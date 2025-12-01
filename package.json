@@ -15,6 +15,7 @@
     "db:restore": "bash scripts/restore-db.sh",
     "db:optimize": "npx tsx scripts/optimize-db.ts",
     "firebase:delete-user": "npx tsx scripts/delete-firebase-user.ts",
+    "check:auth": "bash scripts/check-auth-secret.sh",
     "push": "bash scripts/auto-push.sh"
   },
   "dependencies": {

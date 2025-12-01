@@ -3,12 +3,21 @@ import Google from "next-auth/providers/google";
 import GitHub from "next-auth/providers/github";
 import { createUser, getUser } from "@/lib/db-helpers";
 
-// AUTH_SECRET 확인
-if (!process.env.AUTH_SECRET && process.env.NODE_ENV === 'development') {
-  console.warn('⚠️ AUTH_SECRET이 설정되지 않았습니다.');
-  // v4 호환성을 위해 NEXTAUTH_SECRET도 확인
-  if (process.env.NEXTAUTH_SECRET) {
-    console.warn('⚠️ NEXTAUTH_SECRET을 사용 중입니다. AUTH_SECRET으로 변경해주세요.');
+// AUTH_SECRET 확인 (필수)
+const authSecret = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET;
+
+if (!authSecret) {
+  const errorMsg = '❌ AUTH_SECRET 또는 NEXTAUTH_SECRET이 설정되지 않았습니다. PKCE 코드 검증이 실패할 수 있습니다.';
+  console.error(errorMsg);
+  console.error('💡 해결 방법: .env.local 파일에 다음을 추가하세요:');
+  console.error('   AUTH_SECRET=$(openssl rand -base64 32)');
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(errorMsg);
+  }
+} else {
+  console.log('✅ AUTH_SECRET 설정 확인됨');
+  if (process.env.NEXTAUTH_SECRET && !process.env.AUTH_SECRET) {
+    console.warn('⚠️ NEXTAUTH_SECRET을 사용 중입니다. AUTH_SECRET으로 변경하는 것을 권장합니다.');
   }
 }
 
@@ -49,6 +58,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     }),
   ],
   // 쿠키 설정 (PKCE 코드 검증을 위해 중요)
+  // AUTH_SECRET이 없으면 쿠키 암호화/복호화가 실패합니다
   cookies: {
     pkceCodeVerifier: {
       name: `${process.env.NODE_ENV === 'production' ? '__Secure-' : ''}authjs.pkce.code_verifier`,
@@ -57,6 +67,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         sameSite: 'lax',
         path: '/',
         secure: process.env.NODE_ENV === 'production',
+        // 개발 환경에서도 쿠키가 제대로 설정되도록 maxAge 추가
+        maxAge: 60 * 15, // 15분
       },
     },
     state: {
@@ -66,7 +78,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         sameSite: 'lax',
         path: '/',
         secure: process.env.NODE_ENV === 'production',
-        maxAge: 900, // 15분
+        maxAge: 60 * 15, // 15분
+      },
+    },
+    sessionToken: {
+      name: `${process.env.NODE_ENV === 'production' ? '__Secure-' : ''}authjs.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
       },
     },
   },
@@ -128,6 +149,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
   },
   debug: process.env.NODE_ENV === 'development',
-  secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET, // v4 호환성
+  secret: authSecret, // AUTH_SECRET 또는 NEXTAUTH_SECRET (위에서 확인됨)
 });
 
