@@ -45,7 +45,7 @@ function LoginForm() {
     }
   }, [searchParams]);
 
-  const handleOAuthSignIn = async (provider: 'google' | 'github') => {
+  const handleOAuthSignIn = async (provider: 'google' | 'github' | 'kakao') => {
     setError('');
     setIsLoading(provider);
     
@@ -57,7 +57,8 @@ function LoginForm() {
 
       if (result?.error) {
         console.error(`${provider} 로그인 오류:`, result.error);
-        setError(`${provider === 'google' ? 'Google' : 'GitHub'} 로그인 중 오류가 발생했습니다.`);
+        const providerName = provider === 'google' ? 'Google' : provider === 'github' ? 'GitHub' : '카카오';
+        setError(`${providerName} 로그인 중 오류가 발생했습니다.`);
         setIsLoading(null);
       } else if (result?.url) {
         // OAuth 리디렉션 URL이 있는 경우 (OAuth 제공자 페이지로 이동)
@@ -77,7 +78,8 @@ function LoginForm() {
       }
     } catch (err: any) {
       console.error(`${provider} 로그인 예외:`, err);
-      setError(`${provider === 'google' ? 'Google' : 'GitHub'} 로그인 중 오류가 발생했습니다.`);
+      const providerName = provider === 'google' ? 'Google' : provider === 'github' ? 'GitHub' : '카카오';
+      setError(`${providerName} 로그인 중 오류가 발생했습니다.`);
       setIsLoading(null);
     }
   };
@@ -157,6 +159,27 @@ function LoginForm() {
                     />
                   </svg>
                   GitHub로 로그인
+                </>
+              )}
+            </button>
+
+            {/* 카카오 로그인 */}
+            <button
+              onClick={() => handleOAuthSignIn('kakao')}
+              disabled={isLoading !== null}
+              className="w-full flex items-center justify-center gap-3 rounded-md border border-gray-300 dark:border-gray-700 bg-[#FEE500] dark:bg-[#FEE500] px-4 py-3 text-sm font-medium text-black dark:text-black hover:bg-[#FDD835] dark:hover:bg-[#FDD835] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            >
+              {isLoading === 'kakao' ? (
+                <span className="flex items-center gap-2">
+                  <span className="animate-pulse">●</span>
+                  로그인 중...
+                </span>
+              ) : (
+                <>
+                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 3c5.799 0 10.5 3.664 10.5 8.185 0 4.52-4.701 8.184-10.5 8.184a13.5 13.5 0 0 1-1.727-.11l-4.408 2.883c-.501.265-.678.236-.472-.413l.892-3.678c-2.88-1.46-4.785-3.99-4.785-6.866C1.5 6.665 6.201 3 12 3z"/>
+                  </svg>
+                  카카오로 로그인
                 </>
               )}
             </button>

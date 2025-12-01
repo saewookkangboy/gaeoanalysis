@@ -1,6 +1,7 @@
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import GitHub from "next-auth/providers/github";
+import type { OAuthConfig, OAuthUserConfig } from "next-auth/providers/oauth";
 import { createUser, getUser } from "@/lib/db-helpers";
 
 // AUTH_SECRET 확인 (필수)
@@ -28,6 +29,40 @@ const authUrl = process.env.AUTH_URL || process.env.NEXTAUTH_URL;
 if (process.env.NODE_ENV === 'development' && authUrl) {
   console.log('🔐 NextAuth URL:', authUrl);
   console.log('🔐 GitHub 콜백 URL:', `${authUrl}/api/auth/callback/github`);
+  console.log('🔐 카카오 콜백 URL:', `${authUrl}/api/auth/callback/kakao`);
+}
+
+// 카카오 OAuth 제공자 설정
+function Kakao(options: OAuthUserConfig<any>): OAuthConfig<any> {
+  return {
+    id: "kakao",
+    name: "Kakao",
+    type: "oauth",
+    authorization: {
+      url: "https://kauth.kakao.com/oauth/authorize",
+      params: {
+        scope: "profile_nickname profile_image account_email",
+        response_type: "code",
+      },
+    },
+    token: "https://kauth.kakao.com/oauth/token",
+    userinfo: "https://kapi.kakao.com/v2/user/me",
+    profile(profile) {
+      return {
+        id: profile.id.toString(),
+        name: profile.kakao_account?.profile?.nickname || profile.kakao_account?.email || "카카오 사용자",
+        email: profile.kakao_account?.email || null,
+        image: profile.kakao_account?.profile?.profile_image_url || null,
+      };
+    },
+    style: {
+      logo: "https://developers.kakao.com/assets/img/about/logos/kakaolink/kakaolink_bi_medium.png",
+      logoDark: "https://developers.kakao.com/assets/img/about/logos/kakaolink/kakaolink_bi_medium.png",
+      bg: "#FEE500",
+      text: "#000000",
+    },
+    ...options,
+  };
 }
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
@@ -55,6 +90,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       // GitHub OAuth App의 Authorization callback URL이 정확히 일치해야 함
       // 개발: http://localhost:3000/api/auth/callback/github
       // 프로덕션: https://gaeoanalysis.vercel.app/api/auth/callback/github
+    }),
+    Kakao({
+      clientId: process.env.KAKAO_CLIENT_ID || '',
+      clientSecret: process.env.KAKAO_CLIENT_SECRET || '',
+      // 카카오 OAuth App의 Redirect URI가 정확히 일치해야 함
+      // 개발: http://localhost:3000/api/auth/callback/kakao
+      // 프로덕션: https://gaeoanalysis.vercel.app/api/auth/callback/kakao
     }),
   ],
   // 쿠키 설정 (PKCE 코드 검증을 위해 중요)

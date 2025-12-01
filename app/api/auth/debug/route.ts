@@ -11,6 +11,7 @@ export async function GET(request: NextRequest) {
   const callbackUrls = {
     google: `${baseUrl}/api/auth/callback/google`,
     github: `${baseUrl}/api/auth/callback/github`,
+    kakao: `${baseUrl}/api/auth/callback/kakao`,
   };
 
   const envInfo = {
@@ -19,6 +20,7 @@ export async function GET(request: NextRequest) {
     NODE_ENV: process.env.NODE_ENV,
     GITHUB_CLIENT_ID: process.env.GITHUB_CLIENT_ID ? '설정됨' : '설정되지 않음',
     GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID ? '설정됨' : '설정되지 않음',
+    KAKAO_CLIENT_ID: process.env.KAKAO_CLIENT_ID ? '설정됨' : '설정되지 않음',
   };
 
   // GitHub OAuth App 설정 확인 가이드
@@ -46,6 +48,12 @@ export async function GET(request: NextRequest) {
       google: {
         step1: 'Google Cloud Console → APIs & Services → Credentials로 이동',
         step2: `승인된 리디렉션 URI에 다음을 추가: ${callbackUrls.google}`,
+      },
+      kakao: {
+        step1: '카카오 개발자 콘솔 → 내 애플리케이션 → 카카오 로그인 → Redirect URI로 이동',
+        step2: `Redirect URI에 다음을 정확히 입력: ${callbackUrls.kakao}`,
+        step3: '주의사항: 프로토콜(http/https), 포트, 경로가 정확히 일치해야 합니다',
+        step4: '저장 후 적용',
       },
     },
     troubleshooting: {
