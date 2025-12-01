@@ -96,25 +96,20 @@ async function handleAnalyze(request: NextRequest) {
   return createSuccessResponse(response);
 }
 
-// 에러 핸들링 적용된 핸들러
-const errorHandledHandler = withErrorHandling(handleAnalyze, '분석 중 오류가 발생했습니다.');
+// 에러 핸들링 및 보안 헤더를 포함한 핸들러
+const wrappedHandler = async (request: NextRequest): Promise<NextResponse> => {
+  const response = await withErrorHandling(handleAnalyze, '분석 중 오류가 발생했습니다.')(request);
+  return addSecurityHeaders(request, response);
+};
 
-// 레이트 리미트 적용된 핸들러 (보안 헤더 포함)
+// 레이트 리미트 적용된 핸들러
 const rateLimitedHandler = withRateLimit(
   10, // 1분에 10회
   60 * 1000, // 1분
   getRateLimitKey
-)(async (request: NextRequest) => {
-  const response = await errorHandledHandler(request);
-  return addSecurityHeaders(request, response);
-});
+)(wrappedHandler);
 
-export async function POST(request: NextRequest) {
-  // OPTIONS 요청 처리 (CORS preflight)
-  if (request.method === 'OPTIONS') {
-    return handleCorsPreflight(request) || new NextResponse(null, { status: 200 });
-  }
-  
+export async function POST(request: NextRequest): Promise<NextResponse> {
   return rateLimitedHandler(request);
 }
 
