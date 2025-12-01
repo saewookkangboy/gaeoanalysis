@@ -34,11 +34,18 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
     }),
     GitHub({
-      clientId: process.env.GITHUB_CLIENT_ID || '',
-      clientSecret: process.env.GITHUB_CLIENT_SECRET || '',
+      // 환경에 따라 다른 OAuth App 사용
+      // 개발 환경: GITHUB_CLIENT_ID_DEV, GITHUB_CLIENT_SECRET_DEV 사용
+      // 프로덕션 환경: GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET 사용
+      clientId: process.env.NODE_ENV === 'development' 
+        ? (process.env.GITHUB_CLIENT_ID_DEV || process.env.GITHUB_CLIENT_ID || '')
+        : (process.env.GITHUB_CLIENT_ID || ''),
+      clientSecret: process.env.NODE_ENV === 'development'
+        ? (process.env.GITHUB_CLIENT_SECRET_DEV || process.env.GITHUB_CLIENT_SECRET || '')
+        : (process.env.GITHUB_CLIENT_SECRET || ''),
       // GitHub OAuth App의 Authorization callback URL이 정확히 일치해야 함
-      // 예: http://localhost:3000/api/auth/callback/github
-      // 또는: https://your-domain.com/api/auth/callback/github
+      // 개발: http://localhost:3000/api/auth/callback/github
+      // 프로덕션: https://gaeoanalysis.vercel.app/api/auth/callback/github
     }),
   ],
   // 쿠키 설정 (PKCE 코드 검증을 위해 중요)
