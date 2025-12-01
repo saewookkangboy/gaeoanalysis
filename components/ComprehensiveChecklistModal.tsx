@@ -113,22 +113,22 @@ export default function ComprehensiveChecklistModal({
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-3xl max-h-[90vh] rounded-lg border border-gray-300 bg-white shadow-xl overflow-hidden"
+        className="relative w-full max-w-3xl max-h-[95vh] rounded-lg border border-gray-300 bg-white shadow-xl overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* 헤더 */}
-        <div className="sticky top-0 bg-white border-b border-gray-300 p-6 z-10">
-          <div className="flex items-center justify-between mb-4">
+        <div className="sticky top-0 bg-white border-b border-gray-300 px-4 py-3 z-10 flex-shrink-0">
+          <div className="flex items-center justify-between mb-2">
             <div>
-              <h2 className="text-2xl font-bold text-gray-900">종합 개선 체크리스트</h2>
-              <p className="mt-1 text-sm text-gray-600">분석 결과를 기반으로 한 핵심 개선 사항</p>
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-900">종합 개선 체크리스트</h2>
+              <p className="mt-0.5 text-xs sm:text-sm text-gray-600">분석 결과를 기반으로 한 핵심 개선 사항</p>
             </div>
             <button
               onClick={onClose}
-              className="text-gray-500 hover:text-gray-700 transition-colors"
+              className="text-gray-500 hover:text-gray-700 transition-colors flex-shrink-0"
               aria-label="닫기"
             >
-              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="h-5 w-5 sm:h-6 sm:w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -140,65 +140,65 @@ export default function ComprehensiveChecklistModal({
           </div>
 
           {/* 종합 점수 표시 */}
-          <div className="flex items-center gap-6">
-            <div className="flex items-baseline gap-2">
-              <span className={`text-5xl font-bold ${getScoreColor(analysisData.overallScore)}`}>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
+            <div className="flex items-baseline gap-1.5 sm:gap-2">
+              <span className={`text-3xl sm:text-4xl lg:text-5xl font-bold ${getScoreColor(analysisData.overallScore)}`}>
                 {analysisData.overallScore}
               </span>
-              <span className="text-lg text-gray-500">/ 100</span>
+              <span className="text-base sm:text-lg text-gray-500">/ 100</span>
             </div>
-            <div className="flex-1">
+            <div className="flex-1 w-full sm:w-auto">
               <div className="flex items-center gap-2 mb-1">
-                <span className="text-sm font-medium text-gray-700">종합 점수</span>
-                <span className={`text-sm font-semibold ${getScoreColor(analysisData.overallScore)}`}>
+                <span className="text-xs sm:text-sm font-medium text-gray-700">종합 점수</span>
+                <span className={`text-xs sm:text-sm font-semibold ${getScoreColor(analysisData.overallScore)}`}>
                   ({getScoreLevel(analysisData.overallScore)})
                 </span>
               </div>
-              <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
+              <div className="h-1.5 sm:h-2 w-full bg-gray-200 rounded-full overflow-hidden">
                 <div
                   className={`h-full bg-sky-500 transition-all duration-500`}
                   style={{ width: `${analysisData.overallScore}%` }}
                 />
               </div>
             </div>
-            <div className="text-right">
-              <div className="text-sm text-gray-600">AEO: {analysisData.aeoScore}</div>
-              <div className="text-sm text-gray-600">GEO: {analysisData.geoScore}</div>
-              <div className="text-sm text-gray-600">SEO: {analysisData.seoScore}</div>
+            <div className="text-left sm:text-right flex gap-3 sm:gap-0 sm:flex-col">
+              <div className="text-xs sm:text-sm text-gray-600">AEO: {analysisData.aeoScore}</div>
+              <div className="text-xs sm:text-sm text-gray-600">GEO: {analysisData.geoScore}</div>
+              <div className="text-xs sm:text-sm text-gray-600">SEO: {analysisData.seoScore}</div>
             </div>
           </div>
         </div>
 
         {/* 체크리스트 내용 */}
-        <div className="overflow-y-auto max-h-[calc(90vh-200px)] p-6">
+        <div className="overflow-y-auto flex-1 px-3 sm:px-4 py-3 sm:py-4 min-h-0">
           {checklist.length === 0 ? (
-            <div className="text-center text-gray-500 py-12">
-              <p>표시할 체크리스트 항목이 없습니다.</p>
+            <div className="text-center text-gray-500 py-8">
+              <p className="text-sm">표시할 체크리스트 항목이 없습니다.</p>
             </div>
           ) : (
-            <div className="space-y-6">
+            <div className="space-y-3 sm:space-y-4">
               {checklist.map((section, sectionIdx) => (
-                <div key={sectionIdx} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-sky-100 text-sky-600 text-xs font-bold">
+                <div key={sectionIdx} className="border border-gray-200 rounded-lg p-2.5 sm:p-3 bg-gray-50">
+                  <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                    <span className="flex h-5 w-5 sm:h-6 sm:w-6 items-center justify-center rounded-full bg-sky-100 text-sky-600 text-xs font-bold flex-shrink-0">
                       {sectionIdx + 1}
                     </span>
-                    {section.category}
+                    <span className="truncate">{section.category}</span>
                   </h3>
-                  <ul className="space-y-2">
+                  <ul className="space-y-1.5 sm:space-y-2">
                     {section.items.map((item, itemIdx) => (
                       <li
                         key={itemIdx}
-                        className="flex items-start gap-3 p-2 rounded-md hover:bg-white transition-colors"
+                        className="flex items-start gap-2 sm:gap-2.5 p-1.5 sm:p-2 rounded-md hover:bg-white transition-colors"
                       >
                         <input
                           type="checkbox"
                           id={`check-${sectionIdx}-${itemIdx}`}
-                          className="mt-1 h-5 w-5 rounded border-gray-300 text-sky-600 focus:ring-sky-500"
+                          className="mt-0.5 sm:mt-1 h-4 w-4 sm:h-5 sm:w-5 rounded border-gray-300 text-sky-600 focus:ring-sky-500 flex-shrink-0"
                         />
                         <label
                           htmlFor={`check-${sectionIdx}-${itemIdx}`}
-                          className="flex-1 text-sm text-gray-700 cursor-pointer"
+                          className="flex-1 text-xs sm:text-sm text-gray-700 cursor-pointer leading-relaxed"
                         >
                           {item}
                         </label>
@@ -212,10 +212,10 @@ export default function ComprehensiveChecklistModal({
         </div>
 
         {/* 푸터 */}
-        <div className="sticky bottom-0 bg-gray-50 border-t border-gray-300 p-4 flex justify-end gap-2">
+        <div className="sticky bottom-0 bg-gray-50 border-t border-gray-300 px-3 sm:px-4 py-2 sm:py-3 flex justify-end gap-2 flex-shrink-0">
           <button
             onClick={onClose}
-            className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-black hover:bg-black hover:text-white transition-all"
+            className="rounded-md border border-gray-300 bg-white px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-black hover:bg-black hover:text-white transition-all"
           >
             닫기
           </button>
