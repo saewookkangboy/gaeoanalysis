@@ -24,7 +24,17 @@ export default function RegisterPage() {
         body: JSON.stringify({ email, password, blogUrl: blogUrl || null }),
       });
 
-      const data = await response.json();
+      let data;
+      try {
+        data = await response.json();
+      } catch (parseError) {
+        console.error('응답 파싱 오류:', parseError);
+        setError(`서버 오류 (${response.status}): 응답을 파싱할 수 없습니다.`);
+        setIsLoading(false);
+        return;
+      }
+
+      console.log('회원가입 응답:', { status: response.status, data });
 
       if (response.ok) {
         router.push('/login?registered=true');
@@ -44,10 +54,12 @@ export default function RegisterPage() {
           }
         }
         
+        console.error('회원가입 에러:', { status: response.status, error: data.error });
         setError(errorMessage);
       }
-    } catch (err) {
-      setError('회원가입 중 오류가 발생했습니다.');
+    } catch (err: any) {
+      console.error('회원가입 예외:', err);
+      setError('회원가입 중 오류가 발생했습니다. 네트워크 연결을 확인해주세요.');
     } finally {
       setIsLoading(false);
     }

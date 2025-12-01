@@ -27,11 +27,15 @@ function LoginForm() {
     setIsLoading(true);
 
     try {
+      console.log('로그인 시도:', { email });
+      
       const result = await signIn('credentials', {
         email,
         password,
         redirect: false,
       });
+
+      console.log('로그인 응답:', result);
 
       // NextAuth 응답 처리
       if (result?.error) {
@@ -45,18 +49,21 @@ function LoginForm() {
           }
         }
         
+        console.error('로그인 에러:', { error: result.error, errorMessage });
         setError(errorMessage);
       } else if (result?.ok) {
         // 로그인 성공
+        console.log('로그인 성공');
         router.push('/');
         router.refresh();
       } else {
         // 예상치 못한 응답
+        console.error('예상치 못한 로그인 응답:', result);
         setError('로그인 중 오류가 발생했습니다.');
       }
     } catch (err: any) {
       // 네트워크 오류 등 예외 처리
-      console.error('Login error:', err);
+      console.error('로그인 예외:', err);
       setError('로그인 중 오류가 발생했습니다. 네트워크 연결을 확인해주세요.');
     } finally {
       setIsLoading(false);

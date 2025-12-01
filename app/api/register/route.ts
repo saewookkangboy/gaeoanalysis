@@ -3,6 +3,7 @@ import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { createUser } from '@/lib/db-helpers';
 import { createErrorResponse, createSuccessResponse, withErrorHandling, sanitizeUrl } from '@/lib/api-utils';
+import { addSecurityHeaders, handleCorsPreflight } from '@/lib/headers';
 import { z } from 'zod';
 
 // 입력 스키마 정의
@@ -20,7 +21,19 @@ const registerSchema = z.object({
 });
 
 async function handleRegister(request: NextRequest) {
-  const body = await request.json();
+  let body;
+  try {
+    body = await request.json();
+  } catch (error) {
+    console.error('회원가입 요청 파싱 오류:', error);
+    return createErrorResponse(
+      'INVALID_REQUEST',
+      '요청 본문을 파싱할 수 없습니다. JSON 형식을 확인해주세요.',
+      400
+    );
+  }
+  
+  console.log('회원가입 요청 받음:', { email: body?.email, hasPassword: !!body?.password });
   
   // 스키마 검증
   let validatedData;
@@ -28,11 +41,13 @@ async function handleRegister(request: NextRequest) {
     validatedData = registerSchema.parse(body);
   } catch (error: any) {
     if (error instanceof z.ZodError) {
+      console.error('회원가입 검증 오류:', error.issues);
       const firstError = error.issues[0];
       return createErrorResponse(
         'VALIDATION_ERROR',
         firstError.message || '입력값 검증에 실패했습니다.',
-        400
+        400,
+        { issues: error.issues }
       );
     }
     throw error;
@@ -91,6 +106,12 @@ async function handleRegister(request: NextRequest) {
     });
   } catch (error: any) {
     // Firebase 에러 처리
+    console.error('회원가입 Firebase 에러:', {
+      code: error.code,
+      message: error.message,
+      email,
+    });
+    
     let errorMessage = '회원가입 중 오류가 발생했습니다.';
     let errorCode = 'REGISTRATION_ERROR';
 
@@ -106,13 +127,30 @@ async function handleRegister(request: NextRequest) {
     } else if (error.code === 'auth/operation-not-allowed') {
       errorMessage = '이메일/비밀번호 로그인이 활성화되지 않았습니다.';
       errorCode = 'OPERATION_NOT_ALLOWED';
+    } else if (error.code === 'auth/network-request-failed') {
+      errorMessage = '네트워크 오류가 발생했습니다. 인터넷 연결을 확인해주세요.';
+      errorCode = 'NETWORK_ERROR';
+    } else if (error.code === 'auth/internal-error') {
+      errorMessage = 'Firebase 내부 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
+      errorCode = 'FIREBASE_INTERNAL_ERROR';
     }
 
-    return createErrorResponse(errorCode, errorMessage, 400);
+    return createErrorResponse(errorCode, errorMessage, 400, {
+      firebaseErrorCode: error.code,
+    });
   }
 }
 
+async function handleRegisterWithSecurity(request: NextRequest) {
+  const response = await withErrorHandling(handleRegister, '회원가입 중 오류가 발생했습니다.')(request);
+  return addSecurityHeaders(request, response);
+}
+
 export async function POST(request: NextRequest) {
-  return withErrorHandling(handleRegister, '회원가입 중 오류가 발생했습니다.')(request);
+  return handleRegisterWithSecurity(request);
+}
+
+export async function OPTIONS(request: NextRequest) {
+  return handleCorsPreflight(request) || new NextResponse(null, { status: 200 });
 }
 
