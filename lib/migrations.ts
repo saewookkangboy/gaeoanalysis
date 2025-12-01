@@ -39,8 +39,10 @@ const migrations: Migration[] = [
       const columnNames = tableInfo.map(col => col.name);
 
       if (!columnNames.includes('updated_at')) {
+        // SQLite는 CURRENT_TIMESTAMP를 기본값으로 사용할 수 없으므로
+        // 먼저 컬럼을 추가하고 값을 업데이트
         db.exec(`
-          ALTER TABLE users ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP;
+          ALTER TABLE users ADD COLUMN updated_at DATETIME;
           UPDATE users SET updated_at = created_at WHERE updated_at IS NULL;
         `);
       }

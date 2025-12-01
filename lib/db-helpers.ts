@@ -146,7 +146,15 @@ export function saveOrUpdateChatConversation(data: {
  * 사용자 정보 조회
  */
 export function getUser(userId: string) {
-  const stmt = db.prepare('SELECT id, email, blog_url, created_at, updated_at FROM users WHERE id = ?');
+  // updated_at 컬럼 존재 여부 확인
+  const tableInfo = db.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
+  const hasUpdatedAt = tableInfo.some(col => col.name === 'updated_at');
+  
+  const columns = hasUpdatedAt 
+    ? 'id, email, blog_url, created_at, updated_at'
+    : 'id, email, blog_url, created_at';
+  
+  const stmt = db.prepare(`SELECT ${columns} FROM users WHERE id = ?`);
   const row = stmt.get(userId) as any;
   
   if (!row) return null;
@@ -156,7 +164,7 @@ export function getUser(userId: string) {
     email: row.email,
     blogUrl: row.blog_url,
     createdAt: row.created_at,
-    updatedAt: row.updated_at,
+    updatedAt: hasUpdatedAt ? row.updated_at : row.created_at, // updated_at이 없으면 created_at 사용
   };
 }
 
@@ -174,9 +182,18 @@ export function createUser(data: { id: string; email: string; blogUrl?: string |
 /**
  * 사용자 블로그 URL 업데이트
  */
-export function updateUserBlogUrl(userId: string, blogUrl: string) {
-  const stmt = db.prepare('UPDATE users SET blog_url = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
-  stmt.run(blogUrl, userId);
+export function updateUserBlogUrl(userId: string, blogUrl: string | null) {
+  // updated_at 컬럼 존재 여부 확인
+  const tableInfo = db.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
+  const hasUpdatedAt = tableInfo.some(col => col.name === 'updated_at');
+  
+  if (hasUpdatedAt) {
+    const stmt = db.prepare('UPDATE users SET blog_url = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
+    stmt.run(blogUrl, userId);
+  } else {
+    const stmt = db.prepare('UPDATE users SET blog_url = ? WHERE id = ?');
+    stmt.run(blogUrl, userId);
+  }
 }
 
 /**
