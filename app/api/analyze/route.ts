@@ -96,30 +96,39 @@ async function handleAnalyze(request: NextRequest) {
   return createSuccessResponse(response);
 }
 
-// 에러 핸들링 및 보안 헤더를 포함한 핸들러
-const wrappedHandler = async (request: NextRequest): Promise<NextResponse> => {
-  const response = await withErrorHandling(handleAnalyze, '분석 중 오류가 발생했습니다.')(request);
+// 에러 핸들링 적용된 핸들러
+const errorHandledHandler = withErrorHandling(handleAnalyze, '분석 중 오류가 발생했습니다.');
+
+// 보안 헤더를 추가하는 래퍼 함수
+async function addSecurityHeadersToResponse(
+  request: NextRequest,
+  handler: (request: NextRequest) => Promise<NextResponse>
+): Promise<NextResponse> {
+  const response = await handler(request);
   return addSecurityHeaders(request, response);
-};
+}
 
 // 레이트 리미트 적용된 핸들러
 const rateLimitedHandler = withRateLimit(
   10, // 1분에 10회
   60 * 1000, // 1분
   getRateLimitKey
-)(wrappedHandler);
+)(async (request: NextRequest) => {
+  return addSecurityHeadersToResponse(request, errorHandledHandler);
+});
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
-  // Vercel 배포 환경 디버깅
-  if (process.env.VERCEL) {
-    console.log('[Vercel] POST 요청 받음:', {
-      method: request.method,
-      url: request.url,
-      pathname: request.nextUrl.pathname,
-    });
+  try {
+    return await rateLimitedHandler(request);
+  } catch (error) {
+    console.error('[Analyze API] Fatal error:', error);
+    const errorResponse = createErrorResponse(
+      'INTERNAL_ERROR',
+      '분석 중 오류가 발생했습니다.',
+      500
+    );
+    return addSecurityHeaders(request, errorResponse);
   }
-  
-  return rateLimitedHandler(request);
 }
 
 // GET 메서드도 추가 (405 에러 방지)
