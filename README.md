@@ -16,7 +16,7 @@
 - **반응형 디자인**: 모바일, 태블릿, 데스크톱 완벽 지원
 - **토스트 알림 시스템**: 성공/에러/경고/정보 메시지 자동 표시
 - **개인화**: 회원가입/로그인 기반으로 사용자 블로그 URL을 연동하여 자동 분석 환경 구축
-- **소셜 로그인**: Google, GitHub, 카카오 계정으로 간편 로그인 지원
+- **소셜 로그인**: Google, GitHub 계정으로 간편 로그인 지원
 - **분석 이력**: 최근 분석 기록을 최대 10개까지 조회 가능 (중복 분석 자동 감지)
 - **원클릭 복사**: 분석 결과를 Markdown 형식으로 클립보드에 복사
 
@@ -85,16 +85,11 @@ GOOGLE_CLIENT_SECRET=your-google-client-secret
 # GitHub OAuth
 GITHUB_CLIENT_ID=your-github-client-id
 GITHUB_CLIENT_SECRET=your-github-client-secret
-
-# 카카오 OAuth
-KAKAO_CLIENT_ID=your-kakao-rest-api-key
-KAKAO_CLIENT_SECRET=your-kakao-client-secret
 ```
 
 **OAuth 설정 가이드:**
 - [Google OAuth 설정](./GOOGLE_OAUTH_FIX.md)
 - [GitHub OAuth 설정](./GITHUB_OAUTH_FIX.md)
-- [카카오 OAuth 설정](./KAKAO_OAUTH_SETUP.md)
 
 ### 4. 개발 서버 실행
 
@@ -329,7 +324,6 @@ ChatGPT, Perplexity, Gemini, Claude 각 AI 모델의 특성을 반영하여 콘�
 - [Firebase 설정](./FIREBASE_SETUP.md) - Firebase 프로젝트 설정 방법
 - [Google OAuth 설정](./GOOGLE_OAUTH_FIX.md) - Google 로그인 설정 및 문제 해결
 - [GitHub OAuth 설정](./GITHUB_OAUTH_FIX.md) - GitHub 로그인 설정 및 문제 해결
-- [카카오 OAuth 설정](./KAKAO_OAUTH_SETUP.md) - 카카오 로그인 설정 방법
 - [GitHub OAuth 다중 환경 설정](./GITHUB_OAUTH_MULTI_ENV.md) - 개발/프로덕션 환경별 설정
 - [GitHub OAuth 프로덕션 오류 해결](./GITHUB_OAUTH_PRODUCTION_FIX.md) - 프로덕션 환경 오류 해결
 
