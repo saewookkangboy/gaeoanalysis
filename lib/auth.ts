@@ -51,7 +51,12 @@ export const authOptions: NextAuthOptions = {
           // Firebase 에러 메시지 처리 - 구체적인 메시지를 throw하여 클라이언트에 전달
           if (error.code === 'auth/invalid-credential') {
             // auth/invalid-credential은 이메일이 없거나 비밀번호가 잘못된 경우 모두 포함
-            throw new Error('이메일 또는 비밀번호가 올바르지 않습니다. 등록되지 않은 이메일이거나 비밀번호가 틀렸습니다.');
+            // Firebase의 이메일 열거 보호 기능이 활성화되어 있으면 구체적인 에러 대신 이 에러가 반환됨
+            console.error('인증 실패 - 가능한 원인:');
+            console.error('1. 이메일이 등록되지 않았거나');
+            console.error('2. 비밀번호가 틀렸거나');
+            console.error('3. Firebase 이메일 열거 보호 기능이 활성화되어 있음');
+            throw new Error('이메일 또는 비밀번호가 올바르지 않습니다. 회원가입을 먼저 진행하시거나 비밀번호를 확인해주세요.');
           } else if (error.code === 'auth/user-not-found') {
             throw new Error('등록되지 않은 이메일입니다.');
           } else if (error.code === 'auth/wrong-password') {
