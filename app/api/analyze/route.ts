@@ -52,22 +52,22 @@ async function handleAnalyze(request: NextRequest) {
     });
   }
 
-  // 로그인된 사용자인 경우 중복 분석 확인
-  let analysisId = null;
+  // 로그인된 사용자인 경우 중복 분석 확인 (참고용, 저장은 항상 수행)
+  let existingAnalysisId = null;
   if (userId) {
     const duplicateId = checkDuplicateAnalysis(userId, sanitizedUrl, 24);
     if (duplicateId) {
-      analysisId = duplicateId;
-      // 기존 분석 결과를 DB에서 가져와서 캐시에 저장
-      // (현재는 분석을 다시 수행하지만, 향후 DB에서 조회하도록 개선 가능)
+      existingAnalysisId = duplicateId;
+      console.log('📋 중복 분석 발견 (새 기록으로 저장):', { duplicateId, url: sanitizedUrl });
     }
   }
 
   // 분석 수행
   const result = await analyzeContent(sanitizedUrl);
 
-  // 로그인된 사용자인 경우 분석 결과 저장
-  if (userId && !analysisId) {
+  // 로그인된 사용자인 경우 분석 결과 저장 (중복 여부와 관계없이 항상 저장)
+  let analysisId = null;
+  if (userId) {
     // 사용자가 DB에 존재하는지 확인하고, 없으면 생성
     let user = getUser(userId);
     if (!user && session?.user?.email) {
@@ -86,7 +86,7 @@ async function handleAnalyze(request: NextRequest) {
 
     analysisId = uuidv4();
     try {
-      saveAnalysis({
+      const savedId = saveAnalysis({
         id: analysisId,
         userId,
         url: sanitizedUrl,
@@ -97,18 +97,39 @@ async function handleAnalyze(request: NextRequest) {
         insights: result.insights,
         aioScores: result.aioAnalysis?.scores,
       });
+      console.log('✅ 분석 결과 저장 성공:', { 
+        analysisId: savedId, 
+        userId, 
+        url: sanitizedUrl,
+        scores: {
+          aeo: result.aeoScore,
+          geo: result.geoScore,
+          seo: result.seoScore,
+          overall: result.overallScore
+        }
+      });
     } catch (error: any) {
+      console.error('❌ 분석 저장 오류:', {
+        error: error.message,
+        code: error.code,
+        userId,
+        url: sanitizedUrl,
+        analysisId
+      });
+      
       // FOREIGN KEY 제약 조건 오류인 경우 사용자 생성 후 재시도
       if (error?.code === 'SQLITE_CONSTRAINT_FOREIGNKEY' && session?.user?.email) {
-        console.warn('FOREIGN KEY 제약 조건 오류, 사용자 생성 후 재시도:', error);
+        console.warn('🔄 FOREIGN KEY 제약 조건 오류, 사용자 생성 후 재시도:', error);
         try {
           createUser({
             id: userId,
             email: session.user.email,
             blogUrl: null,
           });
+          console.log('✅ 사용자 생성 완료, 분석 저장 재시도:', { userId, email: session.user.email });
+          
           // 재시도
-          saveAnalysis({
+          const savedId = saveAnalysis({
             id: analysisId,
             userId,
             url: sanitizedUrl,
@@ -119,13 +140,25 @@ async function handleAnalyze(request: NextRequest) {
             insights: result.insights,
             aioScores: result.aioAnalysis?.scores,
           });
-        } catch (retryError) {
-          console.error('분석 저장 재시도 실패:', retryError);
+          console.log('✅ 분석 저장 재시도 성공:', { analysisId: savedId, userId, url: sanitizedUrl });
+        } catch (retryError: any) {
+          console.error('❌ 분석 저장 재시도 실패:', {
+            error: retryError.message,
+            code: retryError.code,
+            userId,
+            url: sanitizedUrl,
+            analysisId
+          });
           // 저장 실패해도 분석 결과는 반환 (익명 사용자로 처리)
           analysisId = null;
         }
       } else {
-        console.error('분석 저장 오류:', error);
+        console.error('❌ 분석 저장 실패 (재시도 불가):', {
+          error: error.message,
+          code: error.code,
+          userId,
+          url: sanitizedUrl
+        });
         // 저장 실패해도 분석 결과는 반환
         analysisId = null;
       }
