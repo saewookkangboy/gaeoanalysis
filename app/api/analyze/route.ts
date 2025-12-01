@@ -96,15 +96,9 @@ async function handleAnalyze(request: NextRequest) {
   return createSuccessResponse(response);
 }
 
-// 에러 핸들링 적용된 핸들러
-const errorHandledHandler = withErrorHandling(handleAnalyze, '분석 중 오류가 발생했습니다.');
-
-// 보안 헤더를 추가하는 래퍼 함수
-async function addSecurityHeadersToResponse(
-  request: NextRequest,
-  handler: (request: NextRequest) => Promise<NextResponse>
-): Promise<NextResponse> {
-  const response = await handler(request);
+// 에러 핸들링 및 보안 헤더를 포함한 핸들러
+async function wrappedHandler(request: NextRequest): Promise<NextResponse> {
+  const response = await withErrorHandling(handleAnalyze, '분석 중 오류가 발생했습니다.')(request);
   return addSecurityHeaders(request, response);
 }
 
@@ -113,22 +107,10 @@ const rateLimitedHandler = withRateLimit(
   10, // 1분에 10회
   60 * 1000, // 1분
   getRateLimitKey
-)(async (request: NextRequest) => {
-  return addSecurityHeadersToResponse(request, errorHandledHandler);
-});
+)(wrappedHandler);
 
-export async function POST(request: NextRequest): Promise<NextResponse> {
-  try {
-    return await rateLimitedHandler(request);
-  } catch (error) {
-    console.error('[Analyze API] Fatal error:', error);
-    const errorResponse = createErrorResponse(
-      'INTERNAL_ERROR',
-      '분석 중 오류가 발생했습니다.',
-      500
-    );
-    return addSecurityHeaders(request, errorResponse);
-  }
+export async function POST(request: NextRequest) {
+  return rateLimitedHandler(request);
 }
 
 // GET 메서드도 추가 (405 에러 방지)
