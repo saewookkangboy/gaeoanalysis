@@ -169,6 +169,32 @@ export function getUser(userId: string) {
 }
 
 /**
+ * 이메일로 사용자 정보 조회
+ */
+export function getUserByEmail(email: string) {
+  // updated_at 컬럼 존재 여부 확인
+  const tableInfo = db.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
+  const hasUpdatedAt = tableInfo.some(col => col.name === 'updated_at');
+  
+  const columns = hasUpdatedAt 
+    ? 'id, email, blog_url, created_at, updated_at'
+    : 'id, email, blog_url, created_at';
+  
+  const stmt = db.prepare(`SELECT ${columns} FROM users WHERE email = ?`);
+  const row = stmt.get(email) as any;
+  
+  if (!row) return null;
+
+  return {
+    id: row.id,
+    email: row.email,
+    blogUrl: row.blog_url,
+    createdAt: row.created_at,
+    updatedAt: hasUpdatedAt ? row.updated_at : row.created_at,
+  };
+}
+
+/**
  * 사용자 생성 (트랜잭션 사용)
  * 이미 존재하는 경우 무시하고 기존 사용자 ID 반환
  */
