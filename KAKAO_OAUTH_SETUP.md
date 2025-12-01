@@ -146,6 +146,16 @@ https://gaeoanalysis.vercel.app/api/auth/debug
 
 ### 6.2 일반적인 오류 및 해결 방법
 
+#### ⚠️ KOE101 오류 (앱 관리자 설정 오류)
+
+**가장 흔한 오류입니다!** 자세한 해결 방법은 [KAKAO_KOE101_ERROR_FIX.md](./KAKAO_KOE101_ERROR_FIX.md)를 참조하세요.
+
+**빠른 체크리스트:**
+1. Redirect URI가 정확히 일치하는지 확인
+2. REST API 키와 Client Secret에 공백이 없는지 확인
+3. 카카오 로그인이 활성화되어 있는지 확인
+4. 앱 도메인이 등록되어 있는지 확인 (프로덕션)
+
 #### 오류 1: "redirect_uri_mismatch"
 
 **원인**: 카카오 개발자 콘솔에 등록한 Redirect URI와 실제 콜백 URL이 일치하지 않음
@@ -195,7 +205,9 @@ https://gaeoanalysis.vercel.app/api/auth/debug
 
 ## 참고 문서
 
+- [KAKAO_KOE101_ERROR_FIX.md](./KAKAO_KOE101_ERROR_FIX.md) - **KOE101 오류 해결 가이드 (중요!)**
 - [카카오 개발자 문서 - 카카오 로그인](https://developers.kakao.com/docs/latest/ko/kakaologin/rest-api)
+- [카카오 개발자 문서 - 오류 코드](https://developers.kakao.com/docs/latest/ko/kakaologin/trouble-shooting)
 - [NextAuth.js 공식 문서](https://next-auth.js.org/)
 - [GITHUB_OAUTH_SETUP.md](./GITHUB_OAUTH_SETUP.md) - GitHub OAuth 설정 가이드
 - [GOOGLE_OAUTH_FIX.md](./GOOGLE_OAUTH_FIX.md) - Google OAuth 설정 가이드

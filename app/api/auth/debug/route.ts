@@ -61,10 +61,23 @@ export async function GET(request: NextRequest) {
       checks: [
         'GitHub OAuth App의 Authorization callback URL이 위의 callbackUrls.github와 정확히 일치하는지 확인',
         'GitHub OAuth App의 Client ID와 Client Secret이 환경 변수와 일치하는지 확인',
+        '카카오 OAuth App의 Redirect URI가 위의 callbackUrls.kakao와 정확히 일치하는지 확인',
+        '카카오 OAuth App의 REST API 키와 Client Secret이 환경 변수와 일치하는지 확인',
         '개발 서버를 재시작했는지 확인',
         '브라우저 캐시를 지우고 다시 시도',
-        'GitHub OAuth App 설정을 저장한 후 몇 분 기다렸다가 다시 시도',
+        'OAuth App 설정을 저장한 후 몇 분 기다렸다가 다시 시도',
       ],
+      kakaoKOE101: {
+        title: '카카오 로그인 KOE101 오류가 발생하는 경우',
+        commonCauses: [
+          'Redirect URI가 정확히 일치하지 않음 (가장 흔한 원인)',
+          'REST API 키 또는 Client Secret에 공백이 포함됨',
+          '카카오 로그인이 활성화되지 않음',
+          '앱 도메인이 등록되지 않음 (프로덕션 환경)',
+          '동의 항목이 설정되지 않음',
+        ],
+        solution: '자세한 해결 방법은 KAKAO_KOE101_ERROR_FIX.md 문서를 참조하세요',
+      },
     },
   }, {
     headers: {
