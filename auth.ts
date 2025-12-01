@@ -41,6 +41,28 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       // 또는: https://your-domain.com/api/auth/callback/github
     }),
   ],
+  // 쿠키 설정 (PKCE 코드 검증을 위해 중요)
+  cookies: {
+    pkceCodeVerifier: {
+      name: `${process.env.NODE_ENV === 'production' ? '__Secure-' : ''}authjs.pkce.code_verifier`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+      },
+    },
+    state: {
+      name: `${process.env.NODE_ENV === 'production' ? '__Secure-' : ''}authjs.state`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 900, // 15분
+      },
+    },
+  },
   pages: {
     signIn: '/login',
   },
