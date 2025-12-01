@@ -262,7 +262,8 @@ export default function AIAgent({ analysisData, aioAnalysis }: AIAgentProps) {
         };
         setMessages((prev) => [...prev, assistantMessage]);
         
-        // 응답 후 새로운 추천 질문 생성
+        // 응답 후 새로운 추천 질문 생성 (기존 질문 초기화 후 재생성)
+        setQuickQuestions([]);
         setTimeout(() => {
           generateSuggestions();
         }, 500);
