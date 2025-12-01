@@ -4,7 +4,7 @@ import { useState, useEffect, lazy, Suspense } from 'react';
 import { useSession } from 'next-auth/react';
 import { AnalysisResult } from '@/lib/analyzer';
 import ScoreCard from '@/components/ScoreCard';
-import ScoreChart from '@/components/ScoreChart';
+// import ScoreChart from '@/components/ScoreChart'; // 숨김 처리
 import InsightList from '@/components/InsightList';
 import CopyButton from '@/components/CopyButton';
 import AIOCitationCards from '@/components/AIOCitationCards';
