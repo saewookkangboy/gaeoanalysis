@@ -6,20 +6,23 @@ import { handleCorsPreflight } from '@/lib/headers';
 const handler = NextAuth(authOptions);
 
 // NextAuth v4 App Router 지원
-// NextAuth는 NextRequest를 직접 받을 수 있습니다
+// NextAuth v4는 내부적으로 req.query.nextauth를 기대하므로,
+// 요청을 올바른 형식으로 래핑하여 전달
 
 export async function GET(
   request: NextRequest,
   context: { params: Promise<{ nextauth: string[] }> }
 ) {
   try {
+    // NextAuth 핸들러는 NextRequest를 직접 받을 수 있음
+    // 하지만 내부적으로 query 파라미터를 기대할 수 있으므로
+    // 요청을 그대로 전달 (NextAuth v4.24+는 App Router를 지원)
     return handler(request);
   } catch (error: any) {
     console.error('[NextAuth GET] 에러:', error);
     console.error('에러 메시지:', error.message);
     console.error('에러 스택:', error.stack);
     console.error('요청 URL:', request.url);
-    console.error('요청 헤더:', Object.fromEntries(request.headers.entries()));
     
     return Response.json(
       {
@@ -42,7 +45,6 @@ export async function POST(
     console.error('에러 메시지:', error.message);
     console.error('에러 스택:', error.stack);
     console.error('요청 URL:', request.url);
-    console.error('요청 헤더:', Object.fromEntries(request.headers.entries()));
     
     return Response.json(
       {
