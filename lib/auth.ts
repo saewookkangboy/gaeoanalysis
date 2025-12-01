@@ -5,6 +5,11 @@ import { auth } from '@/lib/firebase';
 
 export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
+  // NEXTAUTH_SECRET이 없으면 경고
+  ...(process.env.NEXTAUTH_SECRET ? {} : {
+    // 개발 환경에서만 경고
+    ...(process.env.NODE_ENV === 'development' && console.warn('⚠️ NEXTAUTH_SECRET이 설정되지 않았습니다.')),
+  }),
   providers: [
     CredentialsProvider({
       name: 'Credentials',
@@ -18,14 +23,24 @@ export const authOptions: NextAuthOptions = {
         }
 
         try {
-          if (!auth) {
-            console.error('Firebase auth가 초기화되지 않았습니다.');
-            console.error('환경 변수 확인:', {
-              hasApiKey: !!process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-              hasAuthDomain: !!process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-              hasProjectId: !!process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-            });
-            throw new Error('Firebase가 초기화되지 않았습니다. 환경 변수를 확인해주세요.');
+          // Firebase auth가 없으면 동적으로 초기화 시도
+          let firebaseAuth = auth;
+          if (!firebaseAuth) {
+            // 동적 import로 Firebase 재초기화 시도
+            const { auth: dynamicAuth } = await import('@/lib/firebase');
+            firebaseAuth = dynamicAuth;
+            
+            if (!firebaseAuth) {
+              console.error('Firebase auth가 초기화되지 않았습니다.');
+              console.error('환경 변수 확인:', {
+                hasApiKey: !!process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+                hasAuthDomain: !!process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+                hasProjectId: !!process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+                nodeEnv: process.env.NODE_ENV,
+                vercel: process.env.VERCEL,
+              });
+              throw new Error('Firebase가 초기화되지 않았습니다. 환경 변수를 확인해주세요.');
+            }
           }
           
           // 이메일 정규화 (소문자 변환)
@@ -34,7 +49,7 @@ export const authOptions: NextAuthOptions = {
           console.log('로그인 시도:', { email: normalizedEmail });
           
           const userCredential = await signInWithEmailAndPassword(
-            auth,
+            firebaseAuth,
             normalizedEmail,
             credentials.password
           );
