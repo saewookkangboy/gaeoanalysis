@@ -79,44 +79,71 @@ export default function Home() {
     const loadBlogUrlAndAnalyze = async () => {
       if (session?.user?.id && !url) {
         try {
-          const response = await fetch('/api/user/blog-url');
-          if (response.ok) {
-            const data = await response.json();
-            if (data.blogUrl) {
-              setUrl(data.blogUrl);
-              // 자동 분석 시작
-              setIsAnalyzing(true);
-              setError(null);
-              setAnalysisData(null);
+          const response = await fetch('/api/user/blog-url', {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          });
 
-              try {
-                const analyzeResponse = await fetch('/api/analyze', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ url: data.blogUrl.trim() }),
-                });
+          if (!response.ok) {
+            // 404나 다른 에러는 무시 (블로그 URL이 등록되지 않은 경우)
+            if (response.status === 404) {
+              console.log('등록된 블로그 URL이 없습니다.');
+              return;
+            }
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
 
-                const analyzeData = await analyzeResponse.json();
+          const data = await response.json();
+          if (data.blogUrl) {
+            setUrl(data.blogUrl);
+            // 자동 분석 시작
+            setIsAnalyzing(true);
+            setError(null);
+            setAnalysisData(null);
 
-                if (analyzeResponse.ok) {
-                  setAnalysisData(analyzeData);
-                  showToast('분석이 완료되었습니다!', 'success');
-                } else {
-                  const errorMsg = analyzeData.error || '분석 중 오류가 발생했습니다.';
-                  setError(errorMsg);
-                  showToast(errorMsg, 'error');
-                }
-              } catch (err) {
-                const errorMsg = '분석 중 오류가 발생했습니다.';
+            try {
+              const analyzeResponse = await fetch('/api/analyze', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: data.blogUrl.trim() }),
+              });
+
+              if (!analyzeResponse.ok) {
+                const errorData = await analyzeResponse.json().catch(() => ({ error: '분석 중 오류가 발생했습니다.' }));
+                const errorMsg = errorData.error?.message || errorData.error || '분석 중 오류가 발생했습니다.';
                 setError(errorMsg);
                 showToast(errorMsg, 'error');
-              } finally {
-                setIsAnalyzing(false);
+                return;
               }
+
+              const analyzeData = await analyzeResponse.json();
+              setAnalysisData(analyzeData);
+              showToast('분석이 완료되었습니다!', 'success');
+            } catch (err) {
+              const error = err instanceof Error ? err : new Error(String(err));
+              let errorMsg = '분석 중 오류가 발생했습니다.';
+              
+              if (error.message.includes('fetch failed') || error.message.includes('network')) {
+                errorMsg = '네트워크 연결에 실패했습니다. 인터넷 연결을 확인해주세요.';
+              }
+              
+              setError(errorMsg);
+              showToast(errorMsg, 'error');
+            } finally {
+              setIsAnalyzing(false);
             }
           }
         } catch (error) {
-          console.error('블로그 URL 로드 실패:', error);
+          // 네트워크 오류나 기타 오류는 조용히 무시 (사용자 경험을 위해)
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          if (errorMessage.includes('fetch failed') || errorMessage.includes('network')) {
+            console.warn('블로그 URL 로드 실패 (네트워크 오류):', errorMessage);
+          } else {
+            console.error('블로그 URL 로드 실패:', error);
+          }
+          // 에러를 표시하지 않음 (블로그 URL이 없을 수도 있으므로)
         }
       }
     };
