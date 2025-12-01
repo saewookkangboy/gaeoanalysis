@@ -4,6 +4,7 @@ import "./globals.css";
 import { SessionProvider } from "@/components/SessionProvider";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { ToastProvider } from "@/components/Toast";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Navigation from "@/components/Navigation";
 
 const ibmPlexSansKR = IBM_Plex_Sans_KR({
@@ -42,14 +43,16 @@ export default function RootLayout({
       <body
         className={`${ibmPlexSansKR.variable} ${notoSansKR.variable} ${ibmPlexSans.variable} antialiased bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100`}
       >
-        <ThemeProvider>
-          <ToastProvider>
-            <SessionProvider>
-              <Navigation />
-              {children}
-            </SessionProvider>
-          </ToastProvider>
-        </ThemeProvider>
+        <ErrorBoundary>
+          <ThemeProvider>
+            <ToastProvider>
+              <SessionProvider>
+                <Navigation />
+                {children}
+              </SessionProvider>
+            </ToastProvider>
+          </ThemeProvider>
+        </ErrorBoundary>
       </body>
     </html>
   );
