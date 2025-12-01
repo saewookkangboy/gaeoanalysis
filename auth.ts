@@ -1,8 +1,13 @@
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import GitHub from "next-auth/providers/github";
-import type { OAuthConfig, OAuthUserConfig } from "next-auth/providers/oauth";
 import { createUser, getUser } from "@/lib/db-helpers";
+
+// 카카오 OAuth 제공자 타입 정의
+type KakaoProviderOptions = {
+  clientId: string;
+  clientSecret: string;
+};
 
 // AUTH_SECRET 확인 (필수)
 const authSecret = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET;
@@ -33,11 +38,11 @@ if (process.env.NODE_ENV === 'development' && authUrl) {
 }
 
 // 카카오 OAuth 제공자 설정
-function Kakao(options: OAuthUserConfig<any>): OAuthConfig<any> {
+function Kakao(options: KakaoProviderOptions) {
   return {
     id: "kakao",
     name: "Kakao",
-    type: "oauth",
+    type: "oauth" as const,
     authorization: {
       url: "https://kauth.kakao.com/oauth/authorize",
       params: {
@@ -47,7 +52,7 @@ function Kakao(options: OAuthUserConfig<any>): OAuthConfig<any> {
     },
     token: "https://kauth.kakao.com/oauth/token",
     userinfo: "https://kapi.kakao.com/v2/user/me",
-    profile(profile) {
+    profile(profile: any) {
       return {
         id: profile.id.toString(),
         name: profile.kakao_account?.profile?.nickname || profile.kakao_account?.email || "카카오 사용자",
@@ -61,7 +66,8 @@ function Kakao(options: OAuthUserConfig<any>): OAuthConfig<any> {
       bg: "#FEE500",
       text: "#000000",
     },
-    ...options,
+    clientId: options.clientId,
+    clientSecret: options.clientSecret,
   };
 }
 
