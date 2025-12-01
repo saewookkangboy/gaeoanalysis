@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { analyzeContent } from '@/lib/analyzer';
-import { saveAnalysis, checkDuplicateAnalysis } from '@/lib/db-helpers';
+import { saveAnalysis, checkDuplicateAnalysis, getUser, createUser } from '@/lib/db-helpers';
 import { createErrorResponse, createSuccessResponse, withErrorHandling, sanitizeUrl } from '@/lib/api-utils';
 import { withRateLimit } from '@/lib/rate-limiter';
 import { cache, createCacheKey } from '@/lib/cache';
@@ -68,18 +68,68 @@ async function handleAnalyze(request: NextRequest) {
 
   // 로그인된 사용자인 경우 분석 결과 저장
   if (userId && !analysisId) {
+    // 사용자가 DB에 존재하는지 확인하고, 없으면 생성
+    let user = getUser(userId);
+    if (!user && session?.user?.email) {
+      try {
+        createUser({
+          id: userId,
+          email: session.user.email,
+          blogUrl: null,
+        });
+        console.log('분석 중 사용자 자동 생성:', { id: userId, email: session.user.email });
+      } catch (error) {
+        console.error('사용자 생성 오류:', error);
+        // 사용자 생성 실패해도 분석은 계속 진행 (익명 사용자로 처리)
+      }
+    }
+
     analysisId = uuidv4();
-    saveAnalysis({
-      id: analysisId,
-      userId,
-      url: sanitizedUrl,
-      aeoScore: result.aeoScore,
-      geoScore: result.geoScore,
-      seoScore: result.seoScore,
-      overallScore: result.overallScore,
-      insights: result.insights,
-      aioScores: result.aioAnalysis?.scores,
-    });
+    try {
+      saveAnalysis({
+        id: analysisId,
+        userId,
+        url: sanitizedUrl,
+        aeoScore: result.aeoScore,
+        geoScore: result.geoScore,
+        seoScore: result.seoScore,
+        overallScore: result.overallScore,
+        insights: result.insights,
+        aioScores: result.aioAnalysis?.scores,
+      });
+    } catch (error: any) {
+      // FOREIGN KEY 제약 조건 오류인 경우 사용자 생성 후 재시도
+      if (error?.code === 'SQLITE_CONSTRAINT_FOREIGNKEY' && session?.user?.email) {
+        console.warn('FOREIGN KEY 제약 조건 오류, 사용자 생성 후 재시도:', error);
+        try {
+          createUser({
+            id: userId,
+            email: session.user.email,
+            blogUrl: null,
+          });
+          // 재시도
+          saveAnalysis({
+            id: analysisId,
+            userId,
+            url: sanitizedUrl,
+            aeoScore: result.aeoScore,
+            geoScore: result.geoScore,
+            seoScore: result.seoScore,
+            overallScore: result.overallScore,
+            insights: result.insights,
+            aioScores: result.aioAnalysis?.scores,
+          });
+        } catch (retryError) {
+          console.error('분석 저장 재시도 실패:', retryError);
+          // 저장 실패해도 분석 결과는 반환 (익명 사용자로 처리)
+          analysisId = null;
+        }
+      } else {
+        console.error('분석 저장 오류:', error);
+        // 저장 실패해도 분석 결과는 반환
+        analysisId = null;
+      }
+    }
   }
 
   const response = {
