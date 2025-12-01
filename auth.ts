@@ -81,7 +81,7 @@ function Kakao(options: KakaoProviderOptions) {
     clientId: options.clientId,
     clientSecret: options.clientSecret,
     // 카카오는 PKCE를 지원하지 않으므로 state만 사용
-    checks: ["state"] as const,
+    checks: ["state"] as ("state" | "pkce" | "none")[],
   };
 }
 
