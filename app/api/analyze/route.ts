@@ -72,12 +72,22 @@ async function handleAnalyze(request: NextRequest) {
     let user = getUser(userId);
     if (!user && session?.user?.email) {
       try {
+        // provider 정보 추출 (account 정보가 없으면 null)
+        const provider = (session as any).account?.provider || null;
+        
         createUser({
           id: userId,
           email: session.user.email,
           blogUrl: null,
+          name: session.user.name || undefined,
+          image: session.user.image || undefined,
+          provider: provider,
         });
-        console.log('분석 중 사용자 자동 생성:', { id: userId, email: session.user.email });
+        console.log('분석 중 사용자 자동 생성:', { 
+          id: userId, 
+          email: session.user.email,
+          provider: provider
+        });
       } catch (error) {
         console.error('사용자 생성 오류:', error);
         // 사용자 생성 실패해도 분석은 계속 진행 (익명 사용자로 처리)

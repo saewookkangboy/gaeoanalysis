@@ -1,7 +1,8 @@
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import GitHub from "next-auth/providers/github";
-import { createUser, getUser } from "@/lib/db-helpers";
+import { createUser, getUser, saveAuthLog } from "@/lib/db-helpers";
+import { v4 as uuidv4 } from "uuid";
 
 // AUTH_SECRET 확인 (필수)
 const authSecret = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET;
@@ -107,25 +108,61 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       }
 
       // OAuth 로그인 시 사용자 정보를 DB에 저장
-      if (user?.email && user?.id) {
+      if (user?.email && user?.id && account?.provider) {
         try {
           // 기존 사용자 확인
           const existingUser = getUser(user.id);
+          const isNewUser = !existingUser;
           
-          // 새 사용자인 경우 DB에 저장
-          if (!existingUser) {
-            createUser({
-              id: user.id,
-              email: user.email,
-              blogUrl: null,
-            });
-            console.log('새 사용자 생성:', { id: user.id, email: user.email, provider: account?.provider });
+          // 사용자 생성 또는 업데이트
+          createUser({
+            id: user.id,
+            email: user.email,
+            blogUrl: null,
+            name: user.name || undefined,
+            image: user.image || undefined,
+            provider: account.provider,
+          });
+          
+          if (isNewUser) {
+            console.log('새 사용자 생성:', { id: user.id, email: user.email, provider: account.provider });
           } else {
-            console.log('기존 사용자 로그인:', { id: user.id, email: user.email, provider: account?.provider });
+            console.log('기존 사용자 로그인:', { id: user.id, email: user.email, provider: account.provider });
           }
+          
+          // 로그인 이력 저장 (비동기로 처리하여 로그인 속도에 영향 없도록)
+          setImmediate(() => {
+            try {
+              saveAuthLog({
+                id: uuidv4(),
+                userId: user.id,
+                provider: account.provider,
+                action: isNewUser ? 'signup' : 'login',
+                success: true,
+              });
+            } catch (error) {
+              console.error('로그인 이력 저장 오류:', error);
+            }
+          });
         } catch (error: any) {
           console.error('사용자 저장 오류:', error);
           console.error('에러 상세:', error.message);
+          
+          // 로그인 실패 이력 저장
+          setImmediate(() => {
+            try {
+              saveAuthLog({
+                id: uuidv4(),
+                userId: user.id,
+                provider: account.provider,
+                action: 'login',
+                success: false,
+                errorMessage: error.message,
+              });
+            } catch (logError) {
+              console.error('로그인 실패 이력 저장 오류:', logError);
+            }
+          });
           // 에러가 발생해도 로그인은 허용 (사용자 경험을 위해)
         }
       }
