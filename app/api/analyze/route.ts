@@ -99,34 +99,23 @@ async function handleAnalyze(request: NextRequest) {
 // 에러 핸들링 적용된 핸들러
 const errorHandledHandler = withErrorHandling(handleAnalyze, '분석 중 오류가 발생했습니다.');
 
-// 레이트 리미트 적용된 핸들러
+// 레이트 리미트 적용된 핸들러 (보안 헤더 포함)
 const rateLimitedHandler = withRateLimit(
   10, // 1분에 10회
   60 * 1000, // 1분
   getRateLimitKey
-)(errorHandledHandler);
+)(async (request: NextRequest) => {
+  const response = await errorHandledHandler(request);
+  return addSecurityHeaders(request, response);
+});
 
 export async function POST(request: NextRequest) {
-  console.log('[Analyze API] POST 요청 받음:', {
-    method: request.method,
-    url: request.url,
-    pathname: request.nextUrl.pathname,
-    headers: Object.fromEntries(request.headers.entries()),
-  });
-
-  try {
-    const response = await rateLimitedHandler(request);
-    console.log('[Analyze API] 응답 생성 완료:', response.status);
-    return addSecurityHeaders(request, response);
-  } catch (error) {
-    console.error('[Analyze API] 에러 발생:', error);
-    const errorResponse = createErrorResponse(
-      'INTERNAL_ERROR',
-      error instanceof Error ? error.message : '분석 중 오류가 발생했습니다.',
-      500
-    );
-    return addSecurityHeaders(request, errorResponse);
+  // OPTIONS 요청 처리 (CORS preflight)
+  if (request.method === 'OPTIONS') {
+    return handleCorsPreflight(request) || new NextResponse(null, { status: 200 });
   }
+  
+  return rateLimitedHandler(request);
 }
 
 // GET 메서드도 추가 (405 에러 방지)
