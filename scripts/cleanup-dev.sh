@@ -27,6 +27,17 @@ else
   echo "✅ Next.js 프로세스 없음"
 fi
 
+# postcss 및 기타 Next.js 관련 프로세스 찾기
+POSTCSS_PIDS=$(ps aux | grep -E "postcss|node.*next" | grep -v grep | awk '{print $2}')
+
+if [ -n "$POSTCSS_PIDS" ]; then
+  echo "📌 Next.js 관련 프로세스 발견: $POSTCSS_PIDS"
+  echo "$POSTCSS_PIDS" | xargs kill -9 2>/dev/null
+  echo "✅ 관련 프로세스 종료 완료"
+else
+  echo "✅ 관련 프로세스 없음"
+fi
+
 # Lock 파일 삭제
 if [ -f ".next/dev/lock" ]; then
   rm -f .next/dev/lock
