@@ -3,12 +3,13 @@ import { authOptions } from '@/lib/auth';
 import { NextRequest } from 'next/server';
 import { handleCorsPreflight } from '@/lib/headers';
 
-// NextAuth v4 App Router 지원
-// NextAuth v4.24+는 App Router를 지원하지만, 내부적으로 query 파라미터를 기대할 수 있음
-// 핸들러를 직접 export하는 방식으로 변경 (NextAuth 공식 권장 방식)
+// NextAuth v4.24+ App Router 지원
+// NextAuth v4는 내부적으로 req.query를 기대하므로, 
+// 요청을 올바른 형식으로 변환하여 전달해야 함
 
 const handler = NextAuth(authOptions);
 
+// NextAuth v4.24+에서는 handler를 직접 export하는 방식 사용
 export { handler as GET, handler as POST };
 
 export async function OPTIONS(request: NextRequest) {
