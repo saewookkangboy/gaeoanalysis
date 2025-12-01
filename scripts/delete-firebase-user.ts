@@ -94,9 +94,10 @@ async function deleteUserByEmail(email: string) {
 
   const auth = firebaseAdmin.getAuth(app);
   
+  // 이메일 정규화 (try 블록 밖에서 선언)
+  const normalizedEmail = email.toLowerCase().trim();
+  
   try {
-    // 이메일로 사용자 찾기
-    const normalizedEmail = email.toLowerCase().trim();
     console.log(`\n🔍 사용자 검색 중: ${normalizedEmail}`);
     
     const user = await auth.getUserByEmail(normalizedEmail);
