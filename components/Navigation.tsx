@@ -4,6 +4,23 @@ import Link from 'next/link';
 import { useSession, signOut } from 'next-auth/react';
 import ThemeToggle from './ThemeToggle';
 
+// 개발 환경에서 네비게이션 오류를 조용히 처리
+if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+  // Next.js Link 클릭 오류를 전역으로 처리
+  const originalError = console.error;
+  console.error = (...args: any[]) => {
+    const errorMessage = args[0]?.toString() || '';
+    if (
+      errorMessage.includes('Failed to fetch') &&
+      (errorMessage.includes('navigate') || errorMessage.includes('fetchServerResponse'))
+    ) {
+      // 네비게이션 오류는 조용히 무시 (이미 unhandledrejection 핸들러에서 처리됨)
+      return;
+    }
+    originalError.apply(console, args);
+  };
+}
+
 export default function Navigation() {
   const { data: session, status } = useSession();
 

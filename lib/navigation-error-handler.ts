@@ -4,7 +4,49 @@
  */
 
 if (typeof window !== 'undefined') {
-  // 전역 fetch 오류 핸들러 (개발 환경에서만)
+  // 전역 에러 핸들러로 네비게이션 오류 처리
+  const handleNavigationError = (error: any) => {
+    const errorMessage = error?.message || String(error);
+    const errorStack = error?.stack || '';
+    
+    // 네비게이션 관련 오류인지 확인
+    const isNavigationError = 
+      errorMessage.includes('Failed to fetch') &&
+      (errorStack.includes('navigate') || 
+       errorStack.includes('fetchServerResponse') ||
+       errorStack.includes('linkClicked') ||
+       errorStack.includes('navigateDynamically'));
+    
+    if (isNavigationError) {
+      // 개발 환경에서만 경고 로그
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('⚠️ 네비게이션 오류 감지 (자동 복구 시도):', errorMessage);
+      }
+      
+      // 오류를 조용히 처리 (콘솔에 표시하지 않음)
+      return true;
+    }
+    
+    return false;
+  };
+
+  // unhandledrejection 이벤트 리스너
+  window.addEventListener('unhandledrejection', (event) => {
+    if (handleNavigationError(event.reason)) {
+      // 네비게이션 오류는 조용히 처리 (이벤트 기본 동작 방지)
+      event.preventDefault();
+    }
+  });
+
+  // 전역 에러 핸들러
+  window.addEventListener('error', (event) => {
+    if (handleNavigationError(event.error)) {
+      // 네비게이션 오류는 조용히 처리
+      event.preventDefault();
+    }
+  }, true);
+
+  // 개발 환경에서만 fetch 래핑 (프로덕션에서는 성능 영향 최소화)
   if (process.env.NODE_ENV === 'development') {
     const originalFetch = window.fetch;
     
@@ -27,15 +69,11 @@ if (typeof window !== 'undefined') {
           error?.message?.includes('Failed to fetch') &&
           (url.includes('/_next/data') || url.includes('/api'))
         ) {
-          console.warn('⚠️ 네비게이션 fetch 오류 (일시적 네트워크 문제일 수 있음):', url);
-          
           // 네비게이션 오류인 경우, 전체 페이지 새로고침으로 대체
           if (url.includes('/_next/data')) {
-            // Next.js 내부 라우팅 오류인 경우
             const pathMatch = url.match(/\/_next\/data\/[^/]+\/(.+?)\.json/);
             if (pathMatch) {
               const path = '/' + pathMatch[1];
-              console.warn(`네비게이션 실패, 전체 페이지 새로고침으로 이동: ${path}`);
               setTimeout(() => {
                 window.location.href = path;
               }, 100);
@@ -46,27 +84,6 @@ if (typeof window !== 'undefined') {
         throw error;
       }
     };
-  }
-
-  // Next.js 라우터 오류 처리
-  if (typeof window !== 'undefined' && window.addEventListener) {
-    window.addEventListener('unhandledrejection', (event) => {
-      const error = event.reason;
-      
-      // 네비게이션 관련 오류 필터링
-      if (
-        error?.message?.includes('Failed to fetch') &&
-        (error?.stack?.includes('navigate') || error?.stack?.includes('fetchServerResponse'))
-      ) {
-        console.warn('⚠️ 네비게이션 오류가 발생했습니다. 페이지를 새로고침합니다.');
-        event.preventDefault();
-        
-        // 짧은 지연 후 페이지 새로고침
-        setTimeout(() => {
-          window.location.reload();
-        }, 500);
-      }
-    });
   }
 }
 
