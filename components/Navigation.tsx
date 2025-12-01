@@ -48,20 +48,12 @@ export default function Navigation() {
                 </button>
               </>
             ) : (
-              <>
-                <Link
-                  href="/login"
-                  className="rounded-md px-3 sm:px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                >
-                  로그인
-                </Link>
-                <Link
-                  href="/register"
-                  className="rounded-md bg-blue-600 px-3 sm:px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 transition-colors"
-                >
-                  회원가입
-                </Link>
-              </>
+              <Link
+                href="/login"
+                className="rounded-md bg-blue-600 px-3 sm:px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 transition-colors"
+              >
+                로그인
+              </Link>
             )}
           </div>
         </div>

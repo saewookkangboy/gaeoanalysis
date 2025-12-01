@@ -22,12 +22,28 @@
 2. 왼쪽 메뉴에서 **"Authentication"** (인증)을 클릭합니다.
 3. **"시작하기"** 또는 **"Get started"** 버튼을 클릭합니다.
 
-### 2.2 이메일/비밀번호 인증 활성화
+### 2.2 OAuth 제공업체 활성화
+
+**참고:** 이 프로젝트는 NextAuth.js를 사용하여 OAuth 로그인을 처리하므로, Firebase Authentication의 OAuth 설정은 선택 사항입니다. NextAuth.js가 OAuth 인증을 처리합니다.
+
+필요한 경우 Firebase에서도 OAuth를 활성화할 수 있습니다:
+
+#### Google 로그인 활성화 (선택 사항)
 1. Authentication 페이지에서 **"Sign-in method"** (로그인 방법) 탭을 클릭합니다.
-2. 제공업체 목록에서 **"이메일/비밀번호"** 또는 **"Email/Password"**를 찾습니다.
-3. **"이메일/비밀번호"**를 클릭합니다.
+2. 제공업체 목록에서 **"Google"**을 찾습니다.
+3. **"Google"**을 클릭합니다.
 4. **"사용 설정"** 또는 **"Enable"** 토글을 활성화합니다.
+5. 프로젝트 지원 이메일 선택
+6. **"저장"** 또는 **"Save"** 버튼을 클릭합니다.
+
+#### GitHub 로그인 활성화 (선택 사항)
+1. 제공업체 목록에서 **"GitHub"**를 찾습니다.
+2. **"GitHub"**를 클릭합니다.
+3. **"사용 설정"** 또는 **"Enable"** 토글을 활성화합니다.
+4. GitHub OAuth App의 Client ID와 Client Secret 입력
 5. **"저장"** 또는 **"Save"** 버튼을 클릭합니다.
+
+**중요:** NextAuth.js를 사용하는 경우, Firebase Authentication의 OAuth 설정은 필요하지 않습니다. NextAuth.js가 직접 OAuth 인증을 처리합니다.
 
 ## 3. 웹 앱 등록
 
