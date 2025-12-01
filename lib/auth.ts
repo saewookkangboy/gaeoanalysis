@@ -43,11 +43,14 @@ export const authOptions: NextAuthOptions = {
               email: user.email,
               blogUrl: null,
             });
-            console.log('새 사용자 생성:', { id: user.id, email: user.email });
+            console.log('새 사용자 생성:', { id: user.id, email: user.email, provider: account?.provider });
+          } else {
+            console.log('기존 사용자 로그인:', { id: user.id, email: user.email, provider: account?.provider });
           }
-        } catch (error) {
+        } catch (error: any) {
           console.error('사용자 저장 오류:', error);
-          // 에러가 발생해도 로그인은 허용
+          console.error('에러 상세:', error.message);
+          // 에러가 발생해도 로그인은 허용 (사용자 경험을 위해)
         }
       }
       return true;
