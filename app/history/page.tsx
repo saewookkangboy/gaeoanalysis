@@ -48,13 +48,35 @@ export default function HistoryPage() {
 
   const fetchHistories = async () => {
     try {
+      setLoading(true);
       const response = await fetch('/api/history');
-      if (response.ok) {
-        const data = await response.json();
-        setHistories(data.analyses || []);
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: '알 수 없는 오류가 발생했습니다.' }));
+        console.error('이력 조회 실패:', {
+          status: response.status,
+          error: errorData.error || '서버 오류'
+        });
+        setHistories([]);
+        return;
       }
+      
+      const data = await response.json();
+      const analyses = data.analyses || [];
+      
+      console.log('✅ 분석 이력 조회 성공:', {
+        count: analyses.length,
+        analyses: analyses.map((a: HistoryItem) => ({
+          id: a.id,
+          url: a.url,
+          createdAt: a.createdAt
+        }))
+      });
+      
+      setHistories(analyses);
     } catch (error) {
-      console.error('이력 조회 오류:', error);
+      console.error('❌ 이력 조회 오류:', error);
+      setHistories([]);
     } finally {
       setLoading(false);
     }
@@ -226,17 +248,24 @@ export default function HistoryPage() {
 
         {histories.length === 0 ? (
           <div className="rounded-lg border border-gray-200 bg-white p-12 text-center">
-            <p className="text-gray-600">저장된 분석 이력이 없습니다.</p>
+            <p className="mb-2 text-lg font-medium text-gray-900">저장된 분석 이력이 없습니다</p>
+            <p className="mb-4 text-sm text-gray-600">
+              분석을 수행하면 여기에 이력이 저장됩니다.
+            </p>
             <Link
               href="/"
-              className="mt-4 inline-block text-blue-600 hover:text-blue-700"
+              className="inline-block rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
             >
               첫 분석을 시작해보세요 →
             </Link>
           </div>
         ) : (
-          <div className="space-y-4">
-            {histories.map((history) => (
+          <>
+            <div className="mb-4 text-sm text-gray-600">
+              총 <span className="font-semibold text-gray-900">{histories.length}</span>개의 분석 이력이 있습니다.
+            </div>
+            <div className="space-y-4">
+              {histories.map((history) => (
               <div
                 key={history.id}
                 className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm transition-all hover:shadow-md"
@@ -279,8 +308,9 @@ export default function HistoryPage() {
                   </button>
                 </div>
               </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          </>
         )}
       </main>
     </div>
