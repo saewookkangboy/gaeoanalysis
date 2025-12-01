@@ -197,7 +197,7 @@ export default function Home() {
         <div className="mb-8 animate-fade-in">
           <div className="mx-auto max-w-2xl">
             <h1 className="mb-4 text-center text-3xl font-bold text-gray-900">
-              GAEO Analysis by allrounder
+              블로그 콘텐츠 최적화를 진단하세요!
             </h1>
             <p className="mb-6 text-center text-gray-600">
               URL을 입력하여 콘텐츠의 AEO, GEO, SEO 점수를 분석하세요
