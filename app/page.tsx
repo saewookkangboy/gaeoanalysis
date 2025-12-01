@@ -32,14 +32,13 @@ export default function Home() {
   const [currentStep, setCurrentStep] = useState<AnalysisStep>('idle');
   const [retryCount, setRetryCount] = useState(0);
 
-  // 로컬 스토리지에서 분석 결과 복구
+  // 새 세션 시작: 페이지 로드 시 이전 분석 결과 초기화
   useEffect(() => {
-    const saved = storage.getAnalysisResult();
-    if (saved && !analysisData) {
-      setAnalysisData(saved.data);
-      setUrl(saved.url);
-      showToast('이전 분석 결과를 불러왔습니다.', 'info', 3000);
-    }
+    // 새로고침 시 항상 새로운 세션으로 시작
+    storage.clearAnalysisResult();
+    setAnalysisData(null);
+    setUrl('');
+    setError(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -144,9 +143,10 @@ export default function Home() {
         setCurrentStep('complete');
         setAnalysisData(data);
         
-        // 로컬 스토리지에 저장
-        storage.saveAnalysisResult(data, url.trim());
+        // URL 히스토리만 저장 (분석 결과는 세션 동안만 유지)
         storage.addUrlToHistory(url.trim());
+        
+        // 로그인된 사용자의 경우 DB에 저장 (API에서 자동 처리됨)
         
         showToast('분석이 완료되었습니다!', 'success');
         setRetryCount(0);
