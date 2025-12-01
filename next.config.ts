@@ -91,7 +91,7 @@ const nextConfig: NextConfig = {
               "img-src 'self' data: https:",
               "font-src 'self' data: https://fonts.gstatic.com",
               "connect-src 'self' https://*.googleapis.com https://*.google.com https://fonts.googleapis.com https://*.vercel-insights.com https://vercel.live",
-              "frame-src 'self'",
+              "frame-src 'self' https://vercel.live https://accounts.google.com",
               "object-src 'none'",
               "base-uri 'self'",
               "form-action 'self'",

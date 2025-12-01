@@ -41,10 +41,22 @@ function LoginForm() {
     setIsLoading(provider);
     
     try {
-      await signIn(provider, {
+      const result = await signIn(provider, {
         callbackUrl: '/',
-        redirect: true,
+        redirect: false, // 수동 리디렉션으로 변경하여 에러 처리 개선
       });
+
+      if (result?.error) {
+        console.error(`${provider} 로그인 오류:`, result.error);
+        setError(`${provider === 'google' ? 'Google' : 'GitHub'} 로그인 중 오류가 발생했습니다.`);
+        setIsLoading(null);
+      } else if (result?.ok) {
+        // 로그인 성공 시 메인 페이지로 리디렉션
+        window.location.href = '/';
+      } else {
+        // 리디렉션이 필요한 경우 (OAuth 페이지로 이동)
+        // signIn이 자동으로 리디렉션하므로 여기서는 아무것도 하지 않음
+      }
     } catch (err: any) {
       console.error(`${provider} 로그인 예외:`, err);
       setError(`${provider === 'google' ? 'Google' : 'GitHub'} 로그인 중 오류가 발생했습니다.`);
