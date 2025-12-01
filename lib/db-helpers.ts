@@ -170,12 +170,50 @@ export function getUser(userId: string) {
 
 /**
  * 사용자 생성 (트랜잭션 사용)
+ * 이미 존재하는 경우 무시하고 기존 사용자 ID 반환
  */
 export function createUser(data: { id: string; email: string; blogUrl?: string | null }) {
   return dbHelpers.transaction(() => {
-    const stmt = db.prepare('INSERT INTO users (id, email, blog_url) VALUES (?, ?, ?)');
-    stmt.run(data.id, data.email, data.blogUrl || null);
-    return data.id;
+    // 먼저 사용자가 존재하는지 확인
+    const existingUser = getUser(data.id);
+    if (existingUser) {
+      console.log('사용자 이미 존재:', { id: data.id, email: data.email });
+      return data.id;
+    }
+
+    // 이메일로도 확인 (다른 ID로 이미 등록된 경우)
+    const emailStmt = db.prepare('SELECT id FROM users WHERE email = ?');
+    const emailUser = emailStmt.get(data.email) as { id: string } | undefined;
+    if (emailUser) {
+      console.log('이메일로 이미 등록된 사용자 발견:', { 
+        existingId: emailUser.id, 
+        newId: data.id, 
+        email: data.email 
+      });
+      // 기존 사용자 ID 반환 (FOREIGN KEY 제약 조건을 위해)
+      return emailUser.id;
+    }
+
+    // 새 사용자 생성
+    try {
+      const stmt = db.prepare('INSERT INTO users (id, email, blog_url) VALUES (?, ?, ?)');
+      stmt.run(data.id, data.email, data.blogUrl || null);
+      return data.id;
+    } catch (error: any) {
+      // UNIQUE 제약 조건 오류인 경우 (동시성 문제)
+      if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+        // 다시 확인
+        const retryUser = getUser(data.id);
+        if (retryUser) {
+          return data.id;
+        }
+        const retryEmailUser = emailStmt.get(data.email) as { id: string } | undefined;
+        if (retryEmailUser) {
+          return retryEmailUser.id;
+        }
+      }
+      throw error;
+    }
   });
 }
 

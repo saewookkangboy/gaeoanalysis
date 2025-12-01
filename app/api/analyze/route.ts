@@ -117,21 +117,29 @@ async function handleAnalyze(request: NextRequest) {
         analysisId
       });
       
-      // FOREIGN KEY 제약 조건 오류인 경우 사용자 생성 후 재시도
+      // FOREIGN KEY 제약 조건 오류인 경우 사용자 확인 및 생성 후 재시도
       if (error?.code === 'SQLITE_CONSTRAINT_FOREIGNKEY' && session?.user?.email) {
-        console.warn('🔄 FOREIGN KEY 제약 조건 오류, 사용자 생성 후 재시도:', error);
+        console.warn('🔄 FOREIGN KEY 제약 조건 오류, 사용자 확인 및 생성 후 재시도:', error);
         try {
-          createUser({
+          // 사용자 생성 또는 기존 사용자 ID 가져오기
+          const actualUserId = createUser({
             id: userId,
             email: session.user.email,
             blogUrl: null,
           });
-          console.log('✅ 사용자 생성 완료, 분석 저장 재시도:', { userId, email: session.user.email });
           
-          // 재시도
+          // 실제 사용자 ID가 다를 수 있으므로 확인
+          const finalUserId = actualUserId || userId;
+          console.log('✅ 사용자 확인/생성 완료, 분석 저장 재시도:', { 
+            originalUserId: userId, 
+            actualUserId: finalUserId,
+            email: session.user.email 
+          });
+          
+          // 재시도 (실제 사용자 ID 사용)
           const savedId = saveAnalysis({
             id: analysisId,
-            userId,
+            userId: finalUserId,
             url: sanitizedUrl,
             aeoScore: result.aeoScore,
             geoScore: result.geoScore,
@@ -140,7 +148,7 @@ async function handleAnalyze(request: NextRequest) {
             insights: result.insights,
             aioScores: result.aioAnalysis?.scores,
           });
-          console.log('✅ 분석 저장 재시도 성공:', { analysisId: savedId, userId, url: sanitizedUrl });
+          console.log('✅ 분석 저장 재시도 성공:', { analysisId: savedId, userId: finalUserId, url: sanitizedUrl });
         } catch (retryError: any) {
           console.error('❌ 분석 저장 재시도 실패:', {
             error: retryError.message,
