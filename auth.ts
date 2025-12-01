@@ -150,5 +150,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
   debug: process.env.NODE_ENV === 'development',
   secret: authSecret, // AUTH_SECRET 또는 NEXTAUTH_SECRET (위에서 확인됨)
+  // JWT 세션 에러 무시 (개발 환경에서 이전 쿠키로 인한 에러 방지)
+  session: {
+    strategy: 'jwt',
+    maxAge: 30 * 24 * 60 * 60, // 30일
+  },
 });
 
