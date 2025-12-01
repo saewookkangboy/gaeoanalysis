@@ -24,7 +24,14 @@ if (firebaseConfig.apiKey) {
     auth = getAuth(app);
   } catch (error) {
     console.error('Firebase 초기화 오류:', error);
+    console.error('Firebase 설정 확인:', {
+      hasApiKey: !!firebaseConfig.apiKey,
+      hasAuthDomain: !!firebaseConfig.authDomain,
+      hasProjectId: !!firebaseConfig.projectId,
+    });
   }
+} else {
+  console.warn('Firebase API Key가 설정되지 않았습니다. 환경 변수를 확인해주세요.');
 }
 
 export { app, auth };

@@ -19,12 +19,23 @@ export const authOptions: NextAuthOptions = {
 
         try {
           if (!auth) {
+            console.error('Firebase auth가 초기화되지 않았습니다.');
+            console.error('환경 변수 확인:', {
+              hasApiKey: !!process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+              hasAuthDomain: !!process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+              hasProjectId: !!process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+            });
             throw new Error('Firebase가 초기화되지 않았습니다. 환경 변수를 확인해주세요.');
           }
           
+          // 이메일 정규화 (소문자 변환)
+          const normalizedEmail = credentials.email.toLowerCase().trim();
+          
+          console.log('로그인 시도:', { email: normalizedEmail });
+          
           const userCredential = await signInWithEmailAndPassword(
             auth,
-            credentials.email,
+            normalizedEmail,
             credentials.password
           );
 
@@ -34,9 +45,14 @@ export const authOptions: NextAuthOptions = {
           };
         } catch (error: any) {
           console.error('Auth error:', error);
+          console.error('Error code:', error.code);
+          console.error('Error message:', error.message);
           
           // Firebase 에러 메시지 처리 - 구체적인 메시지를 throw하여 클라이언트에 전달
-          if (error.code === 'auth/user-not-found') {
+          if (error.code === 'auth/invalid-credential') {
+            // auth/invalid-credential은 이메일이 없거나 비밀번호가 잘못된 경우 모두 포함
+            throw new Error('이메일 또는 비밀번호가 올바르지 않습니다. 등록되지 않은 이메일이거나 비밀번호가 틀렸습니다.');
+          } else if (error.code === 'auth/user-not-found') {
             throw new Error('등록되지 않은 이메일입니다.');
           } else if (error.code === 'auth/wrong-password') {
             throw new Error('비밀번호가 올바르지 않습니다.');
@@ -46,6 +62,10 @@ export const authOptions: NextAuthOptions = {
             throw new Error('비활성화된 계정입니다.');
           } else if (error.code === 'auth/too-many-requests') {
             throw new Error('너무 많은 로그인 시도가 있었습니다. 잠시 후 다시 시도해주세요.');
+          } else if (error.code === 'auth/network-request-failed') {
+            throw new Error('네트워크 오류가 발생했습니다. 인터넷 연결을 확인해주세요.');
+          } else if (error.code === 'auth/internal-error') {
+            throw new Error('Firebase 내부 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
           } else if (error.message) {
             throw new Error(error.message);
           }

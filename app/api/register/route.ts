@@ -38,9 +38,18 @@ async function handleRegister(request: NextRequest) {
     throw error;
   }
 
-  const { email, password, blogUrl } = validatedData;
+  let { email, password, blogUrl } = validatedData;
+
+  // 이메일 정규화 (소문자 변환 및 공백 제거)
+  email = email.toLowerCase().trim();
 
   if (!auth) {
+    console.error('Firebase auth가 초기화되지 않았습니다.');
+    console.error('환경 변수 확인:', {
+      hasApiKey: !!process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+      hasAuthDomain: !!process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+      hasProjectId: !!process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+    });
     return createErrorResponse(
       'CONFIG_ERROR',
       'Firebase가 초기화되지 않았습니다. 환경 변수를 확인해주세요.',
@@ -63,6 +72,7 @@ async function handleRegister(request: NextRequest) {
   }
 
   try {
+    console.log('회원가입 시도:', { email });
     // Firebase에 사용자 생성
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const userId = userCredential.user.uid;
