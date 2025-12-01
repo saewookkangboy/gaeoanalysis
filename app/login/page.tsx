@@ -3,70 +3,52 @@
 import { useState, useEffect, Suspense } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
+  const [isLoading, setIsLoading] = useState<string | null>(null);
 
-  // 회원가입 성공 메시지 표시
+  // 에러 메시지 표시
   useEffect(() => {
-    if (searchParams?.get('registered') === 'true') {
-      setSuccessMessage('회원가입이 완료되었습니다. 로그인해주세요.');
+    if (searchParams?.get('error')) {
+      const errorParam = searchParams.get('error');
+      if (errorParam === 'OAuthSignin') {
+        setError('OAuth 로그인 초기화에 실패했습니다.');
+      } else if (errorParam === 'OAuthCallback') {
+        setError('OAuth 콜백 처리 중 오류가 발생했습니다.');
+      } else if (errorParam === 'OAuthCreateAccount') {
+        setError('계정 생성 중 오류가 발생했습니다.');
+      } else if (errorParam === 'EmailCreateAccount') {
+        setError('이메일 계정 생성 중 오류가 발생했습니다.');
+      } else if (errorParam === 'Callback') {
+        setError('콜백 처리 중 오류가 발생했습니다.');
+      } else if (errorParam === 'OAuthAccountNotLinked') {
+        setError('이 이메일은 다른 로그인 방법으로 이미 등록되어 있습니다.');
+      } else if (errorParam === 'EmailSignin') {
+        setError('이메일 로그인 중 오류가 발생했습니다.');
+      } else if (errorParam === 'CredentialsSignin') {
+        setError('로그인 정보가 올바르지 않습니다.');
+      } else {
+        setError('로그인 중 오류가 발생했습니다.');
+      }
     }
   }, [searchParams]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleOAuthSignIn = async (provider: 'google' | 'github') => {
     setError('');
-    setIsLoading(true);
-
+    setIsLoading(provider);
+    
     try {
-      console.log('로그인 시도:', { email });
-      
-      const result = await signIn('credentials', {
-        email,
-        password,
-        redirect: false,
+      await signIn(provider, {
+        callbackUrl: '/',
+        redirect: true,
       });
-
-      console.log('로그인 응답:', result);
-
-      // NextAuth 응답 처리
-      if (result?.error) {
-        // 에러 메시지 처리
-        let errorMessage = '이메일 또는 비밀번호가 올바르지 않습니다.';
-        
-        if (typeof result.error === 'string') {
-          // NextAuth가 전달한 에러 메시지 사용
-          if (result.error !== 'CredentialsSignin') {
-            errorMessage = result.error;
-          }
-        }
-        
-        console.error('로그인 에러:', { error: result.error, errorMessage });
-        setError(errorMessage);
-      } else if (result?.ok) {
-        // 로그인 성공
-        console.log('로그인 성공');
-        router.push('/');
-        router.refresh();
-      } else {
-        // 예상치 못한 응답
-        console.error('예상치 못한 로그인 응답:', result);
-        setError('로그인 중 오류가 발생했습니다.');
-      }
     } catch (err: any) {
-      // 네트워크 오류 등 예외 처리
-      console.error('로그인 예외:', err);
-      setError('로그인 중 오류가 발생했습니다. 네트워크 연결을 확인해주세요.');
-    } finally {
-      setIsLoading(false);
+      console.error(`${provider} 로그인 예외:`, err);
+      setError(`${provider === 'google' ? 'Google' : 'GitHub'} 로그인 중 오류가 발생했습니다.`);
+      setIsLoading(null);
     }
   };
 
@@ -77,64 +59,81 @@ function LoginForm() {
           <h1 className="mb-6 text-center text-2xl font-bold text-gray-900 dark:text-gray-100">
             로그인
           </h1>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label
-                htmlFor="email"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-              >
-                이메일
-              </label>
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm focus:border-blue-500 dark:focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:focus:ring-blue-400"
-                placeholder="your@email.com"
-              />
+          <p className="mb-6 text-center text-sm text-gray-600 dark:text-gray-400">
+            소셜 계정으로 간편하게 로그인하세요
+          </p>
+          
+          {error && (
+            <div className="mb-4 rounded-md bg-red-50 dark:bg-red-900/20 p-3 text-sm text-red-800 dark:text-red-200">
+              {error}
             </div>
-            <div>
-              <label
-                htmlFor="password"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-              >
-                비밀번호
-              </label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm focus:border-blue-500 dark:focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:focus:ring-blue-400"
-                placeholder="••••••••"
-              />
-            </div>
-            {successMessage && (
-              <div className="rounded-md bg-green-50 dark:bg-green-900/20 p-3 text-sm text-green-800 dark:text-green-200">
-                {successMessage}
-              </div>
-            )}
-            {error && (
-              <div className="rounded-md bg-red-50 dark:bg-red-900/20 p-3 text-sm text-red-800 dark:text-red-200">
-                {error}
-              </div>
-            )}
+          )}
+
+          <div className="space-y-3">
+            {/* Google 로그인 */}
             <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-black hover:bg-black hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              onClick={() => handleOAuthSignIn('google')}
+              disabled={isLoading !== null}
+              className="w-full flex items-center justify-center gap-3 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
             >
-              {isLoading ? '로그인 중...' : '로그인'}
+              {isLoading === 'google' ? (
+                <span className="flex items-center gap-2">
+                  <span className="animate-pulse">●</span>
+                  로그인 중...
+                </span>
+              ) : (
+                <>
+                  <svg className="h-5 w-5" viewBox="0 0 24 24">
+                    <path
+                      fill="currentColor"
+                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                    />
+                    <path
+                      fill="currentColor"
+                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                    />
+                    <path
+                      fill="currentColor"
+                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                    />
+                    <path
+                      fill="currentColor"
+                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                    />
+                  </svg>
+                  Google로 로그인
+                </>
+              )}
             </button>
-          </form>
-          <p className="mt-4 text-center text-sm text-gray-600 dark:text-gray-400">
-            계정이 없으신가요?{' '}
-            <Link href="/register" className="font-medium text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300">
-              회원가입
-            </Link>
+
+            {/* GitHub 로그인 */}
+            <button
+              onClick={() => handleOAuthSignIn('github')}
+              disabled={isLoading !== null}
+              className="w-full flex items-center justify-center gap-3 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            >
+              {isLoading === 'github' ? (
+                <span className="flex items-center gap-2">
+                  <span className="animate-pulse">●</span>
+                  로그인 중...
+                </span>
+              ) : (
+                <>
+                  <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
+                    <path
+                      fillRule="evenodd"
+                      d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                  GitHub로 로그인
+                </>
+              )}
+            </button>
+          </div>
+
+          <p className="mt-6 text-center text-xs text-gray-500 dark:text-gray-400">
+            로그인 시 서비스 이용약관 및 개인정보처리방침에 동의한 것으로 간주됩니다.
           </p>
         </div>
       </div>
