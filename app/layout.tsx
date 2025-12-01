@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Sans_KR, Noto_Sans_KR, IBM_Plex_Sans } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import { SessionProvider } from "@/components/SessionProvider";
 import { ThemeProvider } from "@/components/ThemeProvider";
@@ -54,6 +55,7 @@ export default function RootLayout({
             </ToastProvider>
           </ThemeProvider>
         </ErrorBoundary>
+        <Analytics />
       </body>
     </html>
   );
