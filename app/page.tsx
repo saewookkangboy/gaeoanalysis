@@ -302,6 +302,8 @@ export default function Home() {
               aeoScore={analysisData.aeoScore}
               geoScore={analysisData.geoScore}
               seoScore={analysisData.seoScore}
+              overallScore={analysisData.overallScore}
+              aioAnalysis={analysisData.aioAnalysis}
             />
 
             {/* 종합 점수 */}
@@ -360,7 +362,7 @@ export default function Home() {
             </svg>
             <p className="text-lg font-medium">위에 URL을 입력하고 분석을 시작하세요.</p>
             <p className="mt-2 text-sm">콘텐츠의 AEO, GEO, SEO 점수를 확인하고 개선 방안을 제시합니다.</p>
-          </div>
+        </div>
         )}
       </main>
 

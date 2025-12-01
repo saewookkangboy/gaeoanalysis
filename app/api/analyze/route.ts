@@ -104,14 +104,27 @@ const rateLimitedHandler = withRateLimit(
 )(withErrorHandling(handleAnalyze, '분석 중 오류가 발생했습니다.'));
 
 export async function POST(request: NextRequest) {
-  // OPTIONS 요청 처리 (CORS preflight)
-  const preflightResponse = handleCorsPreflight(request);
-  if (preflightResponse) {
-    return preflightResponse;
+  try {
+    const response = await rateLimitedHandler(request);
+    return addSecurityHeaders(request, response);
+  } catch (error) {
+    console.error('Analyze API error:', error);
+    const errorResponse = createErrorResponse(
+      'INTERNAL_ERROR',
+      error instanceof Error ? error.message : '분석 중 오류가 발생했습니다.',
+      500
+    );
+    return addSecurityHeaders(request, errorResponse);
   }
+}
 
-  const response = await rateLimitedHandler(request);
-  return addSecurityHeaders(request, response);
+// GET 메서드도 추가 (405 에러 방지)
+export async function GET(request: NextRequest) {
+  return createErrorResponse(
+    'METHOD_NOT_ALLOWED',
+    'GET 메서드는 지원되지 않습니다. POST 메서드를 사용해주세요.',
+    405
+  );
 }
 
 export async function OPTIONS(request: NextRequest) {

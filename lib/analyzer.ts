@@ -10,7 +10,12 @@ export interface AnalysisResult {
   overallScore: number;
   insights: Insight[];
   aioAnalysis?: AIOCitationAnalysis;
-  improvementPriorities?: Array<{ category: string; priority: number; reason: string }>;
+  improvementPriorities?: Array<{ 
+    category: string; 
+    priority: number; 
+    reason: string;
+    actionableTips?: Array<{ title: string; steps: string[]; expectedImpact: string }>;
+  }>;
   contentGuidelines?: string[];
 }
 
@@ -81,15 +86,15 @@ export async function analyzeContent(url: string): Promise<AnalysisResult> {
     // 종합 점수
     const overallScore = Math.round((aeoScore + geoScore + seoScore) / 3);
 
-    // 인사이트 생성
-    const insights = generateInsights($, aeoScore, geoScore, seoScore);
-
     // AI 모델별 인용 확률 계산
     const aioScores = calculateAIOCitationScores($, aeoScore, geoScore, seoScore);
     const aioAnalysis = generateAIOCitationAnalysis(aioScores);
 
-    // 개선 우선순위 및 콘텐츠 작성 가이드라인 생성
-    const improvementPriorities = getImprovementPriority(aeoScore, geoScore, seoScore);
+    // 인사이트 생성 (개선 우선순위에 사용)
+    const insights = generateInsights($, aeoScore, geoScore, seoScore);
+
+    // 개선 우선순위 및 콘텐츠 작성 가이드라인 생성 (insights 기반)
+    const improvementPriorities = getImprovementPriority(aeoScore, geoScore, seoScore, insights);
     const contentGuidelines = getContentWritingGuidelines(aeoScore, geoScore, seoScore);
 
     return {

@@ -30,15 +30,15 @@ export default function ContentGuidelines({ analysisData }: ContentGuidelinesPro
 
   return (
     <div className="space-y-6">
-      {/* 개선 우선순위 */}
+      {/* 개선 우선순위 - 실행 가능한 팁 */}
       {improvementPriorities && improvementPriorities.length > 0 && (
         <div className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800 p-6 shadow-sm transition-all hover:shadow-md animate-fade-in">
-          <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">🎯 개선 우선순위</h3>
-          <div className="space-y-3">
+          <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">🎯 개선 우선순위 - 실행 가능한 팁</h3>
+          <div className="space-y-4">
             {improvementPriorities.map((priority, idx) => (
               <div
                 key={idx}
-                className={`flex items-center gap-3 rounded-md border p-3 transition-all hover:scale-[1.02] ${
+                className={`rounded-lg border-2 p-4 transition-all hover:shadow-lg ${
                   priority.priority === 1
                     ? 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20'
                     : priority.priority === 2
@@ -47,21 +47,56 @@ export default function ContentGuidelines({ analysisData }: ContentGuidelinesPro
                 }`}
                 style={{ animationDelay: `${idx * 50}ms` }}
               >
-                <div
-                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full font-bold ${
-                    priority.priority === 1
-                      ? 'bg-red-500 text-white'
-                      : priority.priority === 2
-                      ? 'bg-yellow-500 text-white'
-                      : 'bg-green-500 text-white'
-                  }`}
-                >
-                  {priority.priority}
+                {/* 카테고리 헤더 */}
+                <div className="mb-3 flex items-center gap-3">
+                  <div
+                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full font-bold ${
+                      priority.priority === 1
+                        ? 'bg-red-500 text-white'
+                        : priority.priority === 2
+                        ? 'bg-yellow-500 text-white'
+                        : 'bg-green-500 text-white'
+                    }`}
+                  >
+                    {priority.priority}
+                  </div>
+                  <div className="flex-1">
+                    <div className="text-lg font-bold text-gray-900 dark:text-gray-100">{priority.category}</div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400">{priority.reason}</div>
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <div className="font-semibold text-gray-900 dark:text-gray-100">{priority.category}</div>
-                  <div className="text-sm text-gray-600 dark:text-gray-400">{priority.reason}</div>
-                </div>
+
+                {/* 실행 가능한 팁 */}
+                {priority.actionableTips && priority.actionableTips.length > 0 && (
+                  <div className="space-y-3 mt-4">
+                    {priority.actionableTips.map((tip, tipIdx) => (
+                      <div
+                        key={tipIdx}
+                        className="rounded-md bg-white dark:bg-gray-800 p-4 border border-gray-200 dark:border-gray-700"
+                      >
+                        <div className="mb-2 flex items-center gap-2">
+                          <span className="text-lg">💡</span>
+                          <h4 className="font-semibold text-gray-900 dark:text-gray-100">{tip.title}</h4>
+                        </div>
+                        <div className="mb-3">
+                          <p className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-2">
+                            📈 예상 효과: {tip.expectedImpact}
+                          </p>
+                          <ol className="space-y-2">
+                            {tip.steps.map((step, stepIdx) => (
+                              <li key={stepIdx} className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300">
+                                <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-xs font-semibold">
+                                  {stepIdx + 1}
+                                </span>
+                                <span className="flex-1">{step}</span>
+                              </li>
+                            ))}
+                          </ol>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
           </div>
