@@ -56,10 +56,10 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: "IBM Plex Sans KR", "Noto Sans KR", sans-serif;
-  --font-mono: "IBM Plex Sans", monospace;
-  --font-family-sans: "IBM Plex Sans KR", "Noto Sans KR", sans-serif;
-  --font-family-mono: "IBM Plex Sans", monospace;
+  --font-sans: var(--font-ibm-plex-sans-kr), var(--font-noto-sans-kr), sans-serif;
+  --font-mono: var(--font-ibm-plex-sans), monospace;
+  --font-family-sans: var(--font-ibm-plex-sans-kr), var(--font-noto-sans-kr), sans-serif;
+  --font-family-mono: var(--font-ibm-plex-sans), monospace;
 }
 
 /* 부드러운 전환 효과 */
@@ -287,7 +287,7 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: "IBM Plex Sans KR", "Noto Sans KR", sans-serif;
+  font-family: var(--font-ibm-plex-sans-kr), var(--font-noto-sans-kr), sans-serif;
   /* 텍스트 선택 방지 */
   -webkit-user-select: none;
   -moz-user-select: none;
