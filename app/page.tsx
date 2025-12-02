@@ -453,7 +453,7 @@ export default function Home() {
 
         {/* 빈 상태 - 개선된 디자인 */}
         {!analysisData && !isAnalyzing && (
-          <div className="mx-auto max-w-2xl py-16">
+          <div className="mx-auto max-w-2xl py-8">
             <div className="relative">
               {/* 배경 장식 */}
               <div className="absolute -top-10 -left-10 h-32 w-32 rounded-full bg-sky-100/50 blur-2xl"></div>
