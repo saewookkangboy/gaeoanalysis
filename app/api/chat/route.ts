@@ -5,6 +5,7 @@ import { createErrorResponse, createSuccessResponse, withErrorHandling } from '@
 import { withRateLimit } from '@/lib/rate-limiter';
 import { auth } from '@/auth';
 import { z } from 'zod';
+import { agentLightning } from '@/lib/agent-lightning';
 
 // Next.js API 라우트 응답 크기 제한 해제 (긴 AI 응답을 위해)
 export const maxDuration = 60; // 60초 타임아웃
@@ -74,10 +75,34 @@ async function handleChat(request: NextRequest) {
       aioAnalysis: aioAnalysis || null,
     };
 
-  const prompt = buildAIAgentPrompt(message, context);
+  // Agent Lightning: 프롬프트 생성 전 Span 발생
+  agentLightning.emitSpan({
+    type: 'prompt',
+    agentType: 'chat',
+    data: {
+      userMessage: message,
+      analysisData: analysisData ? {
+        overallScore: analysisData.overallScore,
+        aeoScore: analysisData.aeoScore,
+        geoScore: analysisData.geoScore,
+        seoScore: analysisData.seoScore,
+      } : null,
+    },
+    metadata: {
+      userId,
+      conversationLength: conversationHistory?.length || 0,
+    },
+  });
+
+  // Agent Lightning: 최적화된 프롬프트 사용 (선택적)
+  const useOptimizedPrompt = process.env.ENABLE_AGENT_LIGHTNING === 'true';
+  const prompt = useOptimizedPrompt
+    ? agentLightning.getOptimizedPrompt('chat', analysisData, aioAnalysis, context)
+    : buildAIAgentPrompt(message, context);
 
     // 스트리밍으로 전체 응답 수집
     let fullText = '';
+    const startTime = Date.now();
     
     try {
       const result = await model.generateContentStream(prompt);
@@ -113,6 +138,30 @@ async function handleChat(request: NextRequest) {
         fullText = fallbackResponse.text();
       }
     }
+
+    const responseTime = Date.now() - startTime;
+
+    // Agent Lightning: 응답 Span 발생
+    agentLightning.emitSpan({
+      type: 'response',
+      agentType: 'chat',
+      data: {
+        response: fullText,
+        responseLength: fullText.length,
+        responseTime,
+      },
+      metadata: {
+        userId,
+      },
+    });
+
+    // Agent Lightning: 응답 품질 평가 및 Reward 발생
+    const reward = agentLightning.evaluateResponse('chat', fullText, {
+      userMessage: message,
+      analysisData,
+      aioAnalysis,
+    });
+    agentLightning.emitReward(reward);
 
   return createSuccessResponse({ message: fullText });
 }

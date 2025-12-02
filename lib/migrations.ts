@@ -210,6 +210,113 @@ const migrations: Migration[] = [
       `);
     },
   },
+  {
+    version: 10,
+    name: 'create_agent_lightning_tables',
+    up: () => {
+      db.exec(`
+        -- Agent Spans 테이블
+        CREATE TABLE IF NOT EXISTS agent_spans (
+          id TEXT PRIMARY KEY,
+          type TEXT NOT NULL,
+          agent_type TEXT NOT NULL,
+          user_id TEXT,
+          analysis_id TEXT,
+          conversation_id TEXT,
+          data TEXT NOT NULL,
+          metadata TEXT,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+          FOREIGN KEY (analysis_id) REFERENCES analyses(id) ON DELETE SET NULL,
+          FOREIGN KEY (conversation_id) REFERENCES chat_conversations(id) ON DELETE SET NULL
+        );
+
+        -- Prompt Templates 테이블
+        CREATE TABLE IF NOT EXISTS prompt_templates (
+          id TEXT PRIMARY KEY,
+          agent_type TEXT NOT NULL,
+          template TEXT NOT NULL,
+          version INTEGER NOT NULL DEFAULT 1,
+          avg_score REAL DEFAULT 0.0,
+          total_uses INTEGER DEFAULT 0,
+          success_rate REAL DEFAULT 0.0,
+          variables TEXT,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          last_updated DATETIME DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(agent_type, version)
+        );
+
+        -- Agent Rewards 테이블
+        CREATE TABLE IF NOT EXISTS agent_rewards (
+          id TEXT PRIMARY KEY,
+          span_id TEXT,
+          agent_type TEXT NOT NULL,
+          score INTEGER NOT NULL CHECK(score >= 0 AND score <= 100),
+          relevance REAL NOT NULL CHECK(relevance >= 0 AND relevance <= 1),
+          accuracy REAL NOT NULL CHECK(accuracy >= 0 AND accuracy <= 1),
+          usefulness REAL NOT NULL CHECK(usefulness >= 0 AND usefulness <= 1),
+          user_satisfaction REAL CHECK(user_satisfaction IS NULL OR (user_satisfaction >= 0 AND user_satisfaction <= 1)),
+          feedback TEXT,
+          user_id TEXT,
+          analysis_id TEXT,
+          conversation_id TEXT,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (span_id) REFERENCES agent_spans(id) ON DELETE SET NULL,
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+          FOREIGN KEY (analysis_id) REFERENCES analyses(id) ON DELETE SET NULL,
+          FOREIGN KEY (conversation_id) REFERENCES chat_conversations(id) ON DELETE SET NULL
+        );
+
+        -- Learning Metrics 테이블
+        CREATE TABLE IF NOT EXISTS learning_metrics (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          agent_type TEXT NOT NULL,
+          date DATE NOT NULL,
+          total_spans INTEGER DEFAULT 0,
+          avg_reward REAL DEFAULT 0.0,
+          improvement_rate REAL DEFAULT 0.0,
+          best_prompt_version INTEGER DEFAULT 1,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(agent_type, date)
+        );
+
+        -- 인덱스 생성
+        CREATE INDEX IF NOT EXISTS idx_agent_spans_type ON agent_spans(type);
+        CREATE INDEX IF NOT EXISTS idx_agent_spans_agent_type ON agent_spans(agent_type);
+        CREATE INDEX IF NOT EXISTS idx_agent_spans_user_id ON agent_spans(user_id);
+        CREATE INDEX IF NOT EXISTS idx_agent_spans_created_at ON agent_spans(created_at);
+        CREATE INDEX IF NOT EXISTS idx_agent_spans_agent_created ON agent_spans(agent_type, created_at DESC);
+
+        CREATE INDEX IF NOT EXISTS idx_prompt_templates_agent_type ON prompt_templates(agent_type);
+        CREATE INDEX IF NOT EXISTS idx_prompt_templates_version ON prompt_templates(version);
+        CREATE INDEX IF NOT EXISTS idx_prompt_templates_agent_version ON prompt_templates(agent_type, version DESC);
+
+        CREATE INDEX IF NOT EXISTS idx_agent_rewards_agent_type ON agent_rewards(agent_type);
+        CREATE INDEX IF NOT EXISTS idx_agent_rewards_score ON agent_rewards(score DESC);
+        CREATE INDEX IF NOT EXISTS idx_agent_rewards_created_at ON agent_rewards(created_at);
+        CREATE INDEX IF NOT EXISTS idx_agent_rewards_agent_created ON agent_rewards(agent_type, created_at DESC);
+
+        CREATE INDEX IF NOT EXISTS idx_learning_metrics_agent_type ON learning_metrics(agent_type);
+        CREATE INDEX IF NOT EXISTS idx_learning_metrics_date ON learning_metrics(date);
+
+        -- 트리거 생성
+        CREATE TRIGGER IF NOT EXISTS update_prompt_templates_updated_at
+        AFTER UPDATE ON prompt_templates
+        FOR EACH ROW
+        BEGIN
+          UPDATE prompt_templates SET last_updated = CURRENT_TIMESTAMP WHERE id = NEW.id;
+        END;
+
+        CREATE TRIGGER IF NOT EXISTS update_learning_metrics_updated_at
+        AFTER UPDATE ON learning_metrics
+        FOR EACH ROW
+        BEGIN
+          UPDATE learning_metrics SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+        END;
+      `);
+    },
+  },
 ];
 
 /**
