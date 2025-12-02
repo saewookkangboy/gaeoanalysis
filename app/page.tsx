@@ -267,18 +267,20 @@ export default function Home() {
                   <span className="font-semibold text-sky-600">실전 최적화 도구</span>
                 </p>
                 <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-                  <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-                    <UrlInput
-                      value={url}
-                      onChange={setUrl}
-                      onAnalyze={() => handleAnalyze()}
-                      disabled={isAnalyzing}
-                      showHistory={true}
-                    />
+                  <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto max-w-4xl">
+                    <div className="flex-1 min-w-0">
+                      <UrlInput
+                        value={url}
+                        onChange={setUrl}
+                        onAnalyze={() => handleAnalyze()}
+                        disabled={isAnalyzing}
+                        showHistory={true}
+                      />
+                    </div>
                     <button
                       onClick={() => handleAnalyze()}
                       disabled={isAnalyzing || !url.trim()}
-                      className="group relative overflow-hidden rounded-lg bg-gradient-to-r from-sky-600 to-indigo-600 px-10 py-7 text-xl font-semibold text-white shadow-lg transition-all duration-300 hover:shadow-xl hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                      className="group relative overflow-hidden rounded-lg bg-gradient-to-r from-sky-600 to-indigo-600 px-8 py-3.5 text-base font-semibold text-white shadow-lg transition-all duration-300 hover:shadow-xl hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 whitespace-nowrap"
                       aria-label="분석 시작"
                     >
                       <span className="relative z-10 flex items-center justify-center gap-2">
@@ -289,7 +291,7 @@ export default function Home() {
                           </>
                         ) : (
                           <>
-                            <span className="text-2xl">🚀</span>
+                            <span>🚀</span>
                             분석 시작
                           </>
                         )}

@@ -74,8 +74,8 @@ export default function UrlInput({
   return (
     <div className="relative flex-1">
       <div className="relative">
-        <div className="absolute left-6 top-1/2 -translate-y-1/2 text-gray-400">
-          <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
+          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
           </svg>
         </div>
@@ -92,7 +92,7 @@ export default function UrlInput({
             isValid
               ? 'border-gray-200 focus:border-sky-500 focus:ring-4 focus:ring-sky-500/20'
               : 'border-red-300 focus:border-red-500 focus:ring-4 focus:ring-red-500/20'
-          } bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 pl-16 pr-6 py-7 text-xl font-medium shadow-sm transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed`}
+          } bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 pl-12 pr-4 py-3.5 text-xl font-medium shadow-sm transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed`}
           disabled={disabled}
           aria-label="분석할 URL 입력"
           aria-invalid={!isValid}
