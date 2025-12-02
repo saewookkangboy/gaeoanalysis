@@ -2,6 +2,7 @@ import * as cheerio from 'cheerio';
 import { calculateAIOCitationScores, generateAIOCitationAnalysis, AIOCitationAnalysis } from './ai-citation-analyzer';
 import { SEO_GUIDELINES, getImprovementPriority, getContentWritingGuidelines } from './seo-guidelines';
 import { withRetry } from './retry';
+import { FRESHNESS_OPTIMIZATION, STATISTICS_QUOTATIONS_GUIDE, CONTENT_STRUCTURE_GUIDE } from './seo-guidelines-enhanced';
 
 export interface AnalysisResult {
   aeoScore: number;
@@ -181,20 +182,24 @@ function calculateSEOScore($: cheerio.CheerioAPI): number {
 function calculateAEOScore($: cheerio.CheerioAPI): number {
   let score = 0;
   const checks: { weight: number; passed: boolean }[] = [];
-
-  // 질문 형식의 콘텐츠 (20점)
   const text = $('body').text();
-  const hasQuestions = /[?？]/.test(text) || /\b(what|how|why|when|where|who)\b/i.test(text);
+
+  // 질문 형식의 콘텐츠 (20점) - 강화
+  const hasQuestions = /[?？]/.test(text) || /\b(what|how|why|when|where|who|어떻게|왜|언제|어디서|누가)\b/i.test(text);
   checks.push({ weight: 20, passed: hasQuestions });
 
-  // FAQ 섹션 (15점)
+  // FAQ 섹션 (15점) - FAQPage 스키마 포함
   const hasFAQ = $('*:contains("FAQ"), *:contains("자주 묻는 질문"), [class*="faq"], [id*="faq"]').length > 0;
-  checks.push({ weight: 15, passed: hasFAQ });
+  const hasFAQSchema = $('script[type="application/ld+json"]').text().includes('FAQPage');
+  checks.push({ weight: 15, passed: hasFAQ || hasFAQSchema });
 
-  // 명확한 답변 구조 (20점)
+  // 명확한 답변 구조 (20점) - H2→H3→bullets 구조 강조
+  const hasH2 = $('h2').length > 0;
+  const hasH3 = $('h3').length > 0;
   const hasList = $('ul, ol').length > 0;
   const hasParagraphs = $('p').length > 3;
-  checks.push({ weight: 20, passed: hasList && hasParagraphs });
+  const hasH2H3Bullets = hasH2 && hasH3 && hasList; // H2→H3→bullets 구조 (40% more citations)
+  checks.push({ weight: 20, passed: hasH2H3Bullets || (hasList && hasParagraphs) });
 
   // 키워드 밀도 (10점)
   const wordCount = text.split(/\s+/).length;
@@ -205,13 +210,21 @@ function calculateAEOScore($: cheerio.CheerioAPI): number {
   const hasTable = $('table').length > 0;
   checks.push({ weight: 15, passed: hasDefinitionList || hasTable });
 
-  // 콘텐츠 신선도 표시 (10점)
-  const hasDate = /(202[4-9]|최근|recent|updated)/i.test(text);
-  checks.push({ weight: 10, passed: hasDate });
+  // 콘텐츠 신선도 표시 (10점) - 강화 (30일 이내 업데이트: 3.2x citations)
+  const hasDate = $('time, [datetime], [class*="date"], [class*="updated"]').length > 0;
+  const hasRecentYear = /(202[4-9]|최근|recent|updated|latest)/i.test(text);
+  const isFresh = hasDate || hasRecentYear;
+  checks.push({ weight: 10, passed: isFresh });
 
   // 전문 용어 설명 (10점)
   const hasAbbr = $('abbr, dfn').length > 0;
   checks.push({ weight: 10, passed: hasAbbr });
+
+  // 통계 및 인용 추가 (+41% statistics, +28% quotations)
+  const hasStatistics = /\d+%|\d+\.\d+%|통계|statistics|연구|study/i.test(text);
+  const hasQuotations = /["'"]|인용|quotation|citation|출처/i.test(text);
+  if (hasStatistics) score += 5; // 통계 포함 보너스
+  if (hasQuotations) score += 3; // 인용 포함 보너스
 
   checks.forEach(check => {
     if (check.passed) score += check.weight;
@@ -223,20 +236,40 @@ function calculateAEOScore($: cheerio.CheerioAPI): number {
 function calculateGEOScore($: cheerio.CheerioAPI): number {
   let score = 0;
   const checks: { weight: number; passed: boolean }[] = [];
-
-  // 콘텐츠 길이 (20점)
   const text = $('body').text();
+
+  // 콘텐츠 길이 (20점) - ChatGPT 최적화: 1500-2500 words
   const wordCount = text.split(/\s+/).length;
-  checks.push({ weight: 20, passed: wordCount >= 500 });
+  if (wordCount >= 2000) {
+    score += 20; // 최적 (2000+ words)
+  } else if (wordCount >= 1500) {
+    score += 18; // 양호 (1500-1999 words)
+  } else if (wordCount >= 1000) {
+    score += 15; // 보통 (1000-1499 words)
+  } else if (wordCount >= 500) {
+    score += 10; // 최소 (500-999 words)
+  }
 
-  // 다중 미디어 (15점)
-  const hasImages = $('img').length > 0;
-  const hasVideos = $('video, iframe[src*="youtube"], iframe[src*="vimeo"]').length > 0;
-  checks.push({ weight: 15, passed: hasImages || hasVideos });
+  // 다중 미디어 (15점) - Gemini 최적화
+  const images = $('img').length;
+  const videos = $('video, iframe[src*="youtube"], iframe[src*="vimeo"]').length;
+  if (images >= 3 || videos > 0) {
+    score += 15; // 최적
+  } else if (images >= 1) {
+    score += 10; // 양호
+  }
 
-  // 섹션 구조 (15점)
+  // 섹션 구조 (15점) - H2→H3→bullets 구조 강조
   const sections = $('section, article, [class*="section"], [class*="article"]').length;
-  checks.push({ weight: 15, passed: sections > 0 });
+  const hasH2 = $('h2').length > 0;
+  const hasH3 = $('h3').length > 0;
+  const hasBullets = $('ul, ol').length > 0;
+  const hasH2H3Bullets = hasH2 && hasH3 && hasBullets; // 40% more citations
+  if (hasH2H3Bullets) {
+    score += 15; // 최적 구조
+  } else if (sections > 0 || hasH2) {
+    score += 10; // 기본 구조
+  }
 
   // 키워드 다양성 (15점)
   const words = text.toLowerCase().split(/\s+/);
@@ -244,17 +277,42 @@ function calculateGEOScore($: cheerio.CheerioAPI): number {
   const diversity = uniqueWords.size / words.length;
   checks.push({ weight: 15, passed: diversity > 0.3 });
 
-  // 콘텐츠 업데이트 표시 (10점)
+  // 콘텐츠 업데이트 표시 (10점) - 신선도 강화 (30일 이내: 3.2x citations)
   const hasUpdateDate = $('time, [datetime], [class*="date"], [class*="updated"]').length > 0;
-  checks.push({ weight: 10, passed: hasUpdateDate });
+  const hasRecentYear = /(202[4-9]|최근|recent|updated|latest)/i.test(text);
+  if (hasUpdateDate && hasRecentYear) {
+    score += 10; // 최신 정보 명시
+  } else if (hasUpdateDate || hasRecentYear) {
+    score += 7; // 부분적 표시
+  }
 
-  // 소셜 공유 메타 (10점)
-  const hasSocialMeta = $('meta[property^="og:"], meta[name^="twitter:"]').length > 0;
-  checks.push({ weight: 10, passed: hasSocialMeta });
+  // 소셜 공유 메타 (10점) - Open Graph, Twitter Cards
+  const ogTags = $('meta[property^="og:"]').length;
+  const twitterTags = $('meta[name^="twitter:"]').length;
+  if (ogTags >= 3 && twitterTags >= 2) {
+    score += 10; // 완전한 설정
+  } else if (ogTags > 0 || twitterTags > 0) {
+    score += 6; // 부분적 설정
+  }
 
-  // 구조화된 데이터 (15점)
+  // 구조화된 데이터 (15점) - 다양한 스키마 타입
   const structuredData = $('script[type="application/ld+json"]').length;
-  checks.push({ weight: 15, passed: structuredData > 0 });
+  const structuredDataText = $('script[type="application/ld+json"]').text();
+  const hasFAQSchema = structuredDataText.includes('FAQPage');
+  const hasArticleSchema = structuredDataText.includes('"Article"') || structuredDataText.includes('"BlogPosting"');
+  const hasHowToSchema = structuredDataText.includes('HowTo');
+  if (structuredData > 0 && (hasFAQSchema || hasArticleSchema || hasHowToSchema)) {
+    score += 15; // 최적 (FAQPage는 highest citation probability)
+  } else if (structuredData > 0) {
+    score += 10; // 기본 구조화된 데이터
+  }
+
+  // 음성 검색 최적화 보너스 (Speakable schema, Featured snippet)
+  const hasSpeakable = structuredDataText.includes('Speakable');
+  const hasFeaturedSnippet = $('h2').length > 0 && text.length < 200; // 짧은 답변 형식
+  if (hasSpeakable || hasFeaturedSnippet) {
+    score += 5; // 음성 검색 최적화 보너스
+  }
 
   checks.forEach(check => {
     if (check.passed) score += check.weight;

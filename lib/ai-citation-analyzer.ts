@@ -53,10 +53,20 @@ export function calculateAIOCitationScores(
  */
 function calculateChatGPTBonus($: cheerio.CheerioAPI): number {
   let bonus = 0;
+  const structuredDataText = $('script[type="application/ld+json"]').text();
+
+  // FAQPage 스키마 (Highest AI citation probability) (12점)
+  const hasFAQSchema = structuredDataText.includes('FAQPage');
+  if (hasFAQSchema) bonus += 12;
 
   // 구조화된 데이터 (JSON-LD) 존재 여부 (10점)
   const structuredData = $('script[type="application/ld+json"]').length;
   if (structuredData > 0) bonus += 10;
+
+  // Article 스키마 with E-E-A-T signals (credentials, dates) (8점)
+  const hasArticleSchema = structuredDataText.includes('"Article"') || structuredDataText.includes('"BlogPosting"');
+  const hasAuthorCredentials = structuredDataText.includes('author') && structuredDataText.includes('credential');
+  if (hasArticleSchema && hasAuthorCredentials) bonus += 8;
 
   // FAQ 섹션 품질 (8점)
   const faqElements = $('*:contains("FAQ"), *:contains("자주 묻는 질문"), [class*="faq"], [id*="faq"]').length;
@@ -67,11 +77,25 @@ function calculateChatGPTBonus($: cheerio.CheerioAPI): number {
   const hasSteps = $('*:contains("단계"), *:contains("step")').length > 0;
   if (hasOrderedList && hasSteps) bonus += 7;
 
+  // Authority and credentials (+40% citation boost) (6점)
+  const hasAuthor = structuredDataText.includes('Person') || structuredDataText.includes('author');
+  const text = $('body').text();
+  const hasCredentials = /자격|credential|전문가|expert|박사|Ph\.D/i.test(text);
+  if (hasAuthor && hasCredentials) bonus += 6;
+
+  // Primary source citations (PubMed, arXiv) (5점)
+  const hasPrimarySources = /pubmed|arxiv|doi|\.edu|\.gov/i.test(text);
+  if (hasPrimarySources) bonus += 5;
+
   // 전문 용어 정의 (5점)
   const hasDefinitions = $('dfn, abbr[title], *[class*="definition"]').length > 0;
   if (hasDefinitions) bonus += 5;
 
-  return Math.min(30, bonus);
+  // 1500-2500 words comprehensive coverage (3점)
+  const wordCount = text.split(/\s+/).length;
+  if (wordCount >= 1500 && wordCount <= 2500) bonus += 3;
+
+  return Math.min(40, bonus); // 최대 보너스 증가 (40점)
 }
 
 /**
@@ -80,26 +104,38 @@ function calculateChatGPTBonus($: cheerio.CheerioAPI): number {
  */
 function calculatePerplexityBonus($: cheerio.CheerioAPI): number {
   let bonus = 0;
-
-  // 콘텐츠 업데이트 날짜 표시 (10점)
-  const hasDate = $('time, [datetime], [class*="date"], [class*="updated"]').length > 0;
-  if (hasDate) bonus += 10;
-
-  // 최신 정보 표시 (2024-2025) (8점)
   const text = $('body').text();
+
+  // 콘텐츠 업데이트 날짜 표시 (30일 이내: 3.2x citations) (15점)
+  const hasDate = $('time, [datetime], [class*="date"], [class*="updated"]').length > 0;
   const hasRecentYear = /(202[4-9]|최근|recent|updated|latest)/i.test(text);
-  if (hasRecentYear) bonus += 8;
+  if (hasDate && hasRecentYear) bonus += 15; // 최신 정보 명시
+  else if (hasDate || hasRecentYear) bonus += 10;
+
+  // H2→H3→bullets structure (40% more citations) (12점)
+  const hasH2 = $('h2').length > 0;
+  const hasH3 = $('h3').length > 0;
+  const hasBullets = $('ul, ol').length > 0;
+  if (hasH2 && hasH3 && hasBullets) bonus += 12;
+
+  // Inline citations with [1], [2] format (10점)
+  const hasInlineCitations = /\[\d+\]|\[1\]|\[2\]|인용|citation/i.test(text);
+  if (hasInlineCitations) bonus += 10;
 
   // 출처 링크 수 (7점)
   const externalLinks = $('a[href^="http"]').length;
   if (externalLinks >= 5) bonus += 7;
   else if (externalLinks >= 2) bonus += 4;
 
+  // Update frequency indicators (2-3 days aggressive, 90 days minimum) (5점)
+  const hasUpdateFrequency = /업데이트|update|최신|fresh/i.test(text);
+  if (hasUpdateFrequency) bonus += 5;
+
   // 검색 키워드 최적화 (5점)
   const metaKeywords = $('meta[name="keywords"]').attr('content');
   if (metaKeywords && metaKeywords.split(',').length >= 3) bonus += 5;
 
-  return Math.min(30, bonus);
+  return Math.min(40, bonus); // 최대 보너스 증가 (40점)
 }
 
 /**
@@ -108,12 +144,27 @@ function calculatePerplexityBonus($: cheerio.CheerioAPI): number {
  */
 function calculateGeminiBonus($: cheerio.CheerioAPI): number {
   let bonus = 0;
+  const structuredDataText = $('script[type="application/ld+json"]').text();
+
+  // Google Business Profile integration (12점)
+  const hasLocalBusiness = structuredDataText.includes('LocalBusiness');
+  const hasOrganization = structuredDataText.includes('Organization');
+  if (hasLocalBusiness || hasOrganization) bonus += 12;
 
   // 이미지와 비디오 포함 여부 (10점)
   const images = $('img').length;
   const videos = $('video, iframe[src*="youtube"], iframe[src*="vimeo"]').length;
   if (images >= 3 || videos > 0) bonus += 10;
   else if (images >= 1) bonus += 5;
+
+  // User reviews and testimonials (10점)
+  const text = $('body').text();
+  const hasReviews = /리뷰|review|평점|rating|추천|testimonial/i.test(text);
+  if (hasReviews) bonus += 10;
+
+  // Local citations (NAP consistency) (8점)
+  const hasNAP = /주소|address|전화|phone|telephone|위치|location/i.test(text);
+  if (hasNAP) bonus += 8;
 
   // 표와 리스트 구조 (8점)
   const tables = $('table').length;
@@ -125,12 +176,16 @@ function calculateGeminiBonus($: cheerio.CheerioAPI): number {
   const structuredData = $('script[type="application/ld+json"]').length;
   if (structuredData > 0) bonus += 7;
 
+  // Traditional authority signals (5점)
+  const hasAuthority = /전문가|expert|권위|authority|인증|certification/i.test(text);
+  if (hasAuthority) bonus += 5;
+
   // 다국어 메타데이터 (5점)
   const langAttr = $('html').attr('lang');
   const hasMultiLang = $('meta[property="og:locale:alternate"]').length > 0;
   if (langAttr || hasMultiLang) bonus += 5;
 
-  return Math.min(30, bonus);
+  return Math.min(40, bonus); // 최대 보너스 증가 (40점)
 }
 
 /**
@@ -139,13 +194,31 @@ function calculateGeminiBonus($: cheerio.CheerioAPI): number {
  */
 function calculateClaudeBonus($: cheerio.CheerioAPI): number {
   let bonus = 0;
-
-  // 콘텐츠 길이 (10점)
   const text = $('body').text();
+
+  // Primary sources only (91.2% attribution accuracy) (12점)
+  const hasPrimarySources = /pubmed|arxiv|doi|\.edu|\.gov|primary source|주요 출처/i.test(text);
+  if (hasPrimarySources) bonus += 12;
+
+  // 5-8 citations with publisher and year (10점)
+  const citations = $('*:contains("참고"), *:contains("출처"), *:contains("reference"), [class*="citation"]').length;
+  const hasPublisherYear = /\d{4}|publisher|출판사|연도/i.test(text);
+  if (citations >= 5 && hasPublisherYear) bonus += 10;
+  else if (citations >= 3) bonus += 6;
+
+  // 콘텐츠 길이 (10점) - 상세한 설명 선호
   const wordCount = text.split(/\s+/).length;
   if (wordCount >= 2000) bonus += 10;
   else if (wordCount >= 1000) bonus += 6;
   else if (wordCount >= 500) bonus += 3;
+
+  // Transparent methodology (8점)
+  const hasMethodology = /방법론|methodology|방법|process|절차/i.test(text);
+  if (hasMethodology) bonus += 8;
+
+  // Acknowledged limitations (7점)
+  const hasLimitations = /한계|limitation|제한|주의|주의사항/i.test(text);
+  if (hasLimitations) bonus += 7;
 
   // 섹션 수 (8점)
   const sections = $('section, article, [class*="section"], [class*="article"]').length;
@@ -157,11 +230,7 @@ function calculateClaudeBonus($: cheerio.CheerioAPI): number {
   if (paragraphs >= 10) bonus += 7;
   else if (paragraphs >= 5) bonus += 4;
 
-  // 참고 자료와 인용 출처 (5점)
-  const citations = $('*:contains("참고"), *:contains("출처"), *:contains("reference"), [class*="citation"]').length;
-  if (citations > 0) bonus += 5;
-
-  return Math.min(30, bonus);
+  return Math.min(40, bonus); // 최대 보너스 증가 (40점)
 }
 
 /**
@@ -205,34 +274,87 @@ function getScoreLevel(score: number): 'High' | 'Medium' | 'Low' {
 }
 
 function getChatGPTRecommendations(score: number): string[] {
-  // 모든 모델에 동일하게 2개씩 반환
+  if (score >= 80) {
+    return [
+      'FAQPage 스키마를 추가하여 AI 인용 확률을 최대화하세요 (Highest citation probability)',
+      '작성자 자격 증명을 Article 스키마에 포함하세요 (+40% citation boost)',
+    ];
+  } else if (score >= 60) {
+    return [
+      'FAQPage 스키마를 추가하여 AI 인용 확률을 높이세요',
+      '1500-2500자 포괄적인 콘텐츠로 확장하세요',
+      '주요 출처 인용 (PubMed, arXiv 등)을 추가하세요',
+    ];
+  }
   return [
-    '구조화된 데이터(JSON-LD)를 추가하여 AI가 콘텐츠를 더 잘 이해할 수 있도록 하세요',
-    'FAQ 섹션을 추가하여 사용자의 질문에 직접적으로 답변할 수 있는 콘텐츠를 제공하세요',
+    'FAQPage 스키마를 추가하여 AI 인용 확률을 최대화하세요 (Highest citation probability)',
+    '작성자 자격 증명 및 전문성을 표시하세요 (+40% citation boost)',
+    '1500-2500자 포괄적인 콘텐츠를 작성하세요',
+    '주요 출처 인용 (PubMed, arXiv 등)을 포함하세요',
   ];
 }
 
 function getPerplexityRecommendations(score: number): string[] {
-  // 모든 모델에 동일하게 2개씩 반환
+  if (score >= 80) {
+    return [
+      '30일 이내 정기적인 업데이트를 유지하세요 (3.2x citations)',
+      'H2→H3→bullets 구조를 유지하세요 (40% more citations)',
+    ];
+  } else if (score >= 60) {
+    return [
+      '콘텐츠를 30일 이내에 업데이트하세요 (3.2x citations)',
+      'H2→H3→bullets 구조로 재구성하세요 (40% more citations)',
+      '인라인 인용 형식 [1], [2]를 사용하세요',
+    ];
+  }
   return [
-    '콘텐츠 업데이트 날짜를 명시하여 최신 정보임을 명확히 하세요',
-    '출처 링크와 참고 자료를 추가하여 신뢰성을 높이세요',
+    '콘텐츠를 30일 이내에 업데이트하세요 (3.2x citations when fresh)',
+    'H2→H3→bullets 구조로 재구성하세요 (40% more citations)',
+    '인라인 인용 형식 [1], [2]를 사용하세요',
+    '업데이트 주기를 2-3일(공격적) 또는 90일(최소)로 설정하세요',
   ];
 }
 
 function getGeminiRecommendations(score: number): string[] {
-  // 모든 모델에 동일하게 2개씩 반환
+  if (score >= 80) {
+    return [
+      'Google Business Profile을 통합하세요',
+      '사용자 리뷰 및 추천을 포함하세요',
+    ];
+  } else if (score >= 60) {
+    return [
+      '이미지와 비디오를 추가하여 시각적 정보를 풍부하게 하세요',
+      '로컬 인용(NAP: Name, Address, Phone)을 일관되게 유지하세요',
+      '사용자 리뷰 및 추천을 포함하세요',
+    ];
+  }
   return [
+    'Google Business Profile을 통합하세요',
+    '로컬 인용(NAP: Name, Address, Phone)을 일관되게 유지하세요',
+    '사용자 리뷰 및 추천을 포함하세요',
     '이미지와 비디오를 추가하여 시각적 정보를 풍부하게 하세요',
     '표와 리스트를 활용하여 정보를 구조화하고 가독성을 높이세요',
   ];
 }
 
 function getClaudeRecommendations(score: number): string[] {
-  // 모든 모델에 동일하게 2개씩 반환
+  if (score >= 80) {
+    return [
+      '주요 출처만 사용하여 91.2% 정확한 출처 표시를 유지하세요',
+      '5-8개 인용에 출판사 및 연도를 포함하세요',
+    ];
+  } else if (score >= 60) {
+    return [
+      '주요 출처(Primary sources)만 사용하세요 (91.2% attribution accuracy)',
+      '5-8개 인용에 출판사 및 연도를 포함하세요',
+      '투명한 방법론을 설명하세요',
+    ];
+  }
   return [
-    '콘텐츠를 더 상세하고 포괄적으로 작성하여 깊이 있는 정보를 제공하세요',
-    '섹션을 추가하여 구조를 명확히 하고 독자가 쉽게 이해할 수 있도록 하세요',
+    '주요 출처(Primary sources)만 사용하세요 (91.2% attribution accuracy)',
+    '5-8개 인용에 출판사 및 연도를 포함하세요',
+    '투명한 방법론을 설명하고 인정된 한계점을 명시하세요',
+    '2000자 이상의 상세하고 포괄적인 콘텐츠를 작성하세요',
   ];
 }
 

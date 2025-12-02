@@ -279,6 +279,17 @@ ChatGPT, Perplexity, Gemini, Claude 각 AI 모델의 특성을 반영하여 콘�
 
 ## 최근 업데이트 (2025년 1월)
 
+### Claude Skill SEO/GEO Optimizer 가이드라인 통합 📊
+- ✅ **향상된 분석 알고리즘**: 2025년 연구 기반 (41M AI 검색 결과, 680M 인용 분석)
+- ✅ **AI 플랫폼별 최적화 전략 강화**: ChatGPT, Perplexity, Claude, Gemini, Grokipedia 특화
+- ✅ **신선도(Freshness) 최적화**: 30일 이내 업데이트 시 3.2x 인용 증가 (Perplexity)
+- ✅ **H2→H3→bullets 구조**: 40% 더 많은 인용 (Perplexity 최적화)
+- ✅ **통계 및 인용 최적화**: +41% 개선 (통계), +28% 개선 (인용)
+- ✅ **FAQPage 스키마 강조**: Highest AI citation probability
+- ✅ **음성 검색 최적화**: Featured snippet, Speakable schema 지원
+- ✅ **소셜 미디어 최적화**: Open Graph, Twitter Cards 상세 가이드
+- 📚 참고: [Claude Skill SEO/GEO Optimizer](https://github.com/199-biotechnologies/claude-skill-seo-geo-optimizer)
+
 ### Agent Lightning 통합 ⚡
 - ✅ **프롬프트 최적화 시스템**: SEO/AEO/GEO/AIO 특화 프롬프트 자동 최적화
 - ✅ **응답 품질 평가**: 관련성, 정확성, 유용성 기반 자동 평가
