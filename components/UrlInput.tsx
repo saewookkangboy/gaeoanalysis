@@ -88,11 +88,11 @@ export default function UrlInput({
           onFocus={handleFocus}
           onBlur={handleBlur}
           placeholder="https://example.com"
-          className={`w-full rounded-lg border-2 ${
+          className={`w-[400px] h-[60px] rounded-lg border-2 ${
             isValid
               ? 'border-gray-200 focus:border-sky-500 focus:ring-4 focus:ring-sky-500/20'
               : 'border-red-300 focus:border-red-500 focus:ring-4 focus:ring-red-500/20'
-          } bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 pl-12 pr-4 py-3.5 text-xl font-medium shadow-sm transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed`}
+          } bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 pl-12 pr-4 text-xl font-medium shadow-sm transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed`}
           disabled={disabled}
           aria-label="분석할 URL 입력"
           aria-invalid={!isValid}

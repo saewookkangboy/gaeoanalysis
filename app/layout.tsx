@@ -35,6 +35,9 @@ const ibmPlexSans = IBM_Plex_Sans({
 export const metadata: Metadata = {
   title: "GAEO Analysis by allrounder - AI 검색 최적화 분석 도구",
   description: "생성형 검색 환경(GEO/AEO)에 최적화된 콘텐츠 분석 및 개선 가이드를 제공합니다.",
+  other: {
+    'google-fonts': 'https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@100;200;300;400;500;600;700&family=IBM+Plex+Sans:ital,wght@0,100..700;1,100..700&family=Noto+Sans+KR:wght@100..900&display=swap',
+  },
 };
 
 export default function RootLayout({
@@ -44,6 +47,21 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko" suppressHydrationWarning>
+      <head>
+        <link
+          rel="preconnect"
+          href="https://fonts.googleapis.com"
+        />
+        <link
+          rel="preconnect"
+          href="https://fonts.gstatic.com"
+          crossOrigin="anonymous"
+        />
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@100;200;300;400;500;600;700&family=IBM+Plex+Sans:ital,wght@0,100..700;1,100..700&family=Noto+Sans+KR:wght@100..900&display=swap"
+        />
+      </head>
       <body
         className={`${ibmPlexSansKR.variable} ${notoSansKR.variable} ${ibmPlexSans.variable} antialiased bg-white text-gray-900`}
         suppressHydrationWarning
