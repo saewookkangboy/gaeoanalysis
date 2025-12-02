@@ -16,6 +16,7 @@
     "db:optimize": "npx tsx scripts/optimize-db.ts",
     "firebase:delete-user": "npx tsx scripts/delete-firebase-user.ts",
     "check:auth": "bash scripts/check-auth-secret.sh",
+    "check:env": "npx tsx scripts/check-env.ts",
     "push": "bash scripts/auto-push.sh"
   },
   "dependencies": {
