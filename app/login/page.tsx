@@ -112,7 +112,7 @@ function LoginForm() {
             <button
               onClick={() => handleOAuthSignIn('google')}
               disabled={isLoading !== null}
-              className="w-full flex items-center justify-center gap-3 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              className="group w-full flex items-center justify-center gap-3 rounded-lg border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700 px-5 py-3.5 text-sm font-semibold text-gray-900 dark:text-gray-100 shadow-sm transition-all duration-200 hover:border-sky-300 hover:bg-gradient-to-r hover:from-sky-50 hover:to-indigo-50 dark:hover:from-gray-600 dark:hover:to-gray-600 hover:shadow-md hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
             >
               {isLoading === 'google' ? (
                 <span className="flex items-center gap-2">
@@ -148,7 +148,7 @@ function LoginForm() {
             <button
               onClick={() => handleOAuthSignIn('github')}
               disabled={isLoading !== null}
-              className="w-full flex items-center justify-center gap-3 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              className="group w-full flex items-center justify-center gap-3 rounded-lg border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700 px-5 py-3.5 text-sm font-semibold text-gray-900 dark:text-gray-100 shadow-sm transition-all duration-200 hover:border-sky-300 hover:bg-gradient-to-r hover:from-sky-50 hover:to-indigo-50 dark:hover:from-gray-600 dark:hover:to-gray-600 hover:shadow-md hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
             >
               {isLoading === 'github' ? (
                 <span className="flex items-center gap-2">

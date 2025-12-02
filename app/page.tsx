@@ -452,12 +452,12 @@ export default function Home() {
           <div className="mx-auto max-w-2xl py-8">
             <div className="relative">
               {/* 배경 장식 */}
-              <div className="absolute -top-10 -left-10 h-32 w-32 rounded-full bg-sky-100/50 blur-2xl"></div>
-              <div className="absolute -bottom-10 -right-10 h-32 w-32 rounded-full bg-indigo-100/50 blur-2xl"></div>
+              <div className="absolute -top-10 -left-10 h-32 w-32 rounded-full bg-sky-100/50 blur-2xl animate-pulse-slow"></div>
+              <div className="absolute -bottom-10 -right-10 h-32 w-32 rounded-full bg-indigo-100/50 blur-2xl animate-pulse-slow" style={{ animationDelay: '1s' }}></div>
               
-              <div className="relative rounded-2xl border-2 border-dashed border-gray-300 bg-gradient-to-br from-sky-50/50 to-indigo-50/50 p-12 text-center">
+              <div className="relative rounded-2xl border-2 border-dashed border-gray-300 bg-gradient-to-br from-sky-50/50 to-indigo-50/50 p-12 text-center shadow-lg">
                 <div className="mb-6 flex justify-center">
-                  <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-sky-100 to-indigo-100 text-4xl animate-float">
+                  <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-sky-100 to-indigo-100 text-4xl animate-float shadow-md">
                     🔍
                   </div>
                 </div>
@@ -471,16 +471,16 @@ export default function Home() {
                   콘텐츠의 AEO, GEO, SEO 점수를 확인하고 개선 방안을 제시합니다
                 </p>
                 <div className="mt-8 flex flex-wrap justify-center gap-3">
-                  <div className="flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm">
-                    <span>⚡</span>
+                  <div className="group flex items-center gap-2 rounded-lg border-2 border-gray-200 bg-white px-5 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition-all duration-200 hover:border-sky-300 hover:bg-gradient-to-r hover:from-sky-50 hover:to-indigo-50 hover:shadow-md hover:scale-105">
+                    <span className="text-lg transition-transform group-hover:scale-110">⚡</span>
                     <span>30초 진단</span>
                   </div>
-                  <div className="flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm">
-                    <span>🤖</span>
+                  <div className="group flex items-center gap-2 rounded-lg border-2 border-gray-200 bg-white px-5 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition-all duration-200 hover:border-sky-300 hover:bg-gradient-to-r hover:from-sky-50 hover:to-indigo-50 hover:shadow-md hover:scale-105">
+                    <span className="text-lg transition-transform group-hover:scale-110">🤖</span>
                     <span>AI 분석</span>
                   </div>
-                  <div className="flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm">
-                    <span>📊</span>
+                  <div className="group flex items-center gap-2 rounded-lg border-2 border-gray-200 bg-white px-5 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition-all duration-200 hover:border-sky-300 hover:bg-gradient-to-r hover:from-sky-50 hover:to-indigo-50 hover:shadow-md hover:scale-105">
+                    <span className="text-lg transition-transform group-hover:scale-110">📊</span>
                     <span>종합 리포트</span>
                   </div>
                 </div>

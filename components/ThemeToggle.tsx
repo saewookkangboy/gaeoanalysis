@@ -79,11 +79,13 @@ export default function ThemeToggle() {
   return (
     <button
       onClick={toggleTheme}
-      className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
+      className="group flex items-center gap-2 rounded-lg border-2 border-transparent px-3 py-2 text-sm font-semibold transition-all duration-200 hover:border-sky-200 hover:bg-gradient-to-r hover:from-sky-50 hover:to-indigo-50 dark:hover:from-gray-800 dark:hover:to-gray-700 hover:shadow-sm"
       aria-label={`테마 전환: 현재 ${getLabel()} 모드`}
       title={`테마 전환 (${getLabel()})`}
     >
-      {getIcon()}
+      <span className="transition-transform group-hover:scale-110 group-hover:rotate-12">
+        {getIcon()}
+      </span>
       <span className="hidden sm:inline">{getLabel()}</span>
     </button>
   );

@@ -8,30 +8,56 @@ interface ProgressBarProps {
 export default function ProgressBar({ steps, currentStep }: ProgressBarProps) {
   return (
     <div className="w-full">
-      <div className="flex items-center justify-between mb-2">
+      <div className="mb-4 flex items-center justify-between">
         {steps.map((step, index) => (
           <div
             key={index}
-            className={`flex-1 text-center text-xs font-medium transition-colors ${
+            className={`relative flex-1 text-center transition-all duration-300 ${
               index <= currentStep
-                ? 'text-blue-600 dark:text-blue-400'
+                ? 'text-sky-600 dark:text-sky-400'
                 : 'text-gray-400 dark:text-gray-600'
             }`}
           >
-            {step.label}
+            <div className="mb-2 flex items-center justify-center">
+              <div
+                className={`flex h-8 w-8 items-center justify-center rounded-full border-2 transition-all duration-300 ${
+                  index < currentStep
+                    ? 'border-sky-500 bg-gradient-to-br from-sky-500 to-indigo-500 text-white shadow-md'
+                    : index === currentStep
+                    ? 'border-sky-500 bg-gradient-to-br from-sky-100 to-indigo-100 text-sky-700 shadow-sm animate-pulse'
+                    : 'border-gray-300 bg-gray-100 text-gray-400'
+                }`}
+              >
+                {index < currentStep ? (
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                  </svg>
+                ) : (
+                  <span className="text-xs font-bold">{index + 1}</span>
+                )}
+              </div>
+            </div>
+            <div className={`text-xs font-semibold transition-all duration-300 ${
+              index === currentStep ? 'scale-110' : ''
+            }`}>
+              {step.label}
+            </div>
           </div>
         ))}
       </div>
-      <div className="relative h-2 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+      <div className="relative h-3 w-full overflow-hidden rounded-full bg-gray-200/50 dark:bg-gray-700/50 shadow-inner">
         <div
-          className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-500 ease-out"
+          className="h-full bg-gradient-to-r from-sky-500 via-indigo-500 to-purple-500 transition-all duration-700 ease-out shadow-md"
           style={{
             width: `${((currentStep + 1) / steps.length) * 100}%`,
           }}
         />
       </div>
-      <div className="mt-2 text-center text-xs text-gray-500 dark:text-gray-400">
-        {steps[currentStep]?.label} 중...
+      <div className="mt-3 text-center">
+        <span className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-sky-100 to-indigo-100 px-4 py-1.5 text-sm font-semibold text-sky-700 shadow-sm">
+          <span className="animate-pulse-slow">●</span>
+          {steps[currentStep]?.label} 중...
+        </span>
       </div>
     </div>
   );

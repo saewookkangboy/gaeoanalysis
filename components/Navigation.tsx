@@ -50,11 +50,11 @@ export default function Navigation() {
               <>
                 <Link
                   href="/history"
-                  className="hidden sm:block rounded-md px-3 sm:px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  className="group hidden sm:block rounded-lg border-2 border-transparent px-3 sm:px-4 py-2 text-sm font-semibold text-gray-700 dark:text-gray-300 transition-all duration-200 hover:border-sky-200 hover:bg-gradient-to-r hover:from-sky-50 hover:to-indigo-50 dark:hover:from-gray-800 dark:hover:to-gray-700 hover:shadow-sm"
                 >
                   분석 이력
                 </Link>
-                <span className="hidden md:block text-sm text-gray-700 dark:text-gray-300 truncate max-w-[150px]">
+                <span className="hidden md:block text-sm font-medium text-gray-700 dark:text-gray-300 truncate max-w-[150px]">
                   {session.user.email}
                 </span>
                 <button
@@ -70,7 +70,7 @@ export default function Navigation() {
                       window.location.href = '/';
                     }
                   }}
-                  className="rounded-md bg-gray-100 dark:bg-gray-800 px-3 sm:px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                  className="group rounded-lg border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 sm:px-4 py-2 text-sm font-semibold text-gray-700 dark:text-gray-300 shadow-sm transition-all duration-200 hover:border-sky-300 hover:bg-gradient-to-r hover:from-sky-50 hover:to-indigo-50 dark:hover:from-gray-700 dark:hover:to-gray-600 hover:shadow-md hover:scale-105"
                 >
                   로그아웃
                 </button>
@@ -78,7 +78,7 @@ export default function Navigation() {
             ) : (
               <Link
                 href="/login"
-                className="rounded-md bg-blue-600 px-3 sm:px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 transition-colors"
+                className="group rounded-lg bg-gradient-to-r from-sky-600 to-indigo-600 px-4 sm:px-5 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:shadow-lg hover:scale-105"
               >
                 로그인
               </Link>
