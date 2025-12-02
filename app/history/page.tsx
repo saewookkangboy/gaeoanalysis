@@ -280,17 +280,32 @@ export default function HistoryPage() {
         </div>
 
         {histories.length === 0 ? (
-          <div className="rounded-lg border border-gray-200 bg-white p-12 text-center">
-            <p className="mb-2 text-lg font-medium text-gray-900">저장된 분석 이력이 없습니다</p>
-            <p className="mb-4 text-sm text-gray-600">
-              분석을 수행하면 여기에 이력이 저장됩니다.
-            </p>
-            <Link
-              href="/"
-              className="inline-block rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-            >
-              첫 분석을 시작해보세요 →
-            </Link>
+          <div className="relative overflow-hidden rounded-2xl border-2 border-dashed border-gray-300 bg-gradient-to-br from-sky-50/50 to-indigo-50/50 p-16 text-center">
+            {/* 배경 장식 */}
+            <div className="absolute -top-10 -left-10 h-32 w-32 rounded-full bg-sky-100/50 blur-2xl"></div>
+            <div className="absolute -bottom-10 -right-10 h-32 w-32 rounded-full bg-indigo-100/50 blur-2xl"></div>
+            
+            <div className="relative">
+              <div className="mb-6 flex justify-center">
+                <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-sky-100 to-indigo-100 text-4xl animate-float">
+                  📋
+                </div>
+              </div>
+              <h3 className="mb-3 text-2xl font-bold text-gray-900">
+                저장된 분석 이력이 없습니다
+              </h3>
+              <p className="mb-6 text-base text-gray-600">
+                분석을 수행하면 여기에 이력이 저장됩니다
+              </p>
+              <Link
+                href="/"
+                className="group inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-sky-600 to-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:shadow-lg hover:scale-105"
+              >
+                <span>🚀</span>
+                첫 분석을 시작해보세요
+                <span className="transition-transform group-hover:translate-x-1">→</span>
+              </Link>
+            </div>
           </div>
         ) : (
           <>

@@ -449,30 +449,46 @@ export default function Home() {
           </div>
         )}
 
-        {/* 빈 상태 */}
+        {/* 빈 상태 - 개선된 디자인 */}
         {!analysisData && !isAnalyzing && (
-          <div className="text-center text-gray-500 py-12">
-            <svg
-              className="mx-auto h-12 w-12 text-gray-400 mb-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-            <p className="text-lg font-medium">URL 입력 후, '분석 시작' 을 진행하세요!</p>
-            <p className="mt-2 text-sm">
-              콘텐츠의 AEO, GEO, SEO 점수를 확인하고 개선 방안을 제시합니다.
-              <br />
-              <span className="text-gray-500">(특정 블로그는 진단이 어려울 수 있습니다 - 네이버, 브런치 등)</span>
-            </p>
-        </div>
+          <div className="mx-auto max-w-2xl py-16">
+            <div className="relative">
+              {/* 배경 장식 */}
+              <div className="absolute -top-10 -left-10 h-32 w-32 rounded-full bg-sky-100/50 blur-2xl"></div>
+              <div className="absolute -bottom-10 -right-10 h-32 w-32 rounded-full bg-indigo-100/50 blur-2xl"></div>
+              
+              <div className="relative rounded-2xl border-2 border-dashed border-gray-300 bg-gradient-to-br from-sky-50/50 to-indigo-50/50 p-12 text-center">
+                <div className="mb-6 flex justify-center">
+                  <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-sky-100 to-indigo-100 text-4xl animate-float">
+                    🔍
+                  </div>
+                </div>
+                <h3 className="mb-3 text-2xl font-bold text-gray-900">
+                  분석을 시작해보세요!
+                </h3>
+                <p className="mb-2 text-base text-gray-600">
+                  URL을 입력하고 <span className="font-semibold text-sky-600">분석 시작</span> 버튼을 클릭하세요
+                </p>
+                <p className="text-sm text-gray-500">
+                  콘텐츠의 AEO, GEO, SEO 점수를 확인하고 개선 방안을 제시합니다
+                </p>
+                <div className="mt-8 flex flex-wrap justify-center gap-3">
+                  <div className="flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm">
+                    <span>⚡</span>
+                    <span>30초 진단</span>
+                  </div>
+                  <div className="flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm">
+                    <span>🤖</span>
+                    <span>AI 분석</span>
+                  </div>
+                  <div className="flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm">
+                    <span>📊</span>
+                    <span>종합 리포트</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
       </div>
 
