@@ -256,15 +256,11 @@ export default function Home() {
               <div className="relative z-10">
                 <h1 className="mb-4 text-center text-4xl sm:text-5xl font-bold text-gray-900 leading-tight">
                   <span className="bg-gradient-to-r from-sky-600 to-indigo-600 bg-clip-text text-transparent">
-                    AI 검색 시대,
+                    AI 검색 시대, 콘텐츠 최적화를 한 번에
                   </span>
-                  <br />
-                  <span className="text-gray-900">콘텐츠 최적화를 한 번에</span>
                 </h1>
                 <p className="mb-8 text-center text-lg sm:text-xl text-gray-700 leading-relaxed">
-                  ChatGPT, Perplexity, Gemini, Claude가 당신의 콘텐츠를 인용하도록 만드는
-                  <br />
-                  <span className="font-semibold text-sky-600">실전 최적화 도구</span>
+                  ChatGPT, Perplexity, Gemini, Claude가 당신의 콘텐츠를 인용하도록 만드는 <span className="font-semibold text-sky-600">실전 최적화 도구</span>
                 </p>
                 <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
                   <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto max-w-4xl">
