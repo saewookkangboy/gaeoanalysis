@@ -272,8 +272,9 @@ export default function HistoryPage() {
           <h1 className="text-2xl font-bold text-gray-900">분석 이력</h1>
           <Link
             href="/"
-            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            className="group flex items-center gap-2 rounded-lg bg-gradient-to-r from-sky-600 to-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:shadow-lg hover:scale-105"
           >
+            <span>🚀</span>
             새 분석하기
           </Link>
         </div>
@@ -334,7 +335,7 @@ export default function HistoryPage() {
                   </div>
                   <button
                     onClick={() => handleViewDetails(history)}
-                    className="ml-4 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                    className="ml-4 rounded-lg bg-gradient-to-r from-sky-600 to-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:shadow-lg hover:scale-105"
                   >
                     상세 보기
                   </button>
