@@ -244,76 +244,104 @@ export default function Home() {
   return (
     <div className="flex-1 bg-white">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        {/* URL 입력 섹션 */}
-        <div className="mb-8 animate-fade-in">
-          <div className="mx-auto max-w-2xl">
-            <h1 className="mb-4 text-center text-3xl font-bold text-gray-900">
-              블로그 콘텐츠 최적화를 진단하세요!
-            </h1>
-            <p className="mb-6 text-center text-gray-600">
-              URL을 입력하여 콘텐츠의 AEO, GEO, SEO 점수를 분석하세요
-            </p>
-            <div className="flex flex-col sm:flex-row gap-2">
-              <UrlInput
-                value={url}
-                onChange={setUrl}
-                onAnalyze={() => handleAnalyze()}
-                disabled={isAnalyzing}
-                showHistory={true}
-              />
-              <button
-                onClick={() => handleAnalyze()}
-                disabled={isAnalyzing || !url.trim()}
-                className="rounded-md border border-gray-300 bg-white px-6 py-3 text-sm font-medium text-black hover:bg-black hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                aria-label="분석 시작"
-              >
-                {isAnalyzing ? (
-                  <span className="flex items-center gap-2">
-                    <span className="animate-pulse-slow">●</span>
-                    분석 중...
+        {/* Hero 섹션 - 강화된 디자인 */}
+        <div className="mb-12 animate-fade-in">
+          <div className="mx-auto max-w-4xl">
+            {/* Hero 배경 그라데이션 */}
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-sky-50 via-blue-50 to-indigo-50 p-8 sm:p-12 shadow-lg">
+              {/* 배경 장식 요소 */}
+              <div className="absolute -top-20 -right-20 h-64 w-64 rounded-full bg-sky-200/30 blur-3xl"></div>
+              <div className="absolute -bottom-20 -left-20 h-64 w-64 rounded-full bg-indigo-200/30 blur-3xl"></div>
+              
+              <div className="relative z-10">
+                <h1 className="mb-4 text-center text-4xl sm:text-5xl font-bold text-gray-900 leading-tight">
+                  <span className="bg-gradient-to-r from-sky-600 to-indigo-600 bg-clip-text text-transparent">
+                    AI 검색 시대,
                   </span>
-                ) : (
-                  '분석 시작'
-                )}
-              </button>
-            </div>
-            
-            {/* 진행 상태 표시 */}
-            {isAnalyzing && currentStep !== 'idle' && (
-              <div className="mt-4 rounded-md border border-sky-200 bg-sky-50 p-4">
-                <ProgressBar
-                  steps={analysisSteps}
-                  currentStep={
-                    currentStep === 'fetching' ? 0 :
-                    currentStep === 'parsing' ? 1 :
-                    currentStep === 'analyzing' ? 2 : 3
-                  }
-                />
-              </div>
-            )}
-            {error && (
-              <div className="mt-4 rounded-md bg-gray-50 border border-gray-300 p-4 text-sm text-gray-800 animate-slide-in">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1">
-                    <p className="font-medium">{error}</p>
-                    {retryCount > 0 && (
-                      <p className="mt-1 text-xs opacity-75">
-                        재시도 횟수: {retryCount}
-                      </p>
-                    )}
+                  <br />
+                  <span className="text-gray-900">콘텐츠 최적화를 한 번에</span>
+                </h1>
+                <p className="mb-8 text-center text-lg sm:text-xl text-gray-700 leading-relaxed">
+                  ChatGPT, Perplexity, Gemini, Claude가 당신의 콘텐츠를 인용하도록 만드는
+                  <br />
+                  <span className="font-semibold text-sky-600">실전 최적화 도구</span>
+                </p>
+                <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
+                  <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                    <UrlInput
+                      value={url}
+                      onChange={setUrl}
+                      onAnalyze={() => handleAnalyze()}
+                      disabled={isAnalyzing}
+                      showHistory={true}
+                    />
+                    <button
+                      onClick={() => handleAnalyze()}
+                      disabled={isAnalyzing || !url.trim()}
+                      className="group relative overflow-hidden rounded-lg bg-gradient-to-r from-sky-600 to-indigo-600 px-8 py-3.5 text-base font-semibold text-white shadow-lg transition-all duration-300 hover:shadow-xl hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                      aria-label="분석 시작"
+                    >
+                      <span className="relative z-10 flex items-center justify-center gap-2">
+                        {isAnalyzing ? (
+                          <>
+                            <span className="animate-pulse-slow">●</span>
+                            분석 중...
+                          </>
+                        ) : (
+                          <>
+                            <span>🚀</span>
+                            분석 시작
+                          </>
+                        )}
+                      </span>
+                      <div className="absolute inset-0 bg-gradient-to-r from-sky-700 to-indigo-700 opacity-0 transition-opacity group-hover:opacity-100"></div>
+                    </button>
                   </div>
-                  <button
-                    onClick={handleRetry}
-                    disabled={isAnalyzing}
-                    className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-black hover:bg-black hover:text-white disabled:opacity-50 transition-all"
-                  >
-                    다시 시도
-                  </button>
                 </div>
+                <p className="mt-6 text-center text-sm text-gray-600">
+                  ⚡ 30초 안에 종합 진단 완료 · 무료로 시작하기
+                </p>
               </div>
-            )}
+            </div>
           </div>
         </div>
+
+        {/* 진행 상태 표시 */}
+        {isAnalyzing && currentStep !== 'idle' && (
+          <div className="mx-auto max-w-4xl mt-6 rounded-xl border-2 border-sky-200 bg-gradient-to-r from-sky-50 to-indigo-50 p-6 shadow-md">
+            <ProgressBar
+              steps={analysisSteps}
+              currentStep={
+                currentStep === 'fetching' ? 0 :
+                currentStep === 'parsing' ? 1 :
+                currentStep === 'analyzing' ? 2 : 3
+              }
+            />
+          </div>
+        )}
+        
+        {/* 에러 표시 */}
+        {error && (
+          <div className="mx-auto max-w-4xl mt-6 rounded-xl border-2 border-red-200 bg-gradient-to-r from-red-50 to-pink-50 p-6 text-sm text-gray-800 animate-slide-in shadow-md">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1">
+                <p className="font-semibold text-red-800">{error}</p>
+                {retryCount > 0 && (
+                  <p className="mt-1 text-xs opacity-75">
+                    재시도 횟수: {retryCount}
+                  </p>
+                )}
+              </div>
+              <button
+                onClick={handleRetry}
+                disabled={isAnalyzing}
+                className="rounded-lg border-2 border-red-300 bg-white px-4 py-2 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50 transition-all"
+              >
+                다시 시도
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* 로딩 중 스켈레톤 UI */}
         {isAnalyzing && !analysisData && (
@@ -357,26 +385,47 @@ export default function Home() {
               aioAnalysis={analysisData.aioAnalysis}
             /> */}
 
-            {/* 종합 점수 */}
+            {/* 종합 점수 - 개선된 디자인 */}
             <div 
-              className="rounded-lg border border-gray-300 bg-white p-6 shadow-sm transition-all hover:shadow-md cursor-pointer"
+              className="group relative overflow-hidden rounded-2xl border-2 border-sky-200 bg-gradient-to-br from-sky-50 via-indigo-50 to-blue-50 p-8 shadow-xl transition-all duration-300 hover:shadow-2xl hover:scale-[1.01] cursor-pointer animate-fade-in"
               onClick={() => setIsChecklistModalOpen(true)}
             >
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">종합 점수</h3>
-                  <p className="mt-1 text-sm text-gray-500">
+              {/* 배경 장식 */}
+              <div className="absolute -top-20 -right-20 h-40 w-40 rounded-full bg-sky-300/20 blur-3xl group-hover:bg-sky-400/30 transition-colors"></div>
+              <div className="absolute -bottom-20 -left-20 h-40 w-40 rounded-full bg-indigo-300/20 blur-3xl group-hover:bg-indigo-400/30 transition-colors"></div>
+              
+              <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+                <div className="flex-1">
+                  <div className="mb-2 flex items-center gap-2">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-indigo-500 text-white shadow-lg">
+                      ⭐
+                    </div>
+                    <h3 className="text-2xl font-bold text-gray-900">종합 점수</h3>
+                  </div>
+                  <p className="mb-2 text-base text-gray-600">
                     AEO, GEO, SEO 점수의 평균
                   </p>
-                  <p className="mt-2 text-xs text-sky-600 font-medium">
-                    클릭하여 종합 개선 체크리스트 보기 →
+                  <p className="inline-flex items-center gap-1 text-sm font-semibold text-sky-600">
+                    <span>클릭하여 종합 개선 체크리스트 보기</span>
+                    <span className="transition-transform group-hover:translate-x-1">→</span>
                   </p>
                 </div>
-                <div className="text-left sm:text-right">
-                  <div className="text-4xl font-bold text-sky-600">
-                    {analysisData.overallScore}
+                <div className="text-center sm:text-right">
+                  <div className="mb-2 text-6xl font-bold bg-gradient-to-r from-sky-600 to-indigo-600 bg-clip-text text-transparent">
+                    {Math.round(analysisData.overallScore)}
                   </div>
-                  <div className="text-sm text-gray-500">/ 100</div>
+                  <div className="text-lg font-medium text-gray-500">/ 100</div>
+                  <div className="mt-3">
+                    <span className={`inline-flex items-center rounded-full px-4 py-1.5 text-sm font-bold ${
+                      analysisData.overallScore >= 80 
+                        ? 'bg-gradient-to-r from-sky-100 to-indigo-100 text-sky-800' 
+                        : analysisData.overallScore >= 60 
+                        ? 'bg-gradient-to-r from-blue-100 to-sky-100 text-blue-800' 
+                        : 'bg-gray-100 text-gray-800'
+                    }`}>
+                      {analysisData.overallScore >= 80 ? '⭐ 우수' : analysisData.overallScore >= 60 ? '✓ 양호' : '⚠ 개선 필요'}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
