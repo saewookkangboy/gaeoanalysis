@@ -263,7 +263,7 @@ export default function Home() {
                   ChatGPT, Perplexity, Gemini, Claude가 당신의 콘텐츠를 인용하도록 만드는 <span className="font-semibold text-sky-600">실전 최적화 도구</span>
                 </p>
                 <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-                  <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto max-w-4xl">
+                  <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto max-w-6xl">
                     <div className="flex-1 min-w-0">
                       <UrlInput
                         value={url}
