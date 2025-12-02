@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { analyzeContent } from '@/lib/analyzer';
-import { saveAnalysis, checkDuplicateAnalysis, getUser, createUser, getUserAnalyses } from '@/lib/db-helpers';
+import { saveAnalysis, checkDuplicateAnalysis, getUser, createUser, getUserAnalyses, getUserByEmail } from '@/lib/db-helpers';
 import { createErrorResponse, createSuccessResponse, withErrorHandling, sanitizeUrl } from '@/lib/api-utils';
 import { withRateLimit } from '@/lib/rate-limiter';
 import { cache, createCacheKey } from '@/lib/cache';
@@ -68,14 +68,32 @@ async function handleAnalyze(request: NextRequest) {
   // 로그인된 사용자인 경우 분석 결과 저장 (중복 여부와 관계없이 항상 저장)
   let analysisId = null;
   if (userId) {
-    // 사용자가 DB에 존재하는지 확인하고, 없으면 생성
+    // 실제 사용자 ID 확인 (세션 ID와 DB ID가 다를 수 있음)
+    let finalUserId = userId;
     let user = getUser(userId);
+    
+    // 사용자가 없고 이메일이 있으면 이메일로 찾기 시도
+    if (!user && session?.user?.email) {
+      const userByEmail = getUserByEmail(session.user.email);
+      if (userByEmail) {
+        console.log('📧 이메일로 사용자 발견:', { 
+          sessionId: userId, 
+          dbId: userByEmail.id, 
+          email: session.user.email 
+        });
+        finalUserId = userByEmail.id;
+        user = userByEmail;
+      }
+    }
+    
+    // 사용자가 여전히 없으면 생성
     if (!user && session?.user?.email) {
       try {
         // provider 정보 추출 (account 정보가 없으면 null)
         const provider = (session as any).account?.provider || null;
         
-        createUser({
+        // createUser는 이메일로 이미 등록된 사용자를 찾으면 기존 ID를 반환할 수 있음
+        const createdUserId = createUser({
           id: userId,
           email: session.user.email,
           blogUrl: null,
@@ -83,22 +101,46 @@ async function handleAnalyze(request: NextRequest) {
           image: session.user.image || undefined,
           provider: provider,
         });
-        console.log('분석 중 사용자 자동 생성:', { 
-          id: userId, 
+        
+        // createUser가 반환한 실제 사용자 ID 사용
+        finalUserId = createdUserId || userId;
+        
+        // 다시 확인
+        user = getUser(finalUserId);
+        
+        console.log('👤 사용자 확인/생성 완료:', { 
+          originalSessionId: userId, 
+          finalUserId: finalUserId,
           email: session.user.email,
-          provider: provider
+          provider: provider,
+          userExists: !!user
         });
       } catch (error) {
-        console.error('사용자 생성 오류:', error);
+        console.error('❌ 사용자 생성 오류:', error);
         // 사용자 생성 실패해도 분석은 계속 진행 (익명 사용자로 처리)
+        finalUserId = userId; // 원래 ID 사용
       }
+    } else if (user) {
+      // 사용자가 존재하는 경우 실제 사용자 ID 사용
+      finalUserId = user.id;
+      console.log('✅ 사용자 확인 완료:', { 
+        sessionId: userId, 
+        dbId: finalUserId,
+        email: user.email 
+      });
     }
 
     analysisId = uuidv4();
     try {
+      console.log('💾 분석 결과 저장 시도:', { 
+        analysisId, 
+        userId: finalUserId, 
+        url: sanitizedUrl 
+      });
+      
       const savedId = saveAnalysis({
         id: analysisId,
-        userId,
+        userId: finalUserId, // 실제 사용자 ID 사용
         url: sanitizedUrl,
         aeoScore: result.aeoScore,
         geoScore: result.geoScore,
@@ -108,14 +150,14 @@ async function handleAnalyze(request: NextRequest) {
         aioScores: result.aioAnalysis?.scores,
       });
       
-      // 저장 후 즉시 확인
-      const savedAnalyses = getUserAnalyses(userId, { limit: 10 });
+      // 저장 후 즉시 확인 (실제 사용자 ID로 조회)
+      const savedAnalyses = getUserAnalyses(finalUserId, { limit: 10 });
       const savedRecord = savedAnalyses.find(a => a.id === savedId);
       
       if (savedRecord) {
         console.log('✅ 분석 결과 저장 및 확인 성공:', { 
           analysisId: savedId, 
-          userId, 
+          userId: finalUserId, 
           url: sanitizedUrl,
           savedAt: savedRecord.createdAt,
           totalAnalyses: savedAnalyses.length,
@@ -129,7 +171,7 @@ async function handleAnalyze(request: NextRequest) {
       } else {
         console.warn('⚠️ 분석 저장은 성공했지만 조회되지 않음:', { 
           analysisId: savedId, 
-          userId,
+          userId: finalUserId,
           totalAnalyses: savedAnalyses.length,
           allAnalysisIds: savedAnalyses.map(a => a.id)
         });
@@ -138,7 +180,8 @@ async function handleAnalyze(request: NextRequest) {
       console.error('❌ 분석 저장 오류:', {
         error: error.message,
         code: error.code,
-        userId,
+        userId: finalUserId,
+        originalSessionId: userId,
         url: sanitizedUrl,
         analysisId
       });
@@ -147,25 +190,41 @@ async function handleAnalyze(request: NextRequest) {
       if (error?.code === 'SQLITE_CONSTRAINT_FOREIGNKEY' && session?.user?.email) {
         console.warn('🔄 FOREIGN KEY 제약 조건 오류, 사용자 확인 및 생성 후 재시도:', error);
         try {
-          // 사용자 생성 또는 기존 사용자 ID 가져오기
-          const actualUserId = createUser({
-            id: userId,
-            email: session.user.email,
-            blogUrl: null,
-          });
-          
-          // 실제 사용자 ID가 다를 수 있으므로 확인
-          const finalUserId = actualUserId || userId;
-          console.log('✅ 사용자 확인/생성 완료, 분석 저장 재시도:', { 
-            originalUserId: userId, 
-            actualUserId: finalUserId,
-            email: session.user.email 
-          });
+          // 이메일로 사용자 찾기 시도
+          let retryUserId = finalUserId;
+          const userByEmail = getUserByEmail(session.user.email);
+          if (userByEmail) {
+            retryUserId = userByEmail.id;
+            console.log('📧 재시도: 이메일로 사용자 발견:', { 
+              originalId: finalUserId, 
+              foundId: retryUserId,
+              email: session.user.email 
+            });
+          } else {
+            // 사용자 생성 또는 기존 사용자 ID 가져오기
+            const provider = (session as any).account?.provider || null;
+            const createdUserId = createUser({
+              id: userId,
+              email: session.user.email,
+              blogUrl: null,
+              name: session.user.name || undefined,
+              image: session.user.image || undefined,
+              provider: provider,
+            });
+            
+            // createUser가 반환한 실제 사용자 ID 사용
+            retryUserId = createdUserId || userId;
+            console.log('👤 재시도: 사용자 확인/생성 완료:', { 
+              originalSessionId: userId, 
+              finalUserId: retryUserId,
+              email: session.user.email 
+            });
+          }
           
           // 재시도 (실제 사용자 ID 사용)
           const savedId = saveAnalysis({
             id: analysisId,
-            userId: finalUserId,
+            userId: retryUserId,
             url: sanitizedUrl,
             aeoScore: result.aeoScore,
             geoScore: result.geoScore,
@@ -176,21 +235,22 @@ async function handleAnalyze(request: NextRequest) {
           });
           
           // 저장 후 즉시 확인
-          const savedAnalyses = getUserAnalyses(finalUserId, { limit: 10 });
+          const savedAnalyses = getUserAnalyses(retryUserId, { limit: 10 });
           const savedRecord = savedAnalyses.find(a => a.id === savedId);
           
           if (savedRecord) {
             console.log('✅ 분석 저장 재시도 및 확인 성공:', { 
               analysisId: savedId, 
-              userId: finalUserId, 
+              userId: retryUserId, 
               url: sanitizedUrl,
               savedAt: savedRecord.createdAt,
               totalAnalyses: savedAnalyses.length
             });
+            analysisId = savedId; // 성공한 경우 analysisId 업데이트
           } else {
             console.warn('⚠️ 분석 저장 재시도는 성공했지만 조회되지 않음:', { 
               analysisId: savedId, 
-              userId: finalUserId,
+              userId: retryUserId,
               totalAnalyses: savedAnalyses.length,
               allAnalysisIds: savedAnalyses.map(a => a.id)
             });
@@ -199,7 +259,8 @@ async function handleAnalyze(request: NextRequest) {
           console.error('❌ 분석 저장 재시도 실패:', {
             error: retryError.message,
             code: retryError.code,
-            userId,
+            userId: finalUserId,
+            originalSessionId: userId,
             url: sanitizedUrl,
             analysisId
           });
@@ -210,7 +271,8 @@ async function handleAnalyze(request: NextRequest) {
         console.error('❌ 분석 저장 실패 (재시도 불가):', {
           error: error.message,
           code: error.code,
-          userId,
+          userId: finalUserId,
+          originalSessionId: userId,
           url: sanitizedUrl
         });
         // 저장 실패해도 분석 결과는 반환
