@@ -161,15 +161,36 @@ const migrations: Migration[] = [
       const tableInfo = db.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
       const columnNames = tableInfo.map(col => col.name);
 
+      // 각 컬럼이 존재하는지 확인한 후 추가
+      const columnsToAdd: Array<{ name: string; sql: string }> = [];
+      
       if (!columnNames.includes('provider')) {
-        db.exec(`
-          ALTER TABLE users ADD COLUMN provider TEXT;
-          ALTER TABLE users ADD COLUMN name TEXT;
-          ALTER TABLE users ADD COLUMN image TEXT;
-          ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'user';
-          ALTER TABLE users ADD COLUMN is_active INTEGER DEFAULT 1;
-          ALTER TABLE users ADD COLUMN last_login_at DATETIME;
-        `);
+        columnsToAdd.push({ name: 'provider', sql: 'ALTER TABLE users ADD COLUMN provider TEXT;' });
+      }
+      if (!columnNames.includes('name')) {
+        columnsToAdd.push({ name: 'name', sql: 'ALTER TABLE users ADD COLUMN name TEXT;' });
+      }
+      if (!columnNames.includes('image')) {
+        columnsToAdd.push({ name: 'image', sql: 'ALTER TABLE users ADD COLUMN image TEXT;' });
+      }
+      if (!columnNames.includes('role')) {
+        columnsToAdd.push({ name: 'role', sql: "ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'user';" });
+      }
+      if (!columnNames.includes('is_active')) {
+        columnsToAdd.push({ name: 'is_active', sql: 'ALTER TABLE users ADD COLUMN is_active INTEGER DEFAULT 1;' });
+      }
+      if (!columnNames.includes('last_login_at')) {
+        columnsToAdd.push({ name: 'last_login_at', sql: 'ALTER TABLE users ADD COLUMN last_login_at DATETIME;' });
+      }
+
+      // 존재하지 않는 컬럼만 추가
+      if (columnsToAdd.length > 0) {
+        const sql = columnsToAdd.map(col => col.sql).join('\n');
+        console.log(`🔄 [Migration v4] 추가할 컬럼: ${columnsToAdd.map(col => col.name).join(', ')}`);
+        db.exec(sql);
+        console.log(`✅ [Migration v4] 컬럼 추가 완료: ${columnsToAdd.map(col => col.name).join(', ')}`);
+      } else {
+        console.log('⏭️  [Migration v4] 모든 컬럼이 이미 존재합니다.');
       }
     },
   },

@@ -352,10 +352,38 @@ export async function saveAnalysis(data: {
       console.error('❌ [saveAnalysis] 저장 오류:', {
         error: error.message,
         code: error.code,
+        stack: error.stack,
         userId: data.userId,
         analysisId: data.id,
         url: data.url
       });
+      
+      // FOREIGN KEY 제약 조건 오류인 경우 사용자 확인
+      if (error?.code === 'SQLITE_CONSTRAINT_FOREIGNKEY') {
+        const userCheck = getUser(data.userId);
+        console.error('❌ [saveAnalysis] FOREIGN KEY 제약 조건 오류 - 사용자 확인:', {
+          userId: data.userId,
+          userExists: !!userCheck,
+          userEmail: userCheck?.email || 'N/A',
+          error: error.message
+        });
+        
+        // 사용자가 없으면 에러 메시지 개선
+        if (!userCheck) {
+          throw new Error(`사용자가 존재하지 않습니다: ${data.userId}. 분석을 저장하려면 먼저 로그인하거나 사용자를 생성해야 합니다.`);
+        }
+      }
+      
+      // 테이블이 없는 경우
+      if (error?.code === 'SQLITE_ERROR' && error.message.includes('no such table')) {
+        console.error('❌ [saveAnalysis] 테이블이 존재하지 않음:', {
+          error: error.message,
+          userId: data.userId,
+          analysisId: data.id
+        });
+        throw new Error(`데이터베이스 테이블이 초기화되지 않았습니다: ${error.message}`);
+      }
+      
       throw error;
     }
   });
