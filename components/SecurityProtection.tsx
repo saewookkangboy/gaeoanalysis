@@ -8,6 +8,38 @@ import { useEffect } from 'react';
  */
 export default function SecurityProtection() {
   useEffect(() => {
+    // SEO 크롤러 및 검색 엔진 봇 감지
+    const isSearchEngineBot = () => {
+      if (typeof window === 'undefined') return false;
+      const userAgent = navigator.userAgent.toLowerCase();
+      const bots = [
+        'googlebot',
+        'bingbot',
+        'slurp',
+        'duckduckbot',
+        'baiduspider',
+        'yandexbot',
+        'sogou',
+        'exabot',
+        'facebot',
+        'ia_archiver',
+        'linkedinbot',
+        'facebookexternalhit',
+        'twitterbot',
+        'whatsapp',
+        'telegrambot',
+        'applebot',
+        'crawler',
+        'spider',
+      ];
+      return bots.some(bot => userAgent.includes(bot));
+    };
+
+    // SEO 크롤러인 경우 보호 기능 비활성화
+    if (isSearchEngineBot()) {
+      return;
+    }
+
     // 프로덕션 환경에서만 보안 보호 활성화
     if (process.env.NODE_ENV !== 'production') {
       return;
@@ -151,11 +183,12 @@ export default function SecurityProtection() {
         e.preventDefault();
         return false;
       }
-      // Ctrl+U (소스 보기)
-      if (e.ctrlKey && e.key === 'u') {
-        e.preventDefault();
-        return false;
-      }
+      // Ctrl+U (소스 보기) - SEO 및 Open Graph 확인을 위해 허용
+      // 검색 엔진 크롤러와 사용자가 메타 태그를 확인할 수 있도록 허용
+      // if (e.ctrlKey && e.key === 'u') {
+      //   e.preventDefault();
+      //   return false;
+      // }
       // Ctrl+S (저장)
       if (e.ctrlKey && e.key === 's') {
         e.preventDefault();
