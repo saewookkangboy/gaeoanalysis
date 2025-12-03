@@ -96,13 +96,15 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
   callbacks: {
     async signIn({ user, account, profile }) {
-      // OAuth 로그인 시 디버깅 정보 출력
-      if (process.env.NODE_ENV === 'development' && account) {
+      // OAuth 로그인 시 디버깅 정보 출력 (프로덕션에서도 출력)
+      if (account) {
         const callbackUrl = `${authUrl || 'http://localhost:3000'}/api/auth/callback/${account.provider}`;
-        console.log('🔐 OAuth 로그인 시도:', {
+        console.log('🔐 [signIn] OAuth 로그인 시도:', {
           provider: account.provider,
           expectedCallbackUrl: callbackUrl,
           accountId: account.providerAccountId,
+          userId: user?.id,
+          userEmail: user?.email,
         });
       }
 
@@ -274,7 +276,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         if (token.email) {
           try {
             const normalizedEmail = (token.email as string).toLowerCase().trim();
-            const userByEmail = getUserByEmail(normalizedEmail);
+            let userByEmail = getUserByEmail(normalizedEmail);
             
             if (userByEmail) {
               if (userByEmail.id !== actualUserId) {
@@ -291,10 +293,48 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 });
               }
             } else {
-              console.warn('⚠️ [Session] 이메일로 사용자를 찾을 수 없음:', {
-                tokenId: actualUserId,
-                email: normalizedEmail
-              });
+              // 사용자를 찾을 수 없으면 세션 ID로 확인
+              const userById = getUser(actualUserId);
+              if (userById) {
+                console.log('✅ [Session] 세션 ID로 사용자 확인:', {
+                  userId: actualUserId,
+                  email: normalizedEmail
+                });
+              } else {
+                // 사용자가 DB에 없으면 생성 시도 (signIn 콜백이 실행되지 않은 경우 대비)
+                console.warn('⚠️ [Session] 이메일로 사용자를 찾을 수 없음, 사용자 생성 시도:', {
+                  tokenId: actualUserId,
+                  email: normalizedEmail,
+                  provider: token.provider
+                });
+                
+                try {
+                  const createdUserId = createUser({
+                    id: actualUserId,
+                    email: normalizedEmail,
+                    blogUrl: null,
+                    name: session.user.name || undefined,
+                    image: session.user.image || undefined,
+                    provider: token.provider as string || undefined,
+                  });
+                  
+                  // createUser가 반환한 실제 사용자 ID 사용 (이메일로 기존 사용자를 찾은 경우)
+                  actualUserId = createdUserId || actualUserId;
+                  
+                  // 다시 확인
+                  userByEmail = getUserByEmail(normalizedEmail);
+                  if (userByEmail) {
+                    actualUserId = userByEmail.id;
+                    console.log('✅ [Session] 사용자 생성/확인 완료:', {
+                      userId: actualUserId,
+                      email: normalizedEmail
+                    });
+                  }
+                } catch (error: any) {
+                  console.error('❌ [Session] 사용자 생성 오류:', error);
+                  // 사용자 생성 실패해도 세션은 유지
+                }
+              }
             }
           } catch (error) {
             console.error('❌ [Session] 사용자 확인 오류:', error);
