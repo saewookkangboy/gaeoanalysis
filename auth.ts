@@ -1,7 +1,7 @@
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import GitHub from "next-auth/providers/github";
-import { createUser, getUser, getUserByEmail, saveAuthLog } from "@/lib/db-helpers";
+import { createUser, getUser, getUserByEmail, saveAuthLog, migrateUserEmail } from "@/lib/db-helpers";
 import { v4 as uuidv4 } from "uuid";
 import { createHash } from "crypto";
 
@@ -135,6 +135,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           const existingUserByEmail = getUserByEmail(normalizedEmail);
           let actualUserId = emailBasedUserId; // 이메일 기반 ID 사용
           let isNewUser = false;
+          let emailChanged = false;
+          let oldEmail: string | null = null;
           
           if (existingUserByEmail) {
             // 기존 사용자가 있는 경우, 기존 ID 사용 (분석 이력 유지)
@@ -151,6 +153,20 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             // 새 사용자인지 확인 (이메일 기반 ID로 확인)
             const existingUser = getUser(emailBasedUserId);
             isNewUser = !existingUser;
+            
+            // 이메일 기반 ID로 사용자가 있지만 이메일이 다른 경우 (이메일 변경 감지)
+            if (existingUser && existingUser.email !== normalizedEmail) {
+              oldEmail = existingUser.email;
+              emailChanged = true;
+              actualUserId = existingUser.id;
+              isNewUser = false;
+              console.log('🔄 [signIn] 이메일 변경 감지:', {
+                userId: existingUser.id,
+                oldEmail: oldEmail,
+                newEmail: normalizedEmail,
+                provider: account.provider
+              });
+            }
           }
           
           // 사용자 생성 또는 업데이트 (이메일 기반 ID 사용)
@@ -166,6 +182,31 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           
           // createUser가 반환한 실제 사용자 ID 사용 (이메일로 기존 사용자를 찾은 경우 기존 ID 반환)
           actualUserId = createdUserId || emailBasedUserId;
+          
+          // 이메일 변경이 감지된 경우, 기존 이메일의 분석 이력을 새 이메일로 마이그레이션
+          if (emailChanged && oldEmail) {
+            try {
+              const migratedUserId = migrateUserEmail(oldEmail, normalizedEmail);
+              if (migratedUserId && migratedUserId !== actualUserId) {
+                console.log('✅ [signIn] 이메일 변경으로 인한 분석 이력 마이그레이션 완료:', {
+                  oldEmail: oldEmail,
+                  newEmail: normalizedEmail,
+                  oldUserId: actualUserId,
+                  newUserId: migratedUserId
+                });
+                actualUserId = migratedUserId;
+              } else if (migratedUserId) {
+                console.log('✅ [signIn] 이메일 업데이트 완료:', {
+                  userId: actualUserId,
+                  oldEmail: oldEmail,
+                  newEmail: normalizedEmail
+                });
+              }
+            } catch (migrateError: any) {
+              console.error('❌ [signIn] 이메일 마이그레이션 오류:', migrateError);
+              // 마이그레이션 실패해도 로그인은 계속 진행
+            }
+          }
           
           if (isNewUser) {
             console.log('✅ [signIn] 새 사용자 생성:', { 

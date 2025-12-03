@@ -17,20 +17,22 @@ export interface QueryOptions {
 export function getUserAnalyses(userId: string, options: QueryOptions = {}) {
   const { limit = 10, offset = 0, orderBy = 'created_at', orderDirection = 'DESC' } = options;
   
-  // WAL 모드에서만 체크포인트 확인
   // Vercel 서버리스 환경에서는 DELETE 모드를 사용하므로 체크포인트 불필요
-  if (process.env.VERCEL) {
-    // Vercel 환경에서는 DELETE 모드 사용, 체크포인트 불필요
-  } else {
-    // 로컬 환경에서 WAL 모드인 경우에만 체크포인트 실행
-    try {
+  // 하지만 동기화를 보장하기 위해 명시적으로 동기화 확인
+  try {
+    if (process.env.VERCEL) {
+      // Vercel 환경에서는 DELETE 모드이지만, 동기화를 보장하기 위해 명시적으로 동기화 확인
+      db.pragma('synchronous = FULL');
+    } else {
+      // 로컬 환경에서 WAL 모드인 경우에만 체크포인트 실행
       const journalMode = db.prepare('PRAGMA journal_mode').get() as { journal_mode: string };
       if (journalMode.journal_mode === 'wal') {
         db.pragma('wal_checkpoint(PASSIVE)');
       }
-    } catch (error) {
-      // 체크포인트 실패는 무시
     }
+  } catch (error) {
+    // 체크포인트 실패는 무시
+    console.warn('⚠️ [getUserAnalyses] 동기화 경고:', error);
   }
 
   // 디버깅: 사용자 ID 확인
@@ -189,18 +191,24 @@ export function saveAnalysis(data: {
   });
   
   // Vercel 환경에서는 DELETE 모드를 사용하므로 체크포인트 불필요
-  // 로컬 환경에서 WAL 모드인 경우에만 체크포인트 실행
-  if (!process.env.VERCEL) {
-    try {
+  // 하지만 서버리스 환경에서 동기화를 보장하기 위해 강제 동기화 실행
+  try {
+    if (process.env.VERCEL) {
+      // Vercel 환경에서는 DELETE 모드이지만, 동기화를 보장하기 위해 명시적으로 동기화 실행
+      db.pragma('synchronous = FULL');
+      // 트랜잭션이 완료된 후 즉시 확인 가능하도록 대기
+      // 실제로는 DELETE 모드에서는 자동으로 동기화되지만, 명시적으로 확인
+    } else {
+      // 로컬 환경에서 WAL 모드인 경우에만 체크포인트 실행
       const journalMode = db.prepare('PRAGMA journal_mode').get() as { journal_mode: string };
       if (journalMode.journal_mode === 'wal') {
         // WAL 체크포인트 실행 (WAL 파일을 메인 DB에 병합)
         db.pragma('wal_checkpoint(TRUNCATE)');
       }
-    } catch (error) {
-      // 체크포인트 실패는 무시 (이미 커밋되었을 수 있음)
-      console.warn('⚠️ [saveAnalysis] WAL 체크포인트 경고:', error);
     }
+  } catch (error) {
+    // 체크포인트 실패는 무시 (이미 커밋되었을 수 있음)
+    console.warn('⚠️ [saveAnalysis] 동기화 경고:', error);
   }
   
   return result;
@@ -446,6 +454,74 @@ export function updateUserBlogUrl(userId: string, blogUrl: string | null) {
     const stmt = db.prepare('UPDATE users SET blog_url = ? WHERE id = ?');
     stmt.run(blogUrl, userId);
   }
+}
+
+/**
+ * 사용자 이메일 변경 및 분석 이력 마이그레이션
+ * 이메일이 변경되었을 때 기존 이메일의 분석 이력을 새 이메일로 마이그레이션
+ */
+export function migrateUserEmail(oldEmail: string, newEmail: string): string | null {
+  return dbHelpers.transaction(() => {
+    const normalizedOldEmail = oldEmail.toLowerCase().trim();
+    const normalizedNewEmail = newEmail.toLowerCase().trim();
+    
+    // 기존 이메일로 사용자 찾기
+    const oldUser = getUserByEmail(normalizedOldEmail);
+    if (!oldUser) {
+      console.warn('⚠️ [migrateUserEmail] 기존 이메일로 사용자를 찾을 수 없음:', {
+        oldEmail: normalizedOldEmail
+      });
+      return null;
+    }
+    
+    // 새 이메일로 사용자 찾기
+    const newUser = getUserByEmail(normalizedNewEmail);
+    
+    if (newUser && newUser.id !== oldUser.id) {
+      // 새 이메일로 이미 다른 사용자가 있는 경우, 분석 이력 마이그레이션
+      console.log('🔄 [migrateUserEmail] 분석 이력 마이그레이션 시작:', {
+        oldUserId: oldUser.id,
+        oldEmail: normalizedOldEmail,
+        newUserId: newUser.id,
+        newEmail: normalizedNewEmail
+      });
+      
+      // 기존 사용자의 분석 이력을 새 사용자로 마이그레이션
+      const migrateStmt = db.prepare('UPDATE analyses SET user_id = ? WHERE user_id = ?');
+      const migrateResult = migrateStmt.run(newUser.id, oldUser.id);
+      
+      // 기존 사용자의 채팅 이력을 새 사용자로 마이그레이션
+      const migrateChatStmt = db.prepare('UPDATE chat_conversations SET user_id = ? WHERE user_id = ?');
+      migrateChatStmt.run(newUser.id, oldUser.id);
+      
+      console.log('✅ [migrateUserEmail] 분석 이력 마이그레이션 완료:', {
+        migratedAnalyses: migrateResult.changes,
+        oldUserId: oldUser.id,
+        newUserId: newUser.id
+      });
+      
+      // 기존 사용자 삭제 (분석 이력은 이미 마이그레이션됨)
+      const deleteStmt = db.prepare('DELETE FROM users WHERE id = ?');
+      deleteStmt.run(oldUser.id);
+      
+      return newUser.id;
+    } else if (!newUser) {
+      // 새 이메일로 사용자가 없는 경우, 기존 사용자의 이메일만 업데이트
+      console.log('🔄 [migrateUserEmail] 사용자 이메일 업데이트:', {
+        userId: oldUser.id,
+        oldEmail: normalizedOldEmail,
+        newEmail: normalizedNewEmail
+      });
+      
+      const updateStmt = db.prepare('UPDATE users SET email = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
+      updateStmt.run(normalizedNewEmail, oldUser.id);
+      
+      return oldUser.id;
+    }
+    
+    // 같은 사용자인 경우
+    return oldUser.id;
+  });
 }
 
 /**
