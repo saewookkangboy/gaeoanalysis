@@ -35,6 +35,12 @@ export default function Navigation() {
             >
               GAEO Analysis
             </Link>
+            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-r from-sky-500 to-indigo-500 text-[10px] font-bold text-white shadow-sm">
+              <span className="leading-none">B</span>
+            </div>
+            <span className="hidden sm:inline-flex items-center rounded-full bg-gradient-to-r from-sky-500 to-indigo-500 px-3 py-1 text-xs font-bold text-white shadow-sm">
+              OPEN Beta
+            </span>
             <Link
               href="/about"
               className="hidden sm:block text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
