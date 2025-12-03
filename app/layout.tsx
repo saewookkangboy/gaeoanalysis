@@ -36,8 +36,8 @@ const ibmPlexSans = IBM_Plex_Sans({
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://gaeo-analysis.vercel.app'),
   title: {
-    default: "GAEO Analysis by allrounder - AI 검색 최적화 분석 도구",
-    template: "%s | GAEO Analysis",
+    default: "GAEO - Do it now! | AI 검색 최적화 분석 도구",
+    template: "%s | GAEO",
   },
   description: "ChatGPT, Perplexity, Gemini, Claude가 당신의 콘텐츠를 인용하도록 만드는 실전 최적화 도구. AEO, GEO, SEO 점수를 30초 안에 종합 진단하고, AI 모델별 인용 확률과 개선 가이드를 제공합니다.",
   keywords: [
@@ -70,22 +70,30 @@ export const metadata: Metadata = {
     locale: "ko_KR",
     url: "/",
     siteName: "GAEO Analysis",
-    title: "GAEO Analysis by allrounder - AI 검색 최적화 분석 도구",
+    title: "GAEO - Do it now!",
     description: "ChatGPT, Perplexity, Gemini, Claude가 당신의 콘텐츠를 인용하도록 만드는 실전 최적화 도구. 30초 안에 종합 진단 완료.",
     images: [
       {
         url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "GAEO Analysis - AI 검색 최적화 분석 도구",
+        alt: "GAEO - Do it now!",
+        type: "image/png",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "GAEO Analysis by allrounder - AI 검색 최적화 분석 도구",
+    title: "GAEO - Do it now!",
     description: "ChatGPT, Perplexity, Gemini, Claude가 당신의 콘텐츠를 인용하도록 만드는 실전 최적화 도구",
-    images: ["/og-image.png"],
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "GAEO - Do it now!",
+      },
+    ],
     creator: "@allrounder",
   },
   robots: {
