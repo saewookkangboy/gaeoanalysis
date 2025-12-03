@@ -650,6 +650,23 @@ const migrations: Migration[] = [
       `);
     },
   },
+  // 알고리즘 초기화 (마이그레이션 후 자동 실행)
+  {
+    version: 13,
+    name: 'initialize_algorithms',
+    up: () => {
+      // 알고리즘 초기화는 비동기로 실행 (마이그레이션 완료 후)
+      setImmediate(() => {
+        try {
+          const { initializeAlgorithms } = require('./algorithm-initializer');
+          initializeAlgorithms();
+        } catch (error) {
+          console.error('❌ [Migration] 알고리즘 초기화 실패:', error);
+          // 초기화 실패해도 마이그레이션은 성공으로 처리
+        }
+      });
+    },
+  },
 ];
 
 /**

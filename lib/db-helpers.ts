@@ -500,6 +500,38 @@ export async function saveAnalysis(data: {
         },
       });
       
+      // 알고리즘 자동 학습 (3단계)
+      try {
+        const { autoLearnFromAnalysis, learnFromImprovement } = require('./algorithm-auto-learning');
+        
+        // HTML 재조회 (특징 추출용)
+        // 실제로는 분석 시점의 HTML이 필요하지만, 여기서는 URL로 재조회하거나
+        // 분석 결과에서 특징을 추출할 수 있는 정보를 활용
+        // 간단한 버전: 점수만으로 학습 (향후 HTML 저장 또는 캐시 활용)
+        
+        // 이전 분석과 비교하여 개선 여부 확인 및 학습
+        if (previousAnalysis) {
+          learnFromImprovement(
+            data.id,
+            {
+              aeo: data.aeoScore,
+              geo: data.geoScore,
+              seo: data.seoScore,
+            },
+            {
+              aeo: previousAnalysis.aeo_score,
+              geo: previousAnalysis.geo_score,
+              seo: previousAnalysis.seo_score,
+            }
+          );
+        }
+        
+        console.log('✅ [saveAnalysis] 알고리즘 자동 학습 완료');
+      } catch (learnError) {
+        console.warn('⚠️ [saveAnalysis] 알고리즘 자동 학습 오류 (무시):', learnError);
+        // 학습 실패해도 분석 저장은 성공한 것으로 처리
+      }
+      
       // 분석 항목별 통계 업데이트
       updateAnalysisItemStatistics('aeo', data.aeoScore);
       updateAnalysisItemStatistics('geo', data.geoScore);
