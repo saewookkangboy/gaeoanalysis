@@ -576,6 +576,80 @@ const migrations: Migration[] = [
       `);
     },
   },
+  // 알고리즘 학습 시스템 테이블 추가
+  {
+    version: 12,
+    name: 'add_algorithm_learning_tables',
+    up: () => {
+      db.exec(`
+        -- 알고리즘 버전 관리 테이블
+        CREATE TABLE IF NOT EXISTS algorithm_versions (
+          id TEXT PRIMARY KEY,
+          algorithm_type TEXT NOT NULL CHECK(algorithm_type IN ('aeo', 'geo', 'seo', 'aio')),
+          version INTEGER NOT NULL,
+          weights TEXT NOT NULL, -- JSON: 가중치 맵
+          config TEXT, -- JSON: 추가 설정
+          avg_accuracy REAL DEFAULT 0.0,
+          avg_error REAL DEFAULT 0.0,
+          total_tests INTEGER DEFAULT 0,
+          improvement_rate REAL DEFAULT 0.0,
+          research_based BOOLEAN DEFAULT 0,
+          research_findings TEXT, -- JSON: 참조한 리서치 ID 목록
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          is_active BOOLEAN DEFAULT 0,
+          UNIQUE(algorithm_type, version)
+        );
+
+        -- 리서치 결과 테이블
+        CREATE TABLE IF NOT EXISTS research_findings (
+          id TEXT PRIMARY KEY,
+          title TEXT NOT NULL,
+          source TEXT NOT NULL,
+          url TEXT,
+          published_date TEXT,
+          findings TEXT NOT NULL, -- JSON: 리서치 결과 배열
+          applied BOOLEAN DEFAULT 0,
+          applied_at DATETIME,
+          applied_version TEXT, -- 적용된 알고리즘 버전 ID
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (applied_version) REFERENCES algorithm_versions(id) ON DELETE SET NULL
+        );
+
+        -- 알고리즘 A/B 테스트 테이블
+        CREATE TABLE IF NOT EXISTS algorithm_tests (
+          id TEXT PRIMARY KEY,
+          analysis_id TEXT,
+          algorithm_type TEXT NOT NULL CHECK(algorithm_type IN ('aeo', 'geo', 'seo', 'aio')),
+          version_a TEXT NOT NULL,
+          version_b TEXT NOT NULL,
+          score_a REAL NOT NULL,
+          score_b REAL NOT NULL,
+          actual_score REAL,
+          winner TEXT CHECK(winner IN ('A', 'B', 'tie')),
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (analysis_id) REFERENCES analyses(id) ON DELETE SET NULL,
+          FOREIGN KEY (version_a) REFERENCES algorithm_versions(id) ON DELETE CASCADE,
+          FOREIGN KEY (version_b) REFERENCES algorithm_versions(id) ON DELETE CASCADE
+        );
+
+        -- 인덱스 생성
+        CREATE INDEX IF NOT EXISTS idx_algorithm_versions_type_active 
+        ON algorithm_versions(algorithm_type, is_active);
+
+        CREATE INDEX IF NOT EXISTS idx_algorithm_versions_type_version 
+        ON algorithm_versions(algorithm_type, version DESC);
+
+        CREATE INDEX IF NOT EXISTS idx_research_findings_applied 
+        ON research_findings(applied, created_at DESC);
+
+        CREATE INDEX IF NOT EXISTS idx_algorithm_tests_type_created 
+        ON algorithm_tests(algorithm_type, created_at DESC);
+
+        CREATE INDEX IF NOT EXISTS idx_algorithm_tests_versions 
+        ON algorithm_tests(version_a, version_b);
+      `);
+    },
+  },
 ];
 
 /**
