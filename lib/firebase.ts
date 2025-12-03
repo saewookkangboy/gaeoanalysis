@@ -23,13 +23,21 @@ function initializeFirebase() {
 
   if (!firebaseConfig.apiKey) {
     const isServer = typeof window === 'undefined';
-    if (isServer) {
+    const isBuildTime = process.env.NEXT_PHASE === 'phase-production-build' || 
+                        process.env.NEXT_PHASE === 'phase-development-build';
+    
+    if (isServer && !isBuildTime) {
+      // 빌드 타임이 아닐 때만 에러 로그 출력
       console.error('❌ Firebase API Key가 설정되지 않았습니다.');
       console.error('환경 변수 확인:', {
         hasApiKey: !!process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
         hasAuthDomain: !!process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
         hasProjectId: !!process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
       });
+      console.error('💡 해결 방법: Railway/Vercel 대시보드에서 환경 변수 설정');
+    } else if (isServer && isBuildTime) {
+      // 빌드 타임에는 경고만 출력
+      console.warn('⚠️ Firebase API Key가 설정되지 않았습니다. (빌드 타임 - 런타임에 설정 필요)');
     } else {
       console.warn('Firebase API Key가 설정되지 않았습니다. 환경 변수를 확인해주세요.');
     }

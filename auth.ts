@@ -20,16 +20,25 @@ function generateUserIdFromEmail(email: string): string {
 // AUTH_SECRET 확인 (필수)
 const authSecret = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET;
 
+// 빌드 타임 체크 (Next.js 빌드 중에는 에러를 던지지 않음)
+const isBuildTime = process.env.NEXT_PHASE === 'phase-production-build' || 
+                    process.env.NEXT_PHASE === 'phase-development-build';
+
 if (!authSecret) {
   const errorMsg = '❌ AUTH_SECRET 또는 NEXTAUTH_SECRET이 설정되지 않았습니다. PKCE 코드 검증이 실패할 수 있습니다.';
   console.error(errorMsg);
-  console.error('💡 해결 방법: .env.local 파일에 다음을 추가하세요:');
+  console.error('💡 해결 방법: 환경 변수에 다음을 추가하세요:');
   console.error('   AUTH_SECRET=$(openssl rand -base64 32)');
-  if (process.env.NODE_ENV === 'production') {
+  console.error('   또는 Railway/Vercel 대시보드에서 환경 변수 설정');
+  
+  // 빌드 타임이 아니고 프로덕션 런타임에서만 에러 던지기
+  if (!isBuildTime && process.env.NODE_ENV === 'production') {
     throw new Error(errorMsg);
   }
 } else {
-  console.log('✅ AUTH_SECRET 설정 확인됨');
+  if (!isBuildTime) {
+    console.log('✅ AUTH_SECRET 설정 확인됨');
+  }
   if (process.env.NEXTAUTH_SECRET && !process.env.AUTH_SECRET) {
     console.warn('⚠️ NEXTAUTH_SECRET을 사용 중입니다. AUTH_SECRET으로 변경하는 것을 권장합니다.');
   }
