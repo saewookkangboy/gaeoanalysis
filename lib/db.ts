@@ -1,4 +1,4 @@
-import Database from 'better-sqlite3';
+import Database, { Database as DatabaseType } from 'better-sqlite3';
 import { join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
 import { downloadDbFromBlob } from './db-blob';
@@ -66,25 +66,34 @@ if (process.env.NODE_ENV === 'development' || process.env.DEBUG_DB || isVercel |
   });
 }
 
-// DB 인스턴스 생성 (다운로드 완료 후 재생성 가능하도록 변수로 선언)
-let db = new Database(dbPath);
+// 빌드 타임 감지 (Next.js 빌드 시 여러 워커가 동시에 실행되어 DB lock 발생 방지)
+const isBuildTime = process.env.NEXT_PHASE === 'phase-production-build' || 
+                    process.env.NEXT_PHASE === 'phase-development-build';
 
-// 성능 최적화 설정
-// Vercel 서버리스 환경에서는 각 함수 호출마다 새로운 DB 인스턴스가 생성되므로
-// WAL 모드 대신 DELETE 모드 사용 (더 안정적)
-// Railway나 다른 영구 파일 시스템 환경에서는 WAL 모드 사용 가능
-const journalMode = isVercel && !isRailway ? 'DELETE' : 'WAL';
-db.pragma(`journal_mode = ${journalMode}`);
-db.pragma('synchronous = FULL'); // 서버리스 환경에서 안정성 우선
-db.pragma('foreign_keys = ON'); // 외래 키 제약 조건 활성화
-db.pragma('busy_timeout = 5000'); // 5초 타임아웃
-if (journalMode === 'WAL') {
-  // WAL 모드에서 읽기 일관성을 위한 설정
-  db.pragma('wal_autocheckpoint = 1'); // 자동 체크포인트 활성화
-}
+// DB 인스턴스 생성 (빌드 타임에는 스킵, 런타임에만 초기화)
+let db: DatabaseType | null = null;
 
-// 테이블 생성
-db.exec(`
+// 빌드 타임이 아닐 때만 DB 초기화
+if (!isBuildTime) {
+  try {
+    db = new Database(dbPath);
+
+    // 성능 최적화 설정
+    // Vercel 서버리스 환경에서는 각 함수 호출마다 새로운 DB 인스턴스가 생성되므로
+    // WAL 모드 대신 DELETE 모드 사용 (더 안정적)
+    // Railway나 다른 영구 파일 시스템 환경에서는 WAL 모드 사용 가능
+    const journalMode = isVercel && !isRailway ? 'DELETE' : 'WAL';
+    db.pragma(`journal_mode = ${journalMode}`);
+    db.pragma('synchronous = FULL'); // 서버리스 환경에서 안정성 우선
+    db.pragma('foreign_keys = ON'); // 외래 키 제약 조건 활성화
+    db.pragma('busy_timeout = 5000'); // 5초 타임아웃
+    if (journalMode === 'WAL') {
+      // WAL 모드에서 읽기 일관성을 위한 설정
+      db.pragma('wal_autocheckpoint = 1'); // 자동 체크포인트 활성화
+    }
+
+    // 테이블 생성
+    db.exec(`
   CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,
     email TEXT UNIQUE NOT NULL,
@@ -165,6 +174,119 @@ db.exec(`
     UPDATE chat_conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
   END;
 `);
+  } catch (error: any) {
+    // 빌드 타임이 아닌데도 에러가 발생하면 로그만 출력 (런타임에 재시도)
+    if (!isBuildTime) {
+      console.error('❌ [DB] DB 초기화 실패:', error);
+    }
+    db = null;
+  }
+} else {
+  // 빌드 타임에는 DB 초기화 스킵
+  console.log('🔨 [DB] 빌드 타임 감지: DB 초기화 스킵 (런타임에 초기화됨)');
+}
+
+// DB 인스턴스 getter (lazy initialization)
+function getDb(): DatabaseType {
+  if (!db) {
+    if (isBuildTime) {
+      throw new Error('DB는 빌드 타임에 사용할 수 없습니다. 런타임에만 사용 가능합니다.');
+    }
+    // 런타임에 지연 초기화
+    db = new Database(dbPath);
+    const journalMode = isVercel && !isRailway ? 'DELETE' : 'WAL';
+    db.pragma(`journal_mode = ${journalMode}`);
+    db.pragma('synchronous = FULL');
+    db.pragma('foreign_keys = ON');
+    db.pragma('busy_timeout = 5000');
+    if (journalMode === 'WAL') {
+      db.pragma('wal_autocheckpoint = 1');
+    }
+    
+    // 테이블 생성
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY,
+        email TEXT UNIQUE NOT NULL,
+        blog_url TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS analyses (
+        id TEXT PRIMARY KEY,
+        user_id TEXT,
+        url TEXT NOT NULL,
+        aeo_score INTEGER NOT NULL CHECK(aeo_score >= 0 AND aeo_score <= 100),
+        geo_score INTEGER NOT NULL CHECK(geo_score >= 0 AND geo_score <= 100),
+        seo_score INTEGER NOT NULL CHECK(seo_score >= 0 AND seo_score <= 100),
+        overall_score REAL NOT NULL CHECK(overall_score >= 0 AND overall_score <= 100),
+        insights TEXT NOT NULL,
+        chatgpt_score INTEGER CHECK(chatgpt_score IS NULL OR (chatgpt_score >= 0 AND chatgpt_score <= 100)),
+        perplexity_score INTEGER CHECK(perplexity_score IS NULL OR (perplexity_score >= 0 AND perplexity_score <= 100)),
+        gemini_score INTEGER CHECK(gemini_score IS NULL OR (gemini_score >= 0 AND gemini_score <= 100)),
+        claude_score INTEGER CHECK(claude_score IS NULL OR (claude_score >= 0 AND claude_score <= 100)),
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      );
+
+      CREATE TABLE IF NOT EXISTS chat_conversations (
+        id TEXT PRIMARY KEY,
+        user_id TEXT,
+        analysis_id TEXT,
+        messages TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (analysis_id) REFERENCES analyses(id) ON DELETE CASCADE
+      );
+
+      CREATE TABLE IF NOT EXISTS schema_migrations (
+        version INTEGER PRIMARY KEY,
+        name TEXT NOT NULL,
+        applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    // 기본 인덱스
+    db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_analyses_user_id ON analyses(user_id);
+      CREATE INDEX IF NOT EXISTS idx_analyses_created_at ON analyses(created_at);
+      CREATE INDEX IF NOT EXISTS idx_chat_user_id ON chat_conversations(user_id);
+      CREATE INDEX IF NOT EXISTS idx_chat_analysis_id ON chat_conversations(analysis_id);
+    `);
+
+    // 복합 인덱스 추가 (성능 최적화)
+    db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_analyses_user_created 
+      ON analyses(user_id, created_at DESC);
+      
+      CREATE INDEX IF NOT EXISTS idx_analyses_url_created 
+      ON analyses(url, created_at DESC);
+      
+      CREATE INDEX IF NOT EXISTS idx_chat_user_updated 
+      ON chat_conversations(user_id, updated_at DESC);
+    `);
+
+    // 트리거: updated_at 자동 업데이트
+    db.exec(`
+      CREATE TRIGGER IF NOT EXISTS update_users_updated_at
+      AFTER UPDATE ON users
+      FOR EACH ROW
+      BEGIN
+        UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+      END;
+
+      CREATE TRIGGER IF NOT EXISTS update_chat_conversations_updated_at
+      AFTER UPDATE ON chat_conversations
+      FOR EACH ROW
+      BEGIN
+        UPDATE chat_conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+      END;
+    `);
+  }
+  return db;
+}
 
 // 마이그레이션 실행 (비동기로 처리하여 순환 참조 방지)
 setImmediate(async () => {
@@ -181,24 +303,17 @@ setImmediate(async () => {
           
           // 다운로드된 파일을 사용하기 위해 DB 인스턴스 재생성
           try {
-            db.close();
-            db = new Database(dbPath);
-            
-            // DB 설정 재적용
-            const journalMode = isVercel && !isRailway ? 'DELETE' : 'WAL';
-            db.pragma(`journal_mode = ${journalMode}`);
-            db.pragma('synchronous = FULL');
-            db.pragma('foreign_keys = ON');
-            db.pragma('busy_timeout = 5000');
-            if (journalMode === 'WAL') {
-              db.pragma('wal_autocheckpoint = 1');
+            if (db) {
+              db.close();
+              db = null; // getDb()가 새 인스턴스를 생성하도록
             }
+            // getDb()를 호출하여 새 인스턴스 생성 (다운로드된 파일 사용)
+            getDb();
             
             console.log('✅ [DB] DB 인스턴스 재생성 완료 (다운로드된 파일 사용)');
           } catch (reopenError) {
             console.error('❌ [DB] DB 인스턴스 재생성 실패:', reopenError);
-            // 재생성 실패 시 기존 인스턴스 유지
-            db = new Database(dbPath);
+            // 재생성 실패 시 getDb()가 다시 시도
           }
         }
       } catch (error) {
@@ -206,9 +321,14 @@ setImmediate(async () => {
       }
     }
 
-    // 동적 import로 순환 참조 방지
-    const { runMigrations } = await import('./migrations');
-    runMigrations();
+    // 빌드 타임이 아닐 때만 마이그레이션 실행
+    if (!isBuildTime) {
+      // 동적 import로 순환 참조 방지
+      const { runMigrations } = await import('./migrations');
+      runMigrations();
+    } else {
+      console.log('🔨 [DB] 빌드 타임: 마이그레이션 스킵');
+    }
   } catch (error) {
     console.error('마이그레이션 실행 오류:', error);
   }
@@ -220,7 +340,7 @@ export const dbHelpers = {
    * 트랜잭션 실행
    */
   transaction<T>(callback: () => T): T {
-    return db.transaction(callback)();
+    return getDb().transaction(callback)();
   },
 
   /**
@@ -239,16 +359,17 @@ export const dbHelpers = {
    * 데이터베이스 통계 정보
    */
   getStats() {
+    const database = getDb();
     const stats = {
-      users: db.prepare('SELECT COUNT(*) as count FROM users').get() as { count: number },
-      analyses: db.prepare('SELECT COUNT(*) as count FROM analyses').get() as { count: number },
-      conversations: db.prepare('SELECT COUNT(*) as count FROM chat_conversations').get() as { count: number },
+      users: database.prepare('SELECT COUNT(*) as count FROM users').get() as { count: number },
+      analyses: database.prepare('SELECT COUNT(*) as count FROM analyses').get() as { count: number },
+      conversations: database.prepare('SELECT COUNT(*) as count FROM chat_conversations').get() as { count: number },
       dbSize: 0,
     };
 
     try {
-      const dbFile = db.prepare('PRAGMA page_count').get() as { page_count: number };
-      const pageSize = db.prepare('PRAGMA page_size').get() as { page_size: number };
+      const dbFile = database.prepare('PRAGMA page_count').get() as { page_count: number };
+      const pageSize = database.prepare('PRAGMA page_size').get() as { page_size: number };
       stats.dbSize = (dbFile.page_count * pageSize.page_size) / 1024 / 1024; // MB
     } catch (error) {
       console.error('DB 크기 계산 오류:', error);
@@ -262,8 +383,9 @@ export const dbHelpers = {
    */
   optimize() {
     try {
-      db.exec('VACUUM');
-      db.exec('ANALYZE');
+      const database = getDb();
+      database.exec('VACUUM');
+      database.exec('ANALYZE');
       console.log('데이터베이스 최적화 완료');
     } catch (error) {
       console.error('데이터베이스 최적화 오류:', error);
@@ -276,7 +398,8 @@ export const dbHelpers = {
    */
   explainQuery(sql: string, params: any[] = []) {
     try {
-      const stmt = db.prepare(`EXPLAIN QUERY PLAN ${sql}`);
+      const database = getDb();
+      const stmt = database.prepare(`EXPLAIN QUERY PLAN ${sql}`);
       return stmt.all(...params);
     } catch (error) {
       console.error('쿼리 계획 분석 오류:', error);
@@ -285,4 +408,9 @@ export const dbHelpers = {
   },
 };
 
-export default db;
+// 기본 export는 getter 함수 사용
+export default new Proxy({} as DatabaseType, {
+  get(target, prop) {
+    return getDb()[prop as keyof DatabaseType];
+  }
+});
