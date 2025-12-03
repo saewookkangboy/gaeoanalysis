@@ -51,7 +51,11 @@ export async function GET(request: NextRequest) {
         if (!userId && !session?.user?.id) {
           return createErrorResponse('UNAUTHORIZED', '인증이 필요하거나 userId가 필요합니다.', 401);
         }
-        const targetUserId = userId || session.user.id;
+        // userId가 없으면 session이 반드시 존재해야 함
+        const targetUserId = userId || session?.user?.id;
+        if (!targetUserId) {
+          return createErrorResponse('UNAUTHORIZED', '인증이 필요하거나 userId가 필요합니다.', 401);
+        }
         data = getUserActivityStatistics(targetUserId, startDate, endDate);
         break;
 
