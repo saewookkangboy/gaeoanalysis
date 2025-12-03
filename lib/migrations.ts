@@ -1,6 +1,96 @@
 import db from './db';
 
 /**
+ * 알고리즘 학습 시스템 스키마 존재 여부 확인
+ */
+function algorithmSchemaExists(): boolean {
+  try {
+    const tableCheck = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='algorithm_versions'").get();
+    return !!tableCheck;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * 알고리즘 학습 시스템 스키마 보장
+ */
+function ensureAlgorithmSchema() {
+  try {
+    db.exec(`
+      -- 알고리즘 버전 관리 테이블
+      CREATE TABLE IF NOT EXISTS algorithm_versions (
+        id TEXT PRIMARY KEY,
+        algorithm_type TEXT NOT NULL CHECK(algorithm_type IN ('aeo', 'geo', 'seo', 'aio')),
+        version INTEGER NOT NULL,
+        weights TEXT NOT NULL,
+        config TEXT,
+        avg_accuracy REAL DEFAULT 0.0,
+        avg_error REAL DEFAULT 0.0,
+        total_tests INTEGER DEFAULT 0,
+        improvement_rate REAL DEFAULT 0.0,
+        research_based BOOLEAN DEFAULT 0,
+        research_findings TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        is_active BOOLEAN DEFAULT 0,
+        UNIQUE(algorithm_type, version)
+      );
+
+      -- 리서치 결과 테이블
+      CREATE TABLE IF NOT EXISTS research_findings (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        source TEXT NOT NULL,
+        url TEXT,
+        published_date TEXT,
+        findings TEXT NOT NULL,
+        applied BOOLEAN DEFAULT 0,
+        applied_at DATETIME,
+        applied_version TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (applied_version) REFERENCES algorithm_versions(id) ON DELETE SET NULL
+      );
+
+      -- 알고리즘 A/B 테스트 테이블
+      CREATE TABLE IF NOT EXISTS algorithm_tests (
+        id TEXT PRIMARY KEY,
+        analysis_id TEXT,
+        algorithm_type TEXT NOT NULL CHECK(algorithm_type IN ('aeo', 'geo', 'seo', 'aio')),
+        version_a TEXT NOT NULL,
+        version_b TEXT NOT NULL,
+        score_a REAL NOT NULL,
+        score_b REAL NOT NULL,
+        actual_score REAL,
+        winner TEXT CHECK(winner IN ('A', 'B', 'tie')),
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (analysis_id) REFERENCES analyses(id) ON DELETE SET NULL,
+        FOREIGN KEY (version_a) REFERENCES algorithm_versions(id) ON DELETE CASCADE,
+        FOREIGN KEY (version_b) REFERENCES algorithm_versions(id) ON DELETE CASCADE
+      );
+
+      -- 인덱스 생성
+      CREATE INDEX IF NOT EXISTS idx_algorithm_versions_type_active 
+      ON algorithm_versions(algorithm_type, is_active);
+
+      CREATE INDEX IF NOT EXISTS idx_algorithm_versions_type_version 
+      ON algorithm_versions(algorithm_type, version DESC);
+
+      CREATE INDEX IF NOT EXISTS idx_research_findings_applied 
+      ON research_findings(applied, created_at DESC);
+
+      CREATE INDEX IF NOT EXISTS idx_algorithm_tests_type_created 
+      ON algorithm_tests(algorithm_type, created_at DESC);
+
+      CREATE INDEX IF NOT EXISTS idx_algorithm_tests_versions 
+      ON algorithm_tests(version_a, version_b);
+    `);
+  } catch (error) {
+    console.error('❌ [Migration] 알고리즘 스키마 보장 중 오류:', error);
+    throw error;
+  }
+}
+
+/**
  * 마이그레이션 인터페이스
  */
 export interface Migration {
@@ -581,73 +671,7 @@ const migrations: Migration[] = [
     version: 12,
     name: 'add_algorithm_learning_tables',
     up: () => {
-      db.exec(`
-        -- 알고리즘 버전 관리 테이블
-        CREATE TABLE IF NOT EXISTS algorithm_versions (
-          id TEXT PRIMARY KEY,
-          algorithm_type TEXT NOT NULL CHECK(algorithm_type IN ('aeo', 'geo', 'seo', 'aio')),
-          version INTEGER NOT NULL,
-          weights TEXT NOT NULL, -- JSON: 가중치 맵
-          config TEXT, -- JSON: 추가 설정
-          avg_accuracy REAL DEFAULT 0.0,
-          avg_error REAL DEFAULT 0.0,
-          total_tests INTEGER DEFAULT 0,
-          improvement_rate REAL DEFAULT 0.0,
-          research_based BOOLEAN DEFAULT 0,
-          research_findings TEXT, -- JSON: 참조한 리서치 ID 목록
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          is_active BOOLEAN DEFAULT 0,
-          UNIQUE(algorithm_type, version)
-        );
-
-        -- 리서치 결과 테이블
-        CREATE TABLE IF NOT EXISTS research_findings (
-          id TEXT PRIMARY KEY,
-          title TEXT NOT NULL,
-          source TEXT NOT NULL,
-          url TEXT,
-          published_date TEXT,
-          findings TEXT NOT NULL, -- JSON: 리서치 결과 배열
-          applied BOOLEAN DEFAULT 0,
-          applied_at DATETIME,
-          applied_version TEXT, -- 적용된 알고리즘 버전 ID
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          FOREIGN KEY (applied_version) REFERENCES algorithm_versions(id) ON DELETE SET NULL
-        );
-
-        -- 알고리즘 A/B 테스트 테이블
-        CREATE TABLE IF NOT EXISTS algorithm_tests (
-          id TEXT PRIMARY KEY,
-          analysis_id TEXT,
-          algorithm_type TEXT NOT NULL CHECK(algorithm_type IN ('aeo', 'geo', 'seo', 'aio')),
-          version_a TEXT NOT NULL,
-          version_b TEXT NOT NULL,
-          score_a REAL NOT NULL,
-          score_b REAL NOT NULL,
-          actual_score REAL,
-          winner TEXT CHECK(winner IN ('A', 'B', 'tie')),
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          FOREIGN KEY (analysis_id) REFERENCES analyses(id) ON DELETE SET NULL,
-          FOREIGN KEY (version_a) REFERENCES algorithm_versions(id) ON DELETE CASCADE,
-          FOREIGN KEY (version_b) REFERENCES algorithm_versions(id) ON DELETE CASCADE
-        );
-
-        -- 인덱스 생성
-        CREATE INDEX IF NOT EXISTS idx_algorithm_versions_type_active 
-        ON algorithm_versions(algorithm_type, is_active);
-
-        CREATE INDEX IF NOT EXISTS idx_algorithm_versions_type_version 
-        ON algorithm_versions(algorithm_type, version DESC);
-
-        CREATE INDEX IF NOT EXISTS idx_research_findings_applied 
-        ON research_findings(applied, created_at DESC);
-
-        CREATE INDEX IF NOT EXISTS idx_algorithm_tests_type_created 
-        ON algorithm_tests(algorithm_type, created_at DESC);
-
-        CREATE INDEX IF NOT EXISTS idx_algorithm_tests_versions 
-        ON algorithm_tests(version_a, version_b);
-      `);
+      ensureAlgorithmSchema();
     },
   },
   // 알고리즘 초기화 (마이그레이션 후 자동 실행)
@@ -655,21 +679,16 @@ const migrations: Migration[] = [
     version: 13,
     name: 'initialize_algorithms',
     up: () => {
-      // 테이블 존재 여부 확인
       try {
-        const tableCheck = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='algorithm_versions'").get();
-        if (!tableCheck) {
-          console.warn('⚠️ [Migration] algorithm_versions 테이블이 없습니다. v12 마이그레이션이 먼저 실행되어야 합니다.');
-          return;
+        if (!algorithmSchemaExists()) {
+          console.warn('⚠️ [Migration] algorithm_versions 테이블이 없습니다. v12 스키마를 재적용합니다.');
+          ensureAlgorithmSchema();
         }
-        
+
         // 알고리즘 초기화는 비동기로 실행 (마이그레이션 완료 후)
-        // 짧은 지연을 두어 v12 마이그레이션이 완전히 완료되도록 함
         setTimeout(() => {
           try {
-            // 다시 한 번 테이블 존재 확인
-            const tableCheckAgain = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='algorithm_versions'").get();
-            if (!tableCheckAgain) {
+            if (!algorithmSchemaExists()) {
               console.warn('⚠️ [Migration] algorithm_versions 테이블이 여전히 없습니다. 초기화를 건너뜁니다.');
               return;
             }
@@ -678,12 +697,10 @@ const migrations: Migration[] = [
             initializeAlgorithms();
           } catch (error) {
             console.error('❌ [Migration] 알고리즘 초기화 실패:', error);
-            // 초기화 실패해도 마이그레이션은 성공으로 처리
           }
-        }, 100); // 100ms 지연
+        }, 100);
       } catch (error) {
         console.error('❌ [Migration] 테이블 확인 실패:', error);
-        // 테이블 확인 실패해도 마이그레이션은 성공으로 처리
       }
     },
   },
@@ -712,7 +729,13 @@ function applyMigration(migration: Migration) {
     // 트랜잭션 시작 전에 다시 확인 (동시 실행 방지)
     const alreadyApplied = db.prepare('SELECT version FROM schema_migrations WHERE version = ?').get(migration.version);
     if (alreadyApplied) {
-      console.log(`⏭️  마이그레이션 이미 적용됨: ${migration.name} (v${migration.version})`);
+      // v12처럼 중요한 스키마가 누락된 경우 재적용
+      if (migration.version === 12 && !algorithmSchemaExists()) {
+        console.warn('⚠️ [Migration] algorithm_versions 테이블이 없어 v12 스키마를 재적용합니다.');
+        ensureAlgorithmSchema();
+      } else {
+        console.log(`⏭️  마이그레이션 이미 적용됨: ${migration.name} (v${migration.version})`);
+      }
       return;
     }
     
