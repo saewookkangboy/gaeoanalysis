@@ -76,11 +76,12 @@ export const metadata: Metadata = {
     description: "ChatGPT, Perplexity, Gemini, Claude가 당신의 콘텐츠를 인용하도록 만드는 실전 최적화 도구. 30초 안에 종합 진단 완료.",
     images: [
       {
-        url: `${baseUrl}/og-image.png`,
+        url: new URL('/og-image.png', baseUrl).toString(),
         width: 1376,
         height: 768,
         alt: "GAEO - Do it now!",
         type: "image/jpeg",
+        secureUrl: new URL('/og-image.png', baseUrl).toString(),
       },
     ],
   },
