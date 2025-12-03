@@ -144,14 +144,25 @@ export async function saveAnalysis(data: {
 
   const result = dbHelpers.transaction(() => {
     // 사용자 존재 확인
-    const userExists = getUser(data.userId);
+    let userExists = getUser(data.userId);
+    
     if (!userExists) {
       console.error('❌ [saveAnalysis] 사용자가 존재하지 않음:', {
         userId: data.userId,
         analysisId: data.id,
         url: data.url
       });
-      throw new Error(`사용자가 존재하지 않습니다: ${data.userId}`);
+      
+      // 디버깅: 모든 사용자 확인
+      try {
+        const allUsersStmt = db.prepare('SELECT id, email FROM users LIMIT 10');
+        const allUsers = allUsersStmt.all() as Array<{ id: string; email: string }>;
+        console.warn('🔍 [saveAnalysis] DB에 존재하는 사용자 목록:', allUsers);
+      } catch (debugError) {
+        console.error('❌ [saveAnalysis] 디버깅 쿼리 오류:', debugError);
+      }
+      
+      throw new Error(`사용자가 존재하지 않습니다: ${data.userId}. 분석을 저장하려면 먼저 로그인하거나 사용자를 생성해야 합니다.`);
     }
     
     console.log('✅ [saveAnalysis] 사용자 확인 완료:', {

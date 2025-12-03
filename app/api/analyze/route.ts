@@ -31,6 +31,30 @@ const getRateLimitKey = async (request: NextRequest): Promise<string> => {
 async function handleAnalyze(request: NextRequest) {
   console.log('🚀 [Analyze API] 분석 요청 시작');
   
+  // Vercel 환경에서 DB 초기화 대기 (Blob Storage 다운로드 완료 대기)
+  if (process.env.VERCEL && !process.env.RAILWAY_ENVIRONMENT && !process.env.RAILWAY) {
+    try {
+      // DB 파일 존재 확인 및 대기
+      const { existsSync } = require('fs');
+      const dbPath = '/tmp/gaeo.db';
+      let attempts = 0;
+      const maxAttempts = 10;
+      
+      while (!existsSync(dbPath) && attempts < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+        attempts++;
+      }
+      
+      if (!existsSync(dbPath)) {
+        console.warn('⚠️ [Analyze API] DB 파일이 아직 준비되지 않음, 계속 진행 (새 DB 생성)');
+      } else {
+        console.log('✅ [Analyze API] DB 파일 준비 완료');
+      }
+    } catch (error) {
+      console.warn('⚠️ [Analyze API] DB 파일 확인 중 오류 (무시하고 계속 진행):', error);
+    }
+  }
+  
   const body = await request.json();
   const { url } = analyzeSchema.parse(body);
 
@@ -150,10 +174,15 @@ async function handleAnalyze(request: NextRequest) {
           finalUserId: finalUserId
         });
         
-        // 다시 확인
+        // Vercel 환경에서 DB 동기화 대기
+        if (process.env.VERCEL && !process.env.RAILWAY_ENVIRONMENT && !process.env.RAILWAY) {
+          await new Promise(resolve => setTimeout(resolve, 300));
+        }
+        
+        // 다시 확인 (여러 방법으로)
         user = getUser(finalUserId);
         if (!user && normalizedEmail) {
-          // 최종 확인: 이메일로 다시 찾기
+          // 이메일로 다시 찾기
           const finalUserByEmail = getUserByEmail(normalizedEmail);
           if (finalUserByEmail) {
             finalUserId = finalUserByEmail.id;
@@ -166,6 +195,18 @@ async function handleAnalyze(request: NextRequest) {
           }
         }
         
+        // 여전히 사용자가 없으면 세션 ID로 확인
+        if (!user) {
+          user = getUser(userId);
+          if (user) {
+            finalUserId = user.id;
+            console.log('🔄 [Analyze API] createUser 후 세션 ID로 재확인:', {
+              createdUserId: createdUserId,
+              finalUserId: finalUserId
+            });
+          }
+        }
+        
         console.log('👤 [Analyze API] 사용자 확인/생성 완료:', { 
           originalSessionId: userId, 
           finalUserId: finalUserId,
@@ -173,8 +214,13 @@ async function handleAnalyze(request: NextRequest) {
           provider: provider,
           userExists: !!user
         });
-      } catch (error) {
-        console.error('❌ [Analyze API] 사용자 생성 오류:', error);
+      } catch (error: any) {
+        console.error('❌ [Analyze API] 사용자 생성 오류:', {
+          error: error.message,
+          code: error.code,
+          stack: error.stack
+        });
+        
         // 사용자 생성 실패해도 분석은 계속 진행
         // 이메일로 다시 시도
         if (normalizedEmail) {
@@ -185,6 +231,19 @@ async function handleAnalyze(request: NextRequest) {
             console.log('🔄 [Analyze API] 사용자 생성 실패 후 이메일로 재확인 성공:', { 
               finalUserId: finalUserId,
               email: normalizedEmail 
+            });
+          }
+        }
+        
+        // 세션 ID로도 시도
+        if (!user) {
+          const sessionUser = getUser(userId);
+          if (sessionUser) {
+            finalUserId = sessionUser.id;
+            user = sessionUser;
+            console.log('🔄 [Analyze API] 사용자 생성 실패 후 세션 ID로 재확인 성공:', { 
+              finalUserId: finalUserId,
+              sessionId: userId
             });
           }
         }
@@ -207,12 +266,38 @@ async function handleAnalyze(request: NextRequest) {
 
     analysisId = uuidv4();
     try {
+      // 사용자가 없으면 먼저 생성
+      if (!user && normalizedEmail) {
+        try {
+          const provider = session.user.provider || (session as any).account?.provider || null;
+          const createdUserId = createUser({
+            id: userId,
+            email: normalizedEmail,
+            blogUrl: null,
+            name: session.user.name || undefined,
+            image: session.user.image || undefined,
+            provider: provider,
+          });
+          finalUserId = createdUserId || userId;
+          user = getUser(finalUserId) || getUserByEmail(normalizedEmail);
+          console.log('👤 [Analyze API] 저장 전 사용자 확인/생성:', {
+            sessionId: userId,
+            finalUserId: finalUserId,
+            userExists: !!user
+          });
+        } catch (userError: any) {
+          console.error('❌ [Analyze API] 사용자 생성 오류:', userError);
+          // 사용자 생성 실패해도 계속 진행
+        }
+      }
+      
       console.log('💾 [Analyze API] 분석 결과 저장 시도:', { 
         analysisId, 
         userId: finalUserId,
         sessionId: userId,
         email: normalizedEmail,
-        url: sanitizedUrl 
+        url: sanitizedUrl,
+        userExists: !!user
       });
       
       const savedId = await saveAnalysis({
