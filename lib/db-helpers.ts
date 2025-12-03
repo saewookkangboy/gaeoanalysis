@@ -940,13 +940,46 @@ export function createUser(data: {
     // 이메일 정규화 (소문자, 트림) - 일관된 사용자 식별을 위해 중요
     const normalizedEmail = data.email.toLowerCase().trim();
     
+    // last_login_at 컬럼 존재 여부 확인 및 추가
+    try {
+      const tableInfo = db.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
+      const columnNames = tableInfo.map(col => col.name);
+      const hasLastLoginAt = columnNames.includes('last_login_at');
+      
+      if (!hasLastLoginAt) {
+        try {
+          db.exec('ALTER TABLE users ADD COLUMN last_login_at DATETIME');
+          console.log('✅ [createUser] last_login_at 컬럼 추가 완료');
+        } catch (alterError: any) {
+          if (alterError?.code !== 'SQLITE_ERROR' || !alterError?.message.includes('duplicate column')) {
+            console.warn('⚠️ [createUser] last_login_at 컬럼 추가 실패:', alterError);
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('⚠️ [createUser] 테이블 정보 확인 실패:', error);
+    }
+    
     // 먼저 사용자가 존재하는지 확인
     const existingUser = getUser(data.id);
     if (existingUser) {
       console.log('사용자 이미 존재:', { id: data.id, email: normalizedEmail });
-      // last_login_at 업데이트
-      const updateStmt = db.prepare('UPDATE users SET last_login_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
-      updateStmt.run(data.id);
+      // last_login_at 컬럼 존재 여부에 따라 다른 업데이트 쿼리 사용
+      try {
+        const tableInfo = db.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
+        const hasLastLoginAt = tableInfo.some(col => col.name === 'last_login_at');
+        
+        if (hasLastLoginAt) {
+          const updateStmt = db.prepare('UPDATE users SET last_login_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
+          updateStmt.run(data.id);
+        } else {
+          const updateStmt = db.prepare('UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = ?');
+          updateStmt.run(data.id);
+        }
+      } catch (updateError) {
+        console.warn('⚠️ [createUser] last_login_at 업데이트 실패:', updateError);
+        // 업데이트 실패해도 사용자 ID는 반환
+      }
       return data.id;
     }
 
@@ -961,9 +994,22 @@ export function createUser(data: {
         email: normalizedEmail 
       });
       // 기존 사용자 ID 반환 (FOREIGN KEY 제약 조건을 위해)
-      // last_login_at 업데이트
-      const updateStmt = db.prepare('UPDATE users SET last_login_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
-      updateStmt.run(emailUser.id);
+      // last_login_at 컬럼 존재 여부에 따라 다른 업데이트 쿼리 사용
+      try {
+        const tableInfo = db.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
+        const hasLastLoginAt = tableInfo.some(col => col.name === 'last_login_at');
+        
+        if (hasLastLoginAt) {
+          const updateStmt = db.prepare('UPDATE users SET last_login_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
+          updateStmt.run(emailUser.id);
+        } else {
+          const updateStmt = db.prepare('UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = ?');
+          updateStmt.run(emailUser.id);
+        }
+      } catch (updateError) {
+        console.warn('⚠️ [createUser] last_login_at 업데이트 실패:', updateError);
+        // 업데이트 실패해도 사용자 ID는 반환
+      }
       return emailUser.id;
     }
 
@@ -972,21 +1018,48 @@ export function createUser(data: {
       const tableInfo = db.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
       const columnNames = tableInfo.map(col => col.name);
       
-      // provider, name, image 컬럼이 있는지 확인
+      // provider, name, image, last_login_at 컬럼이 있는지 확인
       const hasProvider = columnNames.includes('provider');
       const hasName = columnNames.includes('name');
       const hasImage = columnNames.includes('image');
+      const hasLastLoginAt = columnNames.includes('last_login_at');
+      
+      // last_login_at 컬럼이 없으면 추가
+      if (!hasLastLoginAt) {
+        try {
+          db.exec('ALTER TABLE users ADD COLUMN last_login_at DATETIME');
+          console.log('✅ [createUser] last_login_at 컬럼 추가 완료');
+        } catch (alterError: any) {
+          if (alterError?.code !== 'SQLITE_ERROR' || !alterError?.message.includes('duplicate column')) {
+            console.warn('⚠️ [createUser] last_login_at 컬럼 추가 실패:', alterError);
+          }
+        }
+      }
       
       if (hasProvider && hasName && hasImage) {
-        const stmt = db.prepare('INSERT INTO users (id, email, blog_url, name, image, provider, last_login_at) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)');
-        stmt.run(
-          data.id, 
-          normalizedEmail, // 정규화된 이메일 저장
-          data.blogUrl || null,
-          data.name || null,
-          data.image || null,
-          data.provider || null
-        );
+        // last_login_at 컬럼 포함 여부에 따라 다른 쿼리 사용
+        if (hasLastLoginAt || columnNames.includes('last_login_at')) {
+          const stmt = db.prepare('INSERT INTO users (id, email, blog_url, name, image, provider, last_login_at) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)');
+          stmt.run(
+            data.id, 
+            normalizedEmail, // 정규화된 이메일 저장
+            data.blogUrl || null,
+            data.name || null,
+            data.image || null,
+            data.provider || null
+          );
+        } else {
+          // last_login_at이 없으면 제외하고 삽입
+          const stmt = db.prepare('INSERT INTO users (id, email, blog_url, name, image, provider) VALUES (?, ?, ?, ?, ?, ?)');
+          stmt.run(
+            data.id, 
+            normalizedEmail, // 정규화된 이메일 저장
+            data.blogUrl || null,
+            data.name || null,
+            data.image || null,
+            data.provider || null
+          );
+        }
       } else {
         const stmt = db.prepare('INSERT INTO users (id, email, blog_url) VALUES (?, ?, ?)');
         stmt.run(data.id, normalizedEmail, data.blogUrl || null); // 정규화된 이메일 저장
@@ -1173,12 +1246,38 @@ export function saveAuthLog(data: {
   errorMessage?: string | null;
 }) {
   return dbHelpers.transaction(() => {
-    // auth_logs 테이블 존재 여부 확인
+    // auth_logs 테이블 존재 여부 확인 및 생성
     try {
       const tableInfo = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='auth_logs'").get();
       if (!tableInfo) {
-        console.warn('auth_logs 테이블이 존재하지 않습니다. 마이그레이션을 실행하세요.');
-        return null;
+        console.warn('⚠️ [saveAuthLog] auth_logs 테이블이 존재하지 않습니다. 자동 생성 시도...');
+        // 테이블 자동 생성
+        try {
+          db.exec(`
+            CREATE TABLE IF NOT EXISTS auth_logs (
+              id TEXT PRIMARY KEY,
+              user_id TEXT,
+              provider TEXT NOT NULL,
+              action TEXT NOT NULL,
+              ip_address TEXT,
+              user_agent TEXT,
+              success INTEGER DEFAULT 1,
+              error_message TEXT,
+              created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+              FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_auth_logs_user_id ON auth_logs(user_id);
+            CREATE INDEX IF NOT EXISTS idx_auth_logs_provider ON auth_logs(provider);
+            CREATE INDEX IF NOT EXISTS idx_auth_logs_action ON auth_logs(action);
+            CREATE INDEX IF NOT EXISTS idx_auth_logs_created_at ON auth_logs(created_at);
+            CREATE INDEX IF NOT EXISTS idx_auth_logs_user_created ON auth_logs(user_id, created_at DESC);
+          `);
+          console.log('✅ [saveAuthLog] auth_logs 테이블 자동 생성 완료');
+        } catch (createError: any) {
+          console.error('❌ [saveAuthLog] auth_logs 테이블 생성 실패:', createError);
+          return null;
+        }
       }
 
       const stmt = db.prepare(`
