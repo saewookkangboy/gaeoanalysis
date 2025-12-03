@@ -25,6 +25,8 @@ db.pragma('journal_mode = WAL'); // Write-Ahead Logging
 db.pragma('synchronous = NORMAL'); // 성능과 안정성 균형
 db.pragma('foreign_keys = ON'); // 외래 키 제약 조건 활성화
 db.pragma('busy_timeout = 5000'); // 5초 타임아웃
+// WAL 모드에서 읽기 일관성을 위한 설정
+db.pragma('wal_autocheckpoint = 1'); // 자동 체크포인트 활성화
 
 // 테이블 생성
 db.exec(`

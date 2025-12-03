@@ -16,6 +16,17 @@ export interface QueryOptions {
  */
 export function getUserAnalyses(userId: string, options: QueryOptions = {}) {
   const { limit = 10, offset = 0, orderBy = 'created_at', orderDirection = 'DESC' } = options;
+  
+  // WAL 모드에서 읽기 일관성을 위해 체크포인트 확인
+  // Vercel 서버리스 환경에서 각 함수 호출마다 새로운 DB 인스턴스가 생성되므로
+  // WAL 파일이 동기화되지 않을 수 있음
+  try {
+    // WAL 체크포인트 실행 (WAL 파일을 메인 DB에 병합)
+    db.pragma('wal_checkpoint(PASSIVE)');
+  } catch (error) {
+    // WAL 체크포인트 실패는 무시 (이미 동기화되었을 수 있음)
+    console.warn('⚠️ [getUserAnalyses] WAL 체크포인트 경고:', error);
+  }
 
   // 디버깅: 사용자 ID 확인
   if (process.env.NODE_ENV === 'development' || process.env.DEBUG_DB) {
@@ -101,7 +112,7 @@ export function saveAnalysis(data: {
     claude?: number;
   };
 }) {
-  return dbHelpers.transaction(() => {
+  const result = dbHelpers.transaction(() => {
     // 사용자 존재 확인
     const userExists = getUser(data.userId);
     if (!userExists) {
@@ -171,6 +182,21 @@ export function saveAnalysis(data: {
       throw error;
     }
   });
+  
+  // WAL 모드에서 쓰기 후 읽기 일관성을 위해 체크포인트 강제 실행
+  // Vercel 서버리스 환경에서 각 함수 호출마다 새로운 DB 인스턴스가 생성되므로
+  // WAL 파일이 동기화되지 않을 수 있음
+  try {
+    // WAL 체크포인트 실행 (WAL 파일을 메인 DB에 병합)
+    db.pragma('wal_checkpoint(TRUNCATE)');
+    // 동기화 모드 확인 (NORMAL 모드에서는 자동으로 처리되지만 명시적으로 확인)
+    db.pragma('synchronous = NORMAL');
+  } catch (error) {
+    // WAL 체크포인트 실패는 무시 (이미 커밋되었을 수 있음)
+    console.warn('⚠️ [saveAnalysis] WAL 체크포인트 경고:', error);
+  }
+  
+  return result;
 }
 
 /**
