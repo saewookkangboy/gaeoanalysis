@@ -558,40 +558,116 @@ export async function saveAnalysis(data: {
         // 학습 실패해도 분석 저장은 성공한 것으로 처리
       }
       
-      // 분석 항목별 통계 업데이트
-      updateAnalysisItemStatistics('aeo', data.aeoScore);
-      updateAnalysisItemStatistics('geo', data.geoScore);
-      updateAnalysisItemStatistics('seo', data.seoScore);
-      
-      if (data.aioScores) {
-        if (data.aioScores.chatgpt !== undefined) {
-          updateAnalysisItemStatistics('chatgpt', data.aioScores.chatgpt);
-        }
-        if (data.aioScores.perplexity !== undefined) {
-          updateAnalysisItemStatistics('perplexity', data.aioScores.perplexity);
-        }
-        if (data.aioScores.gemini !== undefined) {
-          updateAnalysisItemStatistics('gemini', data.aioScores.gemini);
-        }
-        if (data.aioScores.claude !== undefined) {
-          updateAnalysisItemStatistics('claude', data.aioScores.claude);
-        }
+      // 통계 업데이트 전 사용자 및 분석 존재 확인
+      const userCheck = getUser(data.userId);
+      if (!userCheck) {
+        console.warn('⚠️ [saveAnalysis] 통계 업데이트 전 사용자 확인 실패:', {
+          userId: data.userId,
+          analysisId: data.id
+        });
+        return; // 사용자가 없으면 통계 업데이트 스킵
       }
       
-      // 사용자 활동 통계 업데이트
-      updateUserActivityStatistics(data.userId, 'analysis', data.overallScore);
-      
-      // 분석 상세 통계 업데이트
-      updateAnalysisDetailStatistics(data.url, {
-        aeoScore: data.aeoScore,
-        geoScore: data.geoScore,
-        seoScore: data.seoScore,
-        overallScore: data.overallScore,
-      });
-    } catch (statError) {
-      console.error('❌ [saveAnalysis] 통계 업데이트 오류:', statError);
-      // 통계 업데이트 실패해도 분석 저장은 성공한 것으로 처리
-    }
+      const analysisCheck = db.prepare('SELECT id FROM analyses WHERE id = ?').get(data.id) as { id: string } | undefined;
+      if (!analysisCheck) {
+        console.warn('⚠️ [saveAnalysis] 통계 업데이트 전 분석 확인 실패:', {
+          analysisId: data.id,
+          userId: data.userId
+        });
+        return; // 분석이 없으면 통계 업데이트 스킵
+      }
+        
+        // 분석 항목별 통계 업데이트
+        updateAnalysisItemStatistics('aeo', data.aeoScore);
+        updateAnalysisItemStatistics('geo', data.geoScore);
+        updateAnalysisItemStatistics('seo', data.seoScore);
+        
+        if (data.aioScores) {
+          if (data.aioScores.chatgpt !== undefined) {
+            updateAnalysisItemStatistics('chatgpt', data.aioScores.chatgpt);
+          }
+          if (data.aioScores.perplexity !== undefined) {
+            updateAnalysisItemStatistics('perplexity', data.aioScores.perplexity);
+          }
+          if (data.aioScores.gemini !== undefined) {
+            updateAnalysisItemStatistics('gemini', data.aioScores.gemini);
+          }
+          if (data.aioScores.claude !== undefined) {
+            updateAnalysisItemStatistics('claude', data.aioScores.claude);
+          }
+        }
+        
+        // 사용자 활동 통계 업데이트 (FOREIGN KEY 제약 조건 오류 방지)
+        try {
+          updateUserActivityStatistics(data.userId, 'analysis', data.overallScore);
+        } catch (userStatError: any) {
+          if (userStatError?.code === 'SQLITE_CONSTRAINT_FOREIGNKEY') {
+            console.warn('⚠️ [saveAnalysis] 사용자 활동 통계 업데이트 FOREIGN KEY 오류 (사용자 확인 후 재시도):', {
+              userId: data.userId,
+              error: userStatError.message
+            });
+            // 사용자 재확인 후 재시도
+            const retryUserCheck = getUser(data.userId);
+            if (retryUserCheck) {
+              try {
+                updateUserActivityStatistics(data.userId, 'analysis', data.overallScore);
+              } catch (retryError) {
+                console.warn('⚠️ [saveAnalysis] 사용자 활동 통계 업데이트 재시도 실패 (무시):', retryError);
+              }
+            }
+          } else {
+            throw userStatError;
+          }
+        }
+        
+        // 분석 상세 통계 업데이트 (FOREIGN KEY 제약 조건 오류 방지)
+        try {
+          updateAnalysisDetailStatistics(data.url, {
+            aeoScore: data.aeoScore,
+            geoScore: data.geoScore,
+            seoScore: data.seoScore,
+            overallScore: data.overallScore,
+          });
+        } catch (detailStatError: any) {
+          if (detailStatError?.code === 'SQLITE_CONSTRAINT_FOREIGNKEY') {
+            console.warn('⚠️ [saveAnalysis] 분석 상세 통계 업데이트 FOREIGN KEY 오류 (분석 확인 후 재시도):', {
+              analysisId: data.id,
+              userId: data.userId,
+              error: detailStatError.message
+            });
+            // 분석 재확인 후 재시도
+            const retryAnalysisCheck = db.prepare('SELECT id FROM analyses WHERE id = ?').get(data.id) as { id: string } | undefined;
+            if (retryAnalysisCheck) {
+              try {
+                updateAnalysisDetailStatistics(data.url, {
+                  aeoScore: data.aeoScore,
+                  geoScore: data.geoScore,
+                  seoScore: data.seoScore,
+                  overallScore: data.overallScore,
+                });
+              } catch (retryError) {
+                console.warn('⚠️ [saveAnalysis] 분석 상세 통계 업데이트 재시도 실패 (무시):', retryError);
+              }
+            }
+          } else {
+            throw detailStatError;
+          }
+        }
+        
+        console.log('✅ [saveAnalysis] 통계 업데이트 완료');
+      } catch (statError: any) {
+        // FOREIGN KEY 제약 조건 오류는 경고만 출력 (분석 저장은 성공)
+        if (statError?.code === 'SQLITE_CONSTRAINT_FOREIGNKEY') {
+          console.warn('⚠️ [saveAnalysis] 통계 업데이트 FOREIGN KEY 제약 조건 오류 (무시):', {
+            error: statError.message,
+            userId: data.userId,
+            analysisId: data.id
+          });
+        } else {
+          console.error('❌ [saveAnalysis] 통계 업데이트 오류:', statError);
+        }
+        // 통계 업데이트 실패해도 분석 저장은 성공한 것으로 처리
+      }
   });
   
   return result;
