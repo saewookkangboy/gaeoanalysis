@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
-import { saveOrUpdateChatConversation } from '@/lib/db-helpers';
+import { saveOrUpdateChatConversation, getUserByEmail, getUser } from '@/lib/db-helpers';
 import { createErrorResponse, createSuccessResponse, withErrorHandling } from '@/lib/api-utils';
 import { z } from 'zod';
 
@@ -26,12 +26,34 @@ async function handleChatSave(request: NextRequest) {
     );
   }
 
+  // 안정성을 위해 이메일 기반으로 실제 사용자 ID 확인
+  let actualUserId = session.user.id;
+  const userEmail = session.user.email;
+  
+  if (userEmail) {
+    const userByEmail = getUserByEmail(userEmail);
+    if (userByEmail) {
+      actualUserId = userByEmail.id;
+      console.log('✅ 채팅 저장: 이메일로 실제 사용자 ID 확인:', {
+        sessionId: session.user.id,
+        actualUserId: actualUserId,
+        email: userEmail
+      });
+    } else {
+      // 세션 ID로 확인
+      const user = getUser(session.user.id);
+      if (user) {
+        actualUserId = user.id;
+      }
+    }
+  }
+
   const body = await request.json();
   const { analysisId, messages, conversationId } = chatSaveSchema.parse(body);
 
   const savedConversationId = saveOrUpdateChatConversation({
     conversationId: conversationId || undefined,
-    userId: session.user.id,
+    userId: actualUserId, // 실제 사용자 ID 사용
     analysisId: analysisId || null,
     messages,
   });

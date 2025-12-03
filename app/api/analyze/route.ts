@@ -69,30 +69,43 @@ async function handleAnalyze(request: NextRequest) {
   let analysisId = null;
   if (userId) {
     // 실제 사용자 ID 확인 (세션 ID와 DB ID가 다를 수 있음)
+    // 안정성을 위해 이메일 기반으로 먼저 확인
     let finalUserId = userId;
-    let user = getUser(userId);
+    let user = null;
     
-    // 사용자가 없고 이메일이 있으면 이메일로 찾기 시도
-    if (!user && session?.user?.email) {
+    // 1. 이메일로 사용자 찾기 (가장 안정적인 방법)
+    if (session?.user?.email) {
       const userByEmail = getUserByEmail(session.user.email);
       if (userByEmail) {
-        console.log('📧 이메일로 사용자 발견:', { 
-          sessionId: userId, 
-          dbId: userByEmail.id, 
-          email: session.user.email 
-        });
         finalUserId = userByEmail.id;
         user = userByEmail;
+        console.log('✅ 이메일로 사용자 확인:', { 
+          sessionId: userId, 
+          actualUserId: finalUserId, 
+          email: session.user.email 
+        });
       }
     }
     
-    // 사용자가 여전히 없으면 생성
+    // 2. 이메일로 찾지 못한 경우, 세션 ID로 확인
+    if (!user) {
+      user = getUser(userId);
+      if (user) {
+        finalUserId = user.id;
+        console.log('✅ 세션 ID로 사용자 확인:', { 
+          sessionId: userId, 
+          actualUserId: finalUserId 
+        });
+      }
+    }
+    
+    // 3. 사용자가 여전히 없으면 생성 (이메일이 있는 경우에만)
     if (!user && session?.user?.email) {
       try {
-        // provider 정보 추출 (account 정보가 없으면 null)
-        const provider = (session as any).account?.provider || null;
+        // provider 정보 추출
+        const provider = session.user.provider || (session as any).account?.provider || null;
         
-        // createUser는 이메일로 이미 등록된 사용자를 찾으면 기존 ID를 반환할 수 있음
+        // createUser는 이메일로 이미 등록된 사용자를 찾으면 기존 ID를 반환
         const createdUserId = createUser({
           id: userId,
           email: session.user.email,
@@ -107,6 +120,14 @@ async function handleAnalyze(request: NextRequest) {
         
         // 다시 확인
         user = getUser(finalUserId);
+        if (!user && session?.user?.email) {
+          // 최종 확인: 이메일로 다시 찾기
+          const finalUserByEmail = getUserByEmail(session.user.email);
+          if (finalUserByEmail) {
+            finalUserId = finalUserByEmail.id;
+            user = finalUserByEmail;
+          }
+        }
         
         console.log('👤 사용자 확인/생성 완료:', { 
           originalSessionId: userId, 
@@ -117,17 +138,34 @@ async function handleAnalyze(request: NextRequest) {
         });
       } catch (error) {
         console.error('❌ 사용자 생성 오류:', error);
-        // 사용자 생성 실패해도 분석은 계속 진행 (익명 사용자로 처리)
-        finalUserId = userId; // 원래 ID 사용
+        // 사용자 생성 실패해도 분석은 계속 진행
+        // 이메일로 다시 시도
+        if (session?.user?.email) {
+          const retryUser = getUserByEmail(session.user.email);
+          if (retryUser) {
+            finalUserId = retryUser.id;
+            user = retryUser;
+            console.log('🔄 사용자 생성 실패 후 이메일로 재확인 성공:', { 
+              finalUserId: finalUserId,
+              email: session.user.email 
+            });
+          }
+        }
       }
-    } else if (user) {
-      // 사용자가 존재하는 경우 실제 사용자 ID 사용
-      finalUserId = user.id;
-      console.log('✅ 사용자 확인 완료:', { 
-        sessionId: userId, 
-        dbId: finalUserId,
-        email: user.email 
-      });
+    }
+    
+    // 최종 사용자 ID 확인
+    if (!user && session?.user?.email) {
+      // 마지막 시도: 이메일로 확인
+      const lastTryUser = getUserByEmail(session.user.email);
+      if (lastTryUser) {
+        finalUserId = lastTryUser.id;
+        user = lastTryUser;
+        console.log('🔄 최종 확인: 이메일로 사용자 발견:', { 
+          finalUserId: finalUserId,
+          email: session.user.email 
+        });
+      }
     }
 
     analysisId = uuidv4();
