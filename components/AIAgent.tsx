@@ -62,13 +62,29 @@ export default function AIAgent({ analysisData, aioAnalysis }: AIAgentProps) {
 
   // 추천 질문 생성 함수 (useCallback으로 메모이제이션)
   const generateSuggestions = useCallback(async () => {
-    if (!analysisData) return;
+    if (!analysisData) {
+      console.warn('⚠️ [AIAgent] 분석 데이터가 없어 추천 질문을 생성할 수 없습니다.');
+      return;
+    }
+    
+    // 이미 생성 중이면 중복 실행 방지
+    if (isGeneratingSuggestions) {
+      console.log('⏳ [AIAgent] 추천 질문 생성 중...');
+      return;
+    }
     
     setIsGeneratingSuggestions(true);
     try {
       const userQuestions = messages
         .filter(msg => msg.role === 'user')
         .map(msg => msg.content);
+
+      console.log('🔄 [AIAgent] 추천 질문 생성 시작...', {
+        hasAnalysisData: !!analysisData,
+        hasAioAnalysis: !!aioAnalysis,
+        messageCount: messages.length,
+        askedQuestionsCount: userQuestions.length
+      });
 
       const response = await fetch('/api/chat/suggestions', {
         method: 'POST',
@@ -87,23 +103,31 @@ export default function AIAgent({ analysisData, aioAnalysis }: AIAgentProps) {
       if (response.ok) {
         const data = await response.json();
         if (data.questions && data.questions.length > 0) {
+          console.log('✅ [AIAgent] 추천 질문 생성 성공:', {
+            questionCount: data.questions.length
+          });
           setQuickQuestions(data.questions);
         } else {
+          console.warn('⚠️ [AIAgent] API가 질문을 반환하지 않음, 기본 질문 사용');
           // API가 질문을 반환하지 않으면 기본 질문 사용
           setQuickQuestions(getQuickQuestions(analysisData));
         }
       } else {
+        console.warn('⚠️ [AIAgent] API 실패, 기본 질문 사용:', {
+          status: response.status,
+          statusText: response.statusText
+        });
         // API 실패 시 기본 질문 사용
         setQuickQuestions(getQuickQuestions(analysisData));
       }
     } catch (error) {
-      console.error('추천 질문 생성 실패:', error);
+      console.error('❌ [AIAgent] 추천 질문 생성 실패:', error);
       // 에러 발생 시 기본 질문 사용
       setQuickQuestions(getQuickQuestions(analysisData));
     } finally {
       setIsGeneratingSuggestions(false);
     }
-  }, [analysisData, aioAnalysis, messages]);
+  }, [analysisData, aioAnalysis, messages, isGeneratingSuggestions]);
 
   // 분석 데이터가 변경되거나 추천 질문이 없을 때 생성
   useEffect(() => {
@@ -397,10 +421,15 @@ export default function AIAgent({ analysisData, aioAnalysis }: AIAgentProps) {
                     <div className="flex items-center justify-between">
                       <p className="text-xs font-semibold text-gray-700 dark:text-gray-300">💡 추천 질문</p>
                       <button
-                        onClick={generateSuggestions}
-                        disabled={isGeneratingSuggestions}
-                        className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 disabled:opacity-50 transition-colors"
-                        title="새로운 추천 질문 생성"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          console.log('🔄 [AIAgent] 새로고침 버튼 클릭');
+                          generateSuggestions();
+                        }}
+                        disabled={isGeneratingSuggestions || !analysisData}
+                        className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        title={!analysisData ? '분석 데이터가 필요합니다' : '새로운 추천 질문 생성'}
                       >
                         {isGeneratingSuggestions ? '생성 중...' : '🔄 새로고침'}
                       </button>
@@ -595,10 +624,15 @@ export default function AIAgent({ analysisData, aioAnalysis }: AIAgentProps) {
                 <div className="flex items-center justify-between mb-1">
                   <p className="text-xs text-gray-500 dark:text-gray-400">💡 추천 질문</p>
                   <button
-                    onClick={generateSuggestions}
-                    disabled={isGeneratingSuggestions}
-                    className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 disabled:opacity-50 transition-colors"
-                    title="새로운 추천 질문 생성"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      console.log('🔄 [AIAgent] 새로고침 버튼 클릭');
+                      generateSuggestions();
+                    }}
+                    disabled={isGeneratingSuggestions || !analysisData}
+                    className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    title={!analysisData ? '분석 데이터가 필요합니다' : '새로운 추천 질문 생성'}
                   >
                     {isGeneratingSuggestions ? '생성 중...' : '🔄 새로고침'}
                   </button>
