@@ -81,6 +81,24 @@ const nextConfig: NextConfig = {
         ],
       },
       {
+        // 정적 파일 (manifest.json, favicon 등)은 CSP 제외
+        source: '/(manifest.json|favicon.ico|robots.txt|sitemap.xml)',
+        headers: [
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
+          {
+            key: 'Access-Control-Allow-Origin',
+            value: '*',
+          },
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
+        ],
+      },
+      {
         // 모든 페이지에 기본 보안 헤더 및 CSP 적용
         source: '/:path*',
         headers: [
