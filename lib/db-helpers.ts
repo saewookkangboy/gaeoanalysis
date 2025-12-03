@@ -17,18 +17,54 @@ export interface QueryOptions {
 export function getUserAnalyses(userId: string, options: QueryOptions = {}) {
   const { limit = 10, offset = 0, orderBy = 'created_at', orderDirection = 'DESC' } = options;
 
+  // 디버깅: 사용자 ID 확인
+  if (process.env.NODE_ENV === 'development' || process.env.DEBUG_DB) {
+    // 해당 사용자가 존재하는지 확인
+    const userExists = getUser(userId);
+    if (!userExists) {
+      console.warn('⚠️ [getUserAnalyses] 사용자가 존재하지 않음:', { userId });
+    }
+    
+    // 전체 분석 이력 개수 확인 (디버깅용)
+    const totalStmt = db.prepare('SELECT COUNT(*) as count FROM analyses WHERE user_id = ?');
+    const totalCount = (totalStmt.get(userId) as { count: number })?.count || 0;
+    if (totalCount === 0) {
+      // 다른 사용자 ID로 저장되었는지 확인 (디버깅용)
+      const allAnalysesStmt = db.prepare('SELECT user_id, COUNT(*) as count FROM analyses GROUP BY user_id LIMIT 10');
+      const allUserCounts = allAnalysesStmt.all() as Array<{ user_id: string; count: number }>;
+      if (allUserCounts.length > 0) {
+        console.warn('🔍 [getUserAnalyses] 다른 사용자 ID로 저장된 분석 이력:', {
+          requestedUserId: userId,
+          otherUserCounts: allUserCounts
+        });
+      }
+    }
+  }
+
   const stmt = db.prepare(`
     SELECT 
       id, url, aeo_score, geo_score, seo_score, overall_score, 
       insights, chatgpt_score, perplexity_score, gemini_score, claude_score, 
-      created_at
+      created_at, user_id
     FROM analyses
     WHERE user_id = ?
     ORDER BY ${orderBy} ${orderDirection}
     LIMIT ? OFFSET ?
   `);
 
-  return stmt.all(userId, limit, offset).map((row: any) => ({
+  const results = stmt.all(userId, limit, offset);
+  
+  // 디버깅: 조회 결과 확인
+  if ((process.env.NODE_ENV === 'development' || process.env.DEBUG_DB) && results.length === 0) {
+    // user_id가 NULL인 분석 이력 확인
+    const nullUserIdStmt = db.prepare('SELECT COUNT(*) as count FROM analyses WHERE user_id IS NULL');
+    const nullCount = (nullUserIdStmt.get() as { count: number })?.count || 0;
+    if (nullCount > 0) {
+      console.warn('⚠️ [getUserAnalyses] user_id가 NULL인 분석 이력 발견:', { count: nullCount });
+    }
+  }
+
+  return results.map((row: any) => ({
     id: row.id,
     url: row.url,
     aeoScore: row.aeo_score,
@@ -66,6 +102,17 @@ export function saveAnalysis(data: {
   };
 }) {
   return dbHelpers.transaction(() => {
+    // 사용자 존재 확인
+    const userExists = getUser(data.userId);
+    if (!userExists) {
+      console.error('❌ [saveAnalysis] 사용자가 존재하지 않음:', {
+        userId: data.userId,
+        analysisId: data.id,
+        url: data.url
+      });
+      throw new Error(`사용자가 존재하지 않습니다: ${data.userId}`);
+    }
+
     const stmt = db.prepare(`
       INSERT INTO analyses (
         id, user_id, url, aeo_score, geo_score, seo_score, 
@@ -75,22 +122,54 @@ export function saveAnalysis(data: {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
-    stmt.run(
-      data.id,
-      data.userId,
-      data.url,
-      data.aeoScore,
-      data.geoScore,
-      data.seoScore,
-      data.overallScore,
-      JSON.stringify(data.insights),
-      data.aioScores?.chatgpt || null,
-      data.aioScores?.perplexity || null,
-      data.aioScores?.gemini || null,
-      data.aioScores?.claude || null
-    );
+    try {
+      stmt.run(
+        data.id,
+        data.userId,
+        data.url,
+        data.aeoScore,
+        data.geoScore,
+        data.seoScore,
+        data.overallScore,
+        JSON.stringify(data.insights),
+        data.aioScores?.chatgpt || null,
+        data.aioScores?.perplexity || null,
+        data.aioScores?.gemini || null,
+        data.aioScores?.claude || null
+      );
 
-    return data.id;
+      // 저장 후 즉시 확인
+      const verifyStmt = db.prepare('SELECT id, user_id, url FROM analyses WHERE id = ?');
+      const saved = verifyStmt.get(data.id) as { id: string; user_id: string; url: string } | undefined;
+      
+      if (!saved) {
+        console.error('❌ [saveAnalysis] 저장 후 확인 실패:', {
+          analysisId: data.id,
+          userId: data.userId
+        });
+        throw new Error('분석 저장 후 확인 실패');
+      }
+      
+      if (saved.user_id !== data.userId) {
+        console.error('❌ [saveAnalysis] 저장된 user_id가 다름:', {
+          requestedUserId: data.userId,
+          savedUserId: saved.user_id,
+          analysisId: data.id
+        });
+        throw new Error(`저장된 user_id가 다릅니다: ${saved.user_id} !== ${data.userId}`);
+      }
+
+      return data.id;
+    } catch (error: any) {
+      console.error('❌ [saveAnalysis] 저장 오류:', {
+        error: error.message,
+        code: error.code,
+        userId: data.userId,
+        analysisId: data.id,
+        url: data.url
+      });
+      throw error;
+    }
   });
 }
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { getUserAnalyses, getUserByEmail, getUser } from '@/lib/db-helpers';
+import db from '@/lib/db';
 
 export async function GET(request: NextRequest) {
   try {
@@ -91,6 +92,50 @@ export async function GET(request: NextRequest) {
       userId: actualUserId,
       count: analyses.length
     });
+    
+    // 디버깅: 조회 결과가 0개인 경우 추가 확인
+    if (analyses.length === 0) {
+      // 사용자 존재 확인
+      const userCheck = getUser(actualUserId);
+      console.warn('⚠️ [History API] 분석 이력이 0개, 사용자 확인:', {
+        userId: actualUserId,
+        userExists: !!userCheck,
+        userEmail: userCheck?.email || 'N/A'
+      });
+      
+      // 전체 분석 이력 개수 확인 (디버깅용)
+      try {
+        const totalStmt = db.prepare('SELECT COUNT(*) as count FROM analyses');
+        const totalCount = (totalStmt.get() as { count: number })?.count || 0;
+        const userCountStmt = db.prepare('SELECT COUNT(*) as count FROM analyses WHERE user_id = ?');
+        const userCount = (userCountStmt.get(actualUserId) as { count: number })?.count || 0;
+        
+        console.warn('🔍 [History API] 디버깅 정보:', {
+          totalAnalysesInDB: totalCount,
+          analysesForThisUser: userCount,
+          userId: actualUserId
+        });
+        
+        // user_id가 NULL인 분석 이력 확인
+        const nullUserIdStmt = db.prepare('SELECT COUNT(*) as count FROM analyses WHERE user_id IS NULL');
+        const nullCount = (nullUserIdStmt.get() as { count: number })?.count || 0;
+        if (nullCount > 0) {
+          console.warn('⚠️ [History API] user_id가 NULL인 분석 이력 발견:', { count: nullCount });
+        }
+        
+        // 다른 사용자 ID로 저장된 분석 이력 확인
+        const allUserStmt = db.prepare('SELECT user_id, COUNT(*) as count FROM analyses GROUP BY user_id LIMIT 10');
+        const allUserCounts = allUserStmt.all() as Array<{ user_id: string; count: number }>;
+        if (allUserCounts.length > 0) {
+          console.warn('🔍 [History API] 모든 사용자별 분석 이력:', {
+            requestedUserId: actualUserId,
+            allUserCounts: allUserCounts
+          });
+        }
+      } catch (error) {
+        console.error('❌ [History API] 디버깅 쿼리 오류:', error);
+      }
+    }
     
     // 분석 이력이 없고 세션 ID와 실제 ID가 다른 경우, 세션 ID로도 확인
     if (analyses.length === 0 && actualUserId !== sessionUserId) {
