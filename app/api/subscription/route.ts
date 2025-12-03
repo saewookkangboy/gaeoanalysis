@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.id) {
-      return createErrorResponse('인증이 필요합니다.', 401);
+      return createErrorResponse('UNAUTHORIZED', '인증이 필요합니다.', 401);
     }
 
     const userId = session.user.id;
@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (error: any) {
     console.error('구독 정보 조회 오류:', error);
-    return createErrorResponse('구독 정보를 조회할 수 없습니다.', 500);
+    return createErrorResponse('INTERNAL_ERROR', '구독 정보를 조회할 수 없습니다.', 500);
   }
 }
 
@@ -39,14 +39,14 @@ export async function POST(request: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.id) {
-      return createErrorResponse('인증이 필요합니다.', 401);
+      return createErrorResponse('UNAUTHORIZED', '인증이 필요합니다.', 401);
     }
 
     const body = await request.json();
     const { planType, periodStart, periodEnd } = body;
 
     if (!planType || !['free', 'pro', 'business'].includes(planType)) {
-      return createErrorResponse('유효하지 않은 플랜 타입입니다.', 400);
+      return createErrorResponse('VALIDATION_ERROR', '유효하지 않은 플랜 타입입니다.', 400);
     }
 
     const userId = session.user.id;
@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (error: any) {
     console.error('구독 생성 오류:', error);
-    return createErrorResponse('구독을 생성할 수 없습니다.', 500);
+    return createErrorResponse('INTERNAL_ERROR', '구독을 생성할 수 없습니다.', 500);
   }
 }
 
@@ -75,14 +75,14 @@ export async function PATCH(request: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.id) {
-      return createErrorResponse('인증이 필요합니다.', 401);
+      return createErrorResponse('UNAUTHORIZED', '인증이 필요합니다.', 401);
     }
 
     const body = await request.json();
     const { planType, cancelAtPeriodEnd } = body;
 
     if (!planType || !['free', 'pro', 'business'].includes(planType)) {
-      return createErrorResponse('유효하지 않은 플랜 타입입니다.', 400);
+      return createErrorResponse('VALIDATION_ERROR', '유효하지 않은 플랜 타입입니다.', 400);
     }
 
     const userId = session.user.id;
@@ -98,7 +98,7 @@ export async function PATCH(request: NextRequest) {
     });
   } catch (error: any) {
     console.error('구독 변경 오류:', error);
-    return createErrorResponse('구독을 변경할 수 없습니다.', 500);
+    return createErrorResponse('INTERNAL_ERROR', '구독을 변경할 수 없습니다.', 500);
   }
 }
 
@@ -110,14 +110,14 @@ export async function DELETE(request: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.id) {
-      return createErrorResponse('인증이 필요합니다.', 401);
+      return createErrorResponse('UNAUTHORIZED', '인증이 필요합니다.', 401);
     }
 
     const userId = session.user.id;
     const cancelled = cancelSubscription(userId, true);
 
     if (!cancelled) {
-      return createErrorResponse('구독을 찾을 수 없습니다.', 404);
+      return createErrorResponse('NOT_FOUND', '구독을 찾을 수 없습니다.', 404);
     }
 
     return createSuccessResponse({
@@ -125,7 +125,7 @@ export async function DELETE(request: NextRequest) {
     });
   } catch (error: any) {
     console.error('구독 취소 오류:', error);
-    return createErrorResponse('구독을 취소할 수 없습니다.', 500);
+    return createErrorResponse('INTERNAL_ERROR', '구독을 취소할 수 없습니다.', 500);
   }
 }
 

@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.id) {
-      return createErrorResponse('인증이 필요합니다.', 401);
+      return createErrorResponse('UNAUTHORIZED', '인증이 필요합니다.', 401);
     }
 
     const userId = session.user.id;
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
     }
   } catch (error: any) {
     console.error('사용량 조회 오류:', error);
-    return createErrorResponse('사용량을 조회할 수 없습니다.', 500);
+    return createErrorResponse('INTERNAL_ERROR', '사용량을 조회할 수 없습니다.', 500);
   }
 }
 
