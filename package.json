@@ -7,7 +7,7 @@
     "dev:clean": "bash scripts/cleanup-dev.sh && next dev",
     "cleanup": "bash scripts/cleanup-dev.sh",
     "cleanup:all": "bash scripts/cleanup-dev.sh --clean",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
     "db:migrate": "npx tsx scripts/migrate-db.ts",
