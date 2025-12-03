@@ -6,8 +6,8 @@ const nextConfig: NextConfig = {
   experimental: {
     // Next.js 16 호환성
   },
-  // Turbopack 설정 (Next.js 16 기본)
-  turbopack: {},
+  // 프로덕션 빌드에서 webpack 사용 (Turbopack 안정성 이슈 해결)
+  // Turbopack은 개발 환경에서만 사용
   // 소스맵 비활성화 (프로덕션 보안)
   productionBrowserSourceMaps: false,
   // 이미지 최적화 설정
