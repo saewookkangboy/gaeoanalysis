@@ -58,10 +58,8 @@ if (process.env.NODE_ENV === 'development' || process.env.DEBUG_DB || process.en
   });
 }
 
-// DB 인스턴스 생성
-// 주의: Vercel 환경에서는 다운로드가 완료되기 전에 생성될 수 있음
-// 하지만 DB 파일이 없으면 새로 생성되고, 다운로드된 파일이 있으면 다음 요청에서 사용됨
-const db = new Database(dbPath);
+// DB 인스턴스 생성 (다운로드 완료 후 재생성 가능하도록 변수로 선언)
+let db = new Database(dbPath);
 
 // 성능 최적화 설정
 // Vercel 서버리스 환경에서는 각 함수 호출마다 새로운 DB 인스턴스가 생성되므로
@@ -170,7 +168,29 @@ setImmediate(async () => {
           new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 2000))
         ]);
         if (downloaded) {
-          console.log('✅ [DB] Blob Storage에서 DB 파일 로드 완료, 마이그레이션 시작');
+          console.log('✅ [DB] Blob Storage에서 DB 파일 로드 완료, DB 인스턴스 재생성');
+          
+          // 다운로드된 파일을 사용하기 위해 DB 인스턴스 재생성
+          try {
+            db.close();
+            db = new Database(dbPath);
+            
+            // DB 설정 재적용
+            const journalMode = process.env.VERCEL ? 'DELETE' : 'WAL';
+            db.pragma(`journal_mode = ${journalMode}`);
+            db.pragma('synchronous = FULL');
+            db.pragma('foreign_keys = ON');
+            db.pragma('busy_timeout = 5000');
+            if (journalMode === 'WAL') {
+              db.pragma('wal_autocheckpoint = 1');
+            }
+            
+            console.log('✅ [DB] DB 인스턴스 재생성 완료 (다운로드된 파일 사용)');
+          } catch (reopenError) {
+            console.error('❌ [DB] DB 인스턴스 재생성 실패:', reopenError);
+            // 재생성 실패 시 기존 인스턴스 유지
+            db = new Database(dbPath);
+          }
         }
       } catch (error) {
         console.warn('⚠️ [DB] Blob Storage 다운로드 대기 중 오류:', error);
