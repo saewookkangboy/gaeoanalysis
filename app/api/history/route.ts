@@ -140,74 +140,30 @@ export async function GET(request: NextRequest) {
       }
     }
     
-    // 3-4. 여전히 결과가 없으면 유사한 이메일로 저장된 분석 이력도 조회 시도
+    // 3-4. 여전히 결과가 없으면 디버깅 정보 출력 (이메일별로 분리된 분석 이력 확인)
     if (analyses.length === 0 && normalizedEmail) {
       try {
-        // 이메일로 등록된 모든 사용자 ID 가져오기
-        const allUsersStmt = db.prepare('SELECT id FROM users WHERE LOWER(TRIM(email)) = ?');
-        const allUsers = allUsersStmt.all(normalizedEmail) as Array<{ id: string }>;
+        // 이메일로 등록된 모든 사용자 ID 가져오기 (동일 이메일로 여러 사용자가 있을 수 있음)
+        const allUsersStmt = db.prepare('SELECT id, email FROM users WHERE LOWER(TRIM(email)) = ?');
+        const allUsers = allUsersStmt.all(normalizedEmail) as Array<{ id: string; email: string }>;
         
-        // 유사한 이메일 찾기 (이메일 앞부분이 같은 경우)
-        const emailPrefix = normalizedEmail.split('@')[0];
-        const similarUsersStmt = db.prepare('SELECT id, email FROM users WHERE LOWER(TRIM(email)) LIKE ? AND LOWER(TRIM(email)) != ?');
-        const similarUsers = similarUsersStmt.all(`%${emailPrefix}%`, normalizedEmail) as Array<{ id: string; email: string }>;
-        
-        console.log('🔍 [History API] 유사한 이메일로 등록된 사용자 확인:', {
+        console.log('🔍 [History API] 이메일별 분석 이력 확인 (이메일 단위 분리):', {
           email: normalizedEmail,
-          emailPrefix: emailPrefix,
-          similarUsers: similarUsers.map(u => ({ id: u.id, email: u.email }))
+          registeredUsers: allUsers,
+          message: '각 이메일은 독립적인 사용자로 취급되며, 분석 이력은 이메일별로 분리됩니다.'
         });
         
-        // 모든 관련 사용자 ID 수집 (정확한 이메일 + 유사한 이메일)
-        const allUserIds = [
-          ...allUsers.map(u => u.id),
-          ...similarUsers.map(u => u.id)
-        ];
-        
-        // 중복 제거
-        const uniqueUserIds = Array.from(new Set(allUserIds));
-        
-        if (uniqueUserIds.length > 0) {
-          console.log('🔍 [History API] 모든 관련 사용자 ID로 조회 시도:', {
-            email: normalizedEmail,
-            userIds: uniqueUserIds,
-            exactMatch: allUsers.map(u => u.id),
-            similarMatch: similarUsers.map(u => u.id)
+        // 각 사용자 ID로 개별 조회 (이메일별 분리 확인)
+        for (const user of allUsers) {
+          const userAnalyses = getUserAnalyses(user.id, { limit: 50 });
+          console.log('📊 [History API] 사용자별 분석 이력:', {
+            userId: user.id,
+            email: user.email,
+            analysisCount: userAnalyses.length
           });
-          
-          // 각 사용자 ID로 조회하여 결과 합치기
-          for (const userId of uniqueUserIds) {
-            const userAnalyses = getUserAnalyses(userId, { limit: 50 });
-            if (userAnalyses.length > 0) {
-              // 사용자 이메일 찾기
-              const foundUser = similarUsers.find(u => u.id === userId) || 
-                               (allUsers.find(u => u.id === userId) ? { id: userId, email: normalizedEmail } : null);
-              
-              console.log('✅ [History API] 다른 사용자 ID로 분석 이력 발견:', {
-                userId: userId,
-                count: userAnalyses.length,
-                userEmail: foundUser?.email || 'N/A'
-              });
-              analyses = [...analyses, ...userAnalyses];
-            }
-          }
-          
-          // 중복 제거 (같은 분석 ID가 여러 번 나타날 수 있음)
-          const uniqueAnalyses = analyses.filter((analysis, index, self) =>
-            index === self.findIndex(a => a.id === analysis.id)
-          );
-          analyses = uniqueAnalyses;
-          
-          if (analyses.length > 0) {
-            console.log('✅ [History API] 모든 관련 사용자 ID로 조회 완료:', {
-              email: normalizedEmail,
-              totalCount: analyses.length,
-              userIds: uniqueUserIds
-            });
-          }
         }
       } catch (error) {
-        console.error('❌ [History API] 모든 사용자 ID로 조회 오류:', error);
+        console.error('❌ [History API] 디버깅 정보 조회 오류:', error);
       }
     }
     
