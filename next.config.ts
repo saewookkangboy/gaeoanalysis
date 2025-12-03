@@ -81,7 +81,7 @@ const nextConfig: NextConfig = {
         ],
       },
       {
-        // 정적 파일 (manifest.json, favicon 등)은 CSP 제외
+        // 정적 파일 (manifest.json, favicon 등)은 CSP 제외 및 접근 허용
         source: '/(manifest.json|favicon.ico|robots.txt|sitemap.xml)',
         headers: [
           {
@@ -91,6 +91,14 @@ const nextConfig: NextConfig = {
           {
             key: 'Access-Control-Allow-Origin',
             value: '*',
+          },
+          {
+            key: 'Access-Control-Allow-Methods',
+            value: 'GET, HEAD, OPTIONS',
+          },
+          {
+            key: 'Access-Control-Allow-Headers',
+            value: 'Content-Type',
           },
           {
             key: 'Cache-Control',
