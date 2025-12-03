@@ -33,7 +33,7 @@ const ibmPlexSans = IBM_Plex_Sans({
   display: "swap",
 });
 
-const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://gaeo-analysis.vercel.app';
+const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://gaeo.allrounder.im';
 
 export const metadata: Metadata = {
   metadataBase: new URL(baseUrl),
@@ -77,8 +77,8 @@ export const metadata: Metadata = {
     images: [
       {
         url: `${baseUrl}/og-image.png`,
-        width: 1424,
-        height: 752,
+        width: 1376,
+        height: 768,
         alt: "GAEO - Do it now!",
         type: "image/jpeg",
       },
@@ -91,8 +91,8 @@ export const metadata: Metadata = {
     images: [
       {
         url: `${baseUrl}/og-image.png`,
-        width: 1424,
-        height: 752,
+        width: 1376,
+        height: 768,
         alt: "GAEO - Do it now!",
       },
     ],
