@@ -686,6 +686,7 @@ const migrations: Migration[] = [
         }
 
         // 알고리즘 초기화는 비동기로 실행 (마이그레이션 완료 후)
+        // 스키마 재적용 후 충분한 시간을 두고 실행
         setTimeout(() => {
           try {
             if (!algorithmSchemaExists()) {
@@ -697,8 +698,9 @@ const migrations: Migration[] = [
             initializeAlgorithms();
           } catch (error) {
             console.error('❌ [Migration] 알고리즘 초기화 실패:', error);
+            // 초기화 실패해도 마이그레이션은 성공으로 처리
           }
-        }, 100);
+        }, 300); // 300ms 지연 (스키마 재적용 시간 고려)
       } catch (error) {
         console.error('❌ [Migration] 테이블 확인 실패:', error);
       }

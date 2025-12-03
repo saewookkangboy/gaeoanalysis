@@ -239,9 +239,8 @@ async function handleAnalyze(request: NextRequest) {
         console.error('❌ [Analyze API] 저장 직후 DB 직접 확인 오류:', directCheckError);
       }
       
-      // 저장 후 즉시 확인 (실제 사용자 ID로 조회, 최대 3회 재시도)
+      // 저장 후 즉시 확인 (저장된 ID로 직접 조회, 최대 3회 재시도)
       let savedRecord = null;
-      let savedAnalyses: any[] = [];
       let verificationAttempts = 0;
       const maxVerificationAttempts = 3;
       
@@ -253,45 +252,62 @@ async function handleAnalyze(request: NextRequest) {
           await new Promise(resolve => setTimeout(resolve, 500 * verificationAttempts));
         }
         
-        savedAnalyses = getUserAnalyses(finalUserId, { limit: 10 });
-        savedRecord = savedAnalyses.find(a => a.id === savedId);
-        
-        if (savedRecord) {
-          console.log(`✅ [Analyze API] 분석 결과 저장 및 확인 성공 (시도 ${verificationAttempts}/${maxVerificationAttempts}):`, { 
-            analysisId: savedId, 
-            userId: finalUserId,
-            sessionId: userId,
-            email: normalizedEmail,
-            url: sanitizedUrl,
-            savedAt: savedRecord.createdAt,
-            totalAnalyses: savedAnalyses.length,
-            scores: {
-              aeo: result.aeoScore,
-              geo: result.geoScore,
-              seo: result.seoScore,
-              overall: result.overallScore
-            }
-          });
-          break;
-        } else if (verificationAttempts < maxVerificationAttempts) {
-          console.warn(`⚠️ [Analyze API] 저장 확인 실패, 재시도 중 (${verificationAttempts}/${maxVerificationAttempts}):`, { 
-            analysisId: savedId, 
-            userId: finalUserId,
-            totalAnalyses: savedAnalyses.length,
-            allAnalysisIds: savedAnalyses.map(a => a.id)
-          });
+        // 저장된 ID로 직접 조회 (user_id로 조회하지 않음)
+        try {
+          const directCheck = db.prepare('SELECT id, user_id, url, created_at FROM analyses WHERE id = ?').get(savedId) as {
+            id: string;
+            user_id: string;
+            url: string;
+            created_at: string;
+          } | undefined;
+          
+          if (directCheck) {
+            savedRecord = {
+              id: directCheck.id,
+              url: directCheck.url,
+              createdAt: directCheck.created_at,
+              userId: directCheck.user_id
+            };
+            
+            console.log(`✅ [Analyze API] 분석 결과 저장 및 확인 성공 (시도 ${verificationAttempts}/${maxVerificationAttempts}):`, { 
+              analysisId: savedId, 
+              userId: finalUserId,
+              savedUserId: directCheck.user_id,
+              sessionId: userId,
+              email: normalizedEmail,
+              url: sanitizedUrl,
+              savedAt: directCheck.created_at,
+              userIdMatch: directCheck.user_id === finalUserId,
+              scores: {
+                aeo: result.aeoScore,
+                geo: result.geoScore,
+                seo: result.seoScore,
+                overall: result.overallScore
+              }
+            });
+            break;
+          } else if (verificationAttempts < maxVerificationAttempts) {
+            console.warn(`⚠️ [Analyze API] 저장 확인 실패, 재시도 중 (${verificationAttempts}/${maxVerificationAttempts}):`, { 
+              analysisId: savedId, 
+              userId: finalUserId
+            });
+          }
+        } catch (checkError) {
+          console.error(`❌ [Analyze API] 저장 확인 오류 (시도 ${verificationAttempts}/${maxVerificationAttempts}):`, checkError);
         }
       }
       
       if (!savedRecord) {
+        // 사용자 ID로 조회하여 최근 분석 확인
+        const userAnalyses = getUserAnalyses(finalUserId, { limit: 10 });
         console.error('❌ [Analyze API] 분석 저장 후 확인 실패 (최대 재시도 횟수 초과):', { 
           analysisId: savedId, 
           userId: finalUserId,
           sessionId: userId,
           email: normalizedEmail,
-          totalAnalyses: savedAnalyses.length,
-          allAnalysisIds: savedAnalyses.map(a => a.id),
-          allAnalyses: savedAnalyses.map(a => ({ id: a.id, url: a.url, userId: '확인 필요' }))
+          totalAnalyses: userAnalyses.length,
+          allAnalysisIds: userAnalyses.map(a => a.id),
+          allAnalyses: userAnalyses.map(a => ({ id: a.id, url: a.url }))
         });
         
         // 세션 ID로도 확인 시도

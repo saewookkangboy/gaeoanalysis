@@ -214,6 +214,45 @@ export function saveAnalysisSpan(
   url: string
 ): string {
   return dbHelpers.transaction(() => {
+    // agent_spans 테이블 존재 여부 확인 및 생성
+    try {
+      const tableInfo = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='agent_spans'").get();
+      if (!tableInfo) {
+        console.warn('⚠️ [saveAnalysisSpan] agent_spans 테이블이 존재하지 않습니다. 자동 생성 시도...');
+        // 테이블 자동 생성
+        try {
+          db.exec(`
+            CREATE TABLE IF NOT EXISTS agent_spans (
+              id TEXT PRIMARY KEY,
+              type TEXT NOT NULL,
+              agent_type TEXT NOT NULL,
+              user_id TEXT,
+              analysis_id TEXT,
+              conversation_id TEXT,
+              data TEXT NOT NULL,
+              metadata TEXT,
+              created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+              FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+              FOREIGN KEY (analysis_id) REFERENCES analyses(id) ON DELETE SET NULL,
+              FOREIGN KEY (conversation_id) REFERENCES chat_conversations(id) ON DELETE SET NULL
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_agent_spans_type ON agent_spans(type);
+            CREATE INDEX IF NOT EXISTS idx_agent_spans_agent_type ON agent_spans(agent_type);
+            CREATE INDEX IF NOT EXISTS idx_agent_spans_user_id ON agent_spans(user_id);
+            CREATE INDEX IF NOT EXISTS idx_agent_spans_created_at ON agent_spans(created_at);
+            CREATE INDEX IF NOT EXISTS idx_agent_spans_agent_created ON agent_spans(agent_type, created_at DESC);
+          `);
+          console.log('✅ [saveAnalysisSpan] agent_spans 테이블 자동 생성 완료');
+        } catch (createError: any) {
+          console.error('❌ [saveAnalysisSpan] agent_spans 테이블 생성 실패:', createError);
+          // 테이블 생성 실패해도 계속 진행 (에러는 나중에 발생)
+        }
+      }
+    } catch (checkError) {
+      console.warn('⚠️ [saveAnalysisSpan] 테이블 확인 실패:', checkError);
+    }
+    
     const spanId = uuidv4();
     
     const spanData = {
@@ -229,26 +268,35 @@ export function saveAnalysisSpan(
       aioScores: analysisResult.aioAnalysis?.scores,
     };
 
-    db.prepare(`
-      INSERT INTO agent_spans (
-        id, type, agent_type, user_id, analysis_id, data, metadata
-      )
-      VALUES (?, 'analysis', 'seo', ?, ?, ?, ?)
-    `).run(
-      spanId,
-      userId,
-      analysisId,
-      JSON.stringify(spanData),
-      JSON.stringify({
-        url,
-        timestamp: new Date().toISOString(),
-        scoreLevel: {
-          aeo: getScoreLevel(analysisResult.aeoScore),
-          geo: getScoreLevel(analysisResult.geoScore),
-          seo: getScoreLevel(analysisResult.seoScore),
-        },
-      })
-    );
+    try {
+      db.prepare(`
+        INSERT INTO agent_spans (
+          id, type, agent_type, user_id, analysis_id, data, metadata
+        )
+        VALUES (?, 'analysis', 'seo', ?, ?, ?, ?)
+      `).run(
+        spanId,
+        userId,
+        analysisId,
+        JSON.stringify(spanData),
+        JSON.stringify({
+          url,
+          timestamp: new Date().toISOString(),
+          scoreLevel: {
+            aeo: getScoreLevel(analysisResult.aeoScore),
+            geo: getScoreLevel(analysisResult.geoScore),
+            seo: getScoreLevel(analysisResult.seoScore),
+          },
+        })
+      );
+    } catch (insertError: any) {
+      if (insertError?.code === 'SQLITE_ERROR' && insertError?.message.includes('no such table')) {
+        console.error('❌ [saveAnalysisSpan] agent_spans 테이블이 여전히 없습니다. Span 저장을 건너뜁니다.');
+        // 테이블이 없으면 빈 ID 반환 (에러는 발생시키지 않음)
+        return '';
+      }
+      throw insertError;
+    }
 
     return spanId;
   });
