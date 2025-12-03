@@ -9,6 +9,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import ContentProtection from "@/components/ContentProtection";
+import SecurityProtection from "@/components/SecurityProtection";
 import '@/lib/navigation-error-handler'; // 네비게이션 오류 핸들러 초기화
 
 const ibmPlexSansKR = IBM_Plex_Sans_KR({
@@ -64,6 +65,7 @@ export default function RootLayout({
       >
         <ErrorBoundary>
           <ContentProtection />
+          <SecurityProtection />
           <ThemeProvider>
             <ToastProvider>
               <SessionProvider>

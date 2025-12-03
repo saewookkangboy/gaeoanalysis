@@ -8,6 +8,15 @@ const nextConfig: NextConfig = {
   },
   // Turbopack 설정 (Next.js 16 기본)
   turbopack: {},
+  // 소스맵 비활성화 (프로덕션 보안)
+  productionBrowserSourceMaps: false,
+  // 컴파일러 옵션
+  compiler: {
+    // 프로덕션에서 콘솔 로그 제거
+    removeConsole: process.env.NODE_ENV === 'production' ? {
+      exclude: ['error', 'warn'], // 에러와 경고는 유지
+    } : false,
+  },
   // Chunk 로딩 에러 방지 (webpack은 fallback으로 유지)
   webpack: (config, { isServer }) => {
     if (!isServer) {
