@@ -17,6 +17,18 @@ import db from './db';
  */
 export function initializeAlgorithmVersions(): void {
   console.log('🚀 [Algorithm Initializer] 초기 알고리즘 버전 생성 시작...');
+  
+  // 테이블 존재 여부 확인
+  try {
+    const tableCheck = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='algorithm_versions'").get();
+    if (!tableCheck) {
+      console.error('❌ [Algorithm Initializer] algorithm_versions 테이블이 없습니다. 마이그레이션 v12가 먼저 실행되어야 합니다.');
+      return;
+    }
+  } catch (error) {
+    console.error('❌ [Algorithm Initializer] 테이블 확인 실패:', error);
+    return;
+  }
 
   // SEO 알고리즘 초기 가중치
   const seoWeights = {

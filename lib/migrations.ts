@@ -655,16 +655,36 @@ const migrations: Migration[] = [
     version: 13,
     name: 'initialize_algorithms',
     up: () => {
-      // 알고리즘 초기화는 비동기로 실행 (마이그레이션 완료 후)
-      setImmediate(() => {
-        try {
-          const { initializeAlgorithms } = require('./algorithm-initializer');
-          initializeAlgorithms();
-        } catch (error) {
-          console.error('❌ [Migration] 알고리즘 초기화 실패:', error);
-          // 초기화 실패해도 마이그레이션은 성공으로 처리
+      // 테이블 존재 여부 확인
+      try {
+        const tableCheck = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='algorithm_versions'").get();
+        if (!tableCheck) {
+          console.warn('⚠️ [Migration] algorithm_versions 테이블이 없습니다. v12 마이그레이션이 먼저 실행되어야 합니다.');
+          return;
         }
-      });
+        
+        // 알고리즘 초기화는 비동기로 실행 (마이그레이션 완료 후)
+        // 짧은 지연을 두어 v12 마이그레이션이 완전히 완료되도록 함
+        setTimeout(() => {
+          try {
+            // 다시 한 번 테이블 존재 확인
+            const tableCheckAgain = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='algorithm_versions'").get();
+            if (!tableCheckAgain) {
+              console.warn('⚠️ [Migration] algorithm_versions 테이블이 여전히 없습니다. 초기화를 건너뜁니다.');
+              return;
+            }
+            
+            const { initializeAlgorithms } = require('./algorithm-initializer');
+            initializeAlgorithms();
+          } catch (error) {
+            console.error('❌ [Migration] 알고리즘 초기화 실패:', error);
+            // 초기화 실패해도 마이그레이션은 성공으로 처리
+          }
+        }, 100); // 100ms 지연
+      } catch (error) {
+        console.error('❌ [Migration] 테이블 확인 실패:', error);
+        // 테이블 확인 실패해도 마이그레이션은 성공으로 처리
+      }
     },
   },
 ];
