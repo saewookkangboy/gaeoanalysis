@@ -309,6 +309,12 @@ export default function Home() {
         storage.addUrlToHistory(url.trim());
         
         // 로그인된 사용자의 경우 DB에 저장 (API에서 자동 처리됨)
+        // 이력 조회를 즉시 새로고침하기 위한 이벤트 발생
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('analysisCompleted', { 
+            detail: { url: url.trim(), analysisId: data.id } 
+          }));
+        }
         
         showToast('분석이 완료되었습니다!', 'success');
         setRetryCount(0);

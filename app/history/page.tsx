@@ -51,10 +51,43 @@ export default function HistoryPage() {
     }
   }, [status, router]);
 
-  const fetchHistories = async () => {
+  // 분석 완료 이벤트 리스너 (분석 완료 후 즉시 이력 새로고침)
+  useEffect(() => {
+    const handleAnalysisCompleted = () => {
+      // 분석 완료 후 짧은 지연 후 이력 새로고침 (DB 저장 완료 대기)
+      // 로딩 표시 없이 백그라운드에서 새로고침
+      setTimeout(() => {
+        fetchHistories(false);
+      }, 1000);
+    };
+
+    window.addEventListener('analysisCompleted', handleAnalysisCompleted);
+    
+    // 페이지 포커스 시 자동 새로고침 (다른 탭에서 분석 완료 후 돌아온 경우)
+    const handleFocus = () => {
+      fetchHistories(false);
+    };
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      window.removeEventListener('analysisCompleted', handleAnalysisCompleted);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, []);
+
+  const fetchHistories = async (showLoading = true) => {
     try {
-      setLoading(true);
-      const response = await fetch('/api/history');
+      if (showLoading) {
+        setLoading(true);
+      }
+      
+      // 캐시 무효화를 위해 timestamp 추가
+      const response = await fetch(`/api/history?t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache',
+        },
+      });
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: '알 수 없는 오류가 발생했습니다.' }));
@@ -62,7 +95,7 @@ export default function HistoryPage() {
           status: response.status,
           error: errorData.error || '서버 오류'
         });
-        setHistories([]);
+        // 에러 발생 시에도 기존 이력 유지 (낙관적 업데이트)
         return;
       }
       
@@ -78,12 +111,15 @@ export default function HistoryPage() {
         }))
       });
       
+      // 즉시 UI 업데이트 (낙관적 업데이트)
       setHistories(analyses);
     } catch (error) {
       console.error('❌ 이력 조회 오류:', error);
-      setHistories([]);
+      // 에러 발생 시에도 기존 이력 유지
     } finally {
-      setLoading(false);
+      if (showLoading) {
+        setLoading(false);
+      }
     }
   };
 
@@ -154,11 +190,53 @@ export default function HistoryPage() {
     });
   };
 
-  if (status === 'loading' || loading) {
+  // 스켈레톤 UI 컴포넌트
+  const HistorySkeleton = () => (
+    <div className="space-y-4">
+      {[1, 2, 3].map((i) => (
+        <div
+          key={i}
+          className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm animate-pulse"
+        >
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <div className="mb-2 h-5 w-3/4 bg-gray-200 rounded"></div>
+              <div className="mb-3 flex gap-4">
+                <div className="h-4 w-16 bg-gray-200 rounded"></div>
+                <div className="h-4 w-16 bg-gray-200 rounded"></div>
+                <div className="h-4 w-16 bg-gray-200 rounded"></div>
+                <div className="h-4 w-20 bg-gray-200 rounded"></div>
+              </div>
+              <div className="h-3 w-32 bg-gray-200 rounded"></div>
+            </div>
+            <div className="ml-4 h-10 w-24 bg-gray-200 rounded"></div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
+  if (status === 'loading') {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-center">
-          <div className="mb-4 text-lg text-gray-600">로딩 중...</div>
+      <div className="flex-1 bg-gray-50">
+        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+          <div className="mb-6">
+            <h1 className="text-2xl font-bold text-gray-900">분석 이력</h1>
+          </div>
+          <HistorySkeleton />
+        </div>
+      </div>
+    );
+  }
+
+  if (loading && histories.length === 0) {
+    return (
+      <div className="flex-1 bg-gray-50">
+        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+          <div className="mb-6">
+            <h1 className="text-2xl font-bold text-gray-900">분석 이력</h1>
+          </div>
+          <HistorySkeleton />
         </div>
       </div>
     );
@@ -309,10 +387,22 @@ export default function HistoryPage() {
           </div>
         ) : (
           <>
-            <div className="mb-4 text-sm text-gray-600">
-              총 <span className="font-semibold text-gray-900">{histories.length}</span>개의 분석 이력이 있습니다.
+            <div className="mb-4 flex items-center justify-between">
+              <div className="text-sm text-gray-600">
+                총 <span className="font-semibold text-gray-900">{histories.length}</span>개의 분석 이력이 있습니다.
+              </div>
+              <button
+                onClick={() => fetchHistories()}
+                disabled={loading}
+                className="text-sm text-blue-600 hover:text-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                title="새로고침"
+              >
+                <span className={loading ? 'animate-spin' : ''}>🔄</span>
+                {loading ? '새로고침 중...' : '새로고침'}
+              </button>
             </div>
-            <div className="space-y-4">
+            {loading && histories.length > 0 && <HistorySkeleton />}
+            <div className={`space-y-4 ${loading && histories.length > 0 ? 'hidden' : ''}`}>
               {histories.map((history) => (
               <div
                 key={history.id}

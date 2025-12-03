@@ -86,28 +86,25 @@ export async function GET(request: NextRequest) {
       }
     }
     
-    // 실제 사용자 ID로 분석 이력 조회 (최대 3회 재시도)
+    // 실제 사용자 ID로 분석 이력 조회 (최적화: 즉시 조회, 실패 시 1회만 재시도)
     let analyses: any[] = [];
-    let verificationAttempts = 0;
-    const maxVerificationAttempts = 3;
     
-    while (analyses.length === 0 && verificationAttempts < maxVerificationAttempts) {
-      verificationAttempts++;
-      
-      // Vercel 환경에서는 Blob Storage 동기화를 위해 짧은 대기
-      if (process.env.VERCEL && verificationAttempts > 1) {
-        await new Promise(resolve => setTimeout(resolve, 500 * verificationAttempts));
-      }
-      
+    // 첫 번째 시도: 즉시 조회
+    analyses = getUserAnalyses(actualUserId, { limit: 50 });
+    console.log('🔍 [History API] 실제 사용자 ID로 조회 결과:', {
+      userId: actualUserId,
+      count: analyses.length
+    });
+    
+    // Vercel 환경에서 결과가 없고, Blob Storage 동기화가 필요한 경우에만 1회 재시도
+    if (analyses.length === 0 && process.env.VERCEL) {
+      // 최소 대기 시간만 적용 (500ms)
+      await new Promise(resolve => setTimeout(resolve, 500));
       analyses = getUserAnalyses(actualUserId, { limit: 50 });
-      console.log(`🔍 [History API] 실제 사용자 ID로 조회 결과 (시도 ${verificationAttempts}/${maxVerificationAttempts}):`, {
+      console.log('🔄 [History API] 재시도 조회 결과:', {
         userId: actualUserId,
         count: analyses.length
       });
-      
-      if (analyses.length > 0) {
-        break;
-      }
     }
     
     // 디버깅: 조회 결과가 0개인 경우 추가 확인
@@ -197,7 +194,15 @@ export async function GET(request: NextRequest) {
       analyses: analyses.map(a => ({ id: a.id, url: a.url, createdAt: a.createdAt }))
     });
 
-    return NextResponse.json({ analyses });
+    // 캐싱 헤더 추가 (클라이언트 사이드 캐싱 최적화)
+    return NextResponse.json(
+      { analyses },
+      {
+        headers: {
+          'Cache-Control': 'private, max-age=10, stale-while-revalidate=30',
+        },
+      }
+    );
   } catch (error) {
     console.error('❌ 분석 이력 조회 오류:', error);
     return NextResponse.json(
