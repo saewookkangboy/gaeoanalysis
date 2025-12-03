@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3';
 import { join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
+import { downloadDbFromBlob } from './db-blob';
 
 // Vercel 환경에서는 /tmp 디렉토리 사용, 로컬에서는 data 디렉토리 사용
 const dbDir = process.env.VERCEL 
@@ -18,6 +19,14 @@ if (!existsSync(dbDir)) {
 }
 
 const dbPath = join(dbDir, 'gaeo.db');
+
+// Vercel 환경에서 Blob Storage에서 DB 파일 다운로드 시도
+if (process.env.VERCEL) {
+  // 비동기로 다운로드 (블로킹하지 않음)
+  downloadDbFromBlob(dbPath).catch((error) => {
+    console.warn('⚠️ [DB] Blob Storage에서 DB 파일 다운로드 실패 (새 DB 사용):', error);
+  });
+}
 
 // DB 파일 경로 로깅 (디버깅용)
 if (process.env.NODE_ENV === 'development' || process.env.DEBUG_DB || process.env.VERCEL) {
@@ -128,16 +137,26 @@ db.exec(`
 `);
 
 // 마이그레이션 실행 (비동기로 처리하여 순환 참조 방지)
-setImmediate(() => {
+setImmediate(async () => {
   try {
+    // Vercel 환경에서 Blob Storage에서 DB 파일 다운로드 대기
+    if (process.env.VERCEL) {
+      const { downloadDbFromBlob } = await import('./db-blob');
+      const { join } = require('path');
+      const dbPath = '/tmp/gaeo.db';
+      const downloaded = await downloadDbFromBlob(dbPath);
+      if (downloaded) {
+        console.log('✅ [DB] Blob Storage에서 DB 파일 로드 완료, 마이그레이션 시작');
+        // DB 인스턴스 재생성 필요 (다운로드된 파일 사용)
+        // 하지만 이미 생성되었으므로, 다음 요청에서 사용됨
+      }
+    }
+
     // 동적 import로 순환 참조 방지
-    import('./migrations').then(({ runMigrations }) => {
-      runMigrations();
-    }).catch((error) => {
-      console.error('마이그레이션 실행 오류:', error);
-    });
+    const { runMigrations } = await import('./migrations');
+    runMigrations();
   } catch (error) {
-    console.error('마이그레이션 로드 오류:', error);
+    console.error('마이그레이션 실행 오류:', error);
   }
 });
 

@@ -1,4 +1,5 @@
 import db, { dbHelpers } from './db';
+import { uploadDbToBlob } from './db-blob';
 
 /**
  * 데이터베이스 쿼리 헬퍼 함수들
@@ -274,6 +275,21 @@ export function saveAnalysis(data: {
   } catch (error) {
     // 체크포인트 실패는 무시 (이미 커밋되었을 수 있음)
     console.warn('⚠️ [saveAnalysis] 동기화 경고:', error);
+  }
+
+  // Vercel 환경에서 Blob Storage에 업로드 (비동기, 블로킹하지 않음)
+  if (process.env.VERCEL) {
+    setImmediate(async () => {
+      try {
+        const { join } = require('path');
+        const dbPath = process.env.VERCEL 
+          ? '/tmp/gaeo.db' 
+          : require('path').join(process.cwd(), 'data', 'gaeo.db');
+        await uploadDbToBlob(dbPath);
+      } catch (error) {
+        console.warn('⚠️ [saveAnalysis] Blob Storage 업로드 실패 (무시됨):', error);
+      }
+    });
   }
   
   return result;
