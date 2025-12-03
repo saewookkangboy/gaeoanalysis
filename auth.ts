@@ -298,41 +298,87 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               if (userById) {
                 console.log('✅ [Session] 세션 ID로 사용자 확인:', {
                   userId: actualUserId,
-                  email: normalizedEmail
+                  email: normalizedEmail,
+                  dbEmail: userById.email
                 });
+                
+                // 세션 ID로 찾은 사용자의 이메일과 토큰 이메일이 다를 수 있음
+                // 이 경우 DB의 이메일로 다시 검색하여 실제 사용자 ID 확인
+                const dbEmailNormalized = userById.email?.toLowerCase().trim();
+                if (dbEmailNormalized && dbEmailNormalized !== normalizedEmail) {
+                  console.warn('⚠️ [Session] 세션 ID 사용자의 이메일이 다름:', {
+                    tokenEmail: normalizedEmail,
+                    dbEmail: userById.email,
+                    dbEmailNormalized: dbEmailNormalized
+                  });
+                  
+                  // DB에 저장된 이메일로 다시 검색
+                  const userByDbEmail = getUserByEmail(userById.email);
+                  if (userByDbEmail && userByDbEmail.id !== actualUserId) {
+                    console.log('🔄 [Session] DB 이메일로 실제 사용자 ID 확인:', {
+                      sessionId: actualUserId,
+                      actualUserId: userByDbEmail.id,
+                      email: userByDbEmail.email
+                    });
+                    actualUserId = userByDbEmail.id;
+                  }
+                }
               } else {
-                // 사용자가 DB에 없으면 생성 시도 (signIn 콜백이 실행되지 않은 경우 대비)
-                console.warn('⚠️ [Session] 이메일로 사용자를 찾을 수 없음, 사용자 생성 시도:', {
+                // 사용자를 찾을 수 없으면 이메일로 다시 한 번 확인 (정규화 문제 대비)
+                console.warn('⚠️ [Session] 이메일로 사용자를 찾을 수 없음, 재확인 시도:', {
                   tokenId: actualUserId,
                   email: normalizedEmail,
                   provider: token.provider
                 });
                 
-                try {
-                  const createdUserId = createUser({
-                    id: actualUserId,
+                // 이메일로 다시 확인 (여러 방법 시도)
+                const retryUserByEmail = getUserByEmail(normalizedEmail);
+                if (retryUserByEmail) {
+                  actualUserId = retryUserByEmail.id;
+                  console.log('✅ [Session] 재확인: 이메일로 사용자 발견:', {
+                    originalTokenId: token.id,
+                    actualUserId: actualUserId,
+                    email: normalizedEmail
+                  });
+                } else {
+                  // 사용자가 DB에 없으면 생성 시도 (signIn 콜백이 실행되지 않은 경우 대비)
+                  console.warn('⚠️ [Session] 사용자가 DB에 없음, 사용자 생성 시도:', {
+                    tokenId: actualUserId,
                     email: normalizedEmail,
-                    blogUrl: null,
-                    name: session.user.name || undefined,
-                    image: session.user.image || undefined,
-                    provider: token.provider as string || undefined,
+                    provider: token.provider
                   });
                   
-                  // createUser가 반환한 실제 사용자 ID 사용 (이메일로 기존 사용자를 찾은 경우)
-                  actualUserId = createdUserId || actualUserId;
-                  
-                  // 다시 확인
-                  userByEmail = getUserByEmail(normalizedEmail);
-                  if (userByEmail) {
-                    actualUserId = userByEmail.id;
-                    console.log('✅ [Session] 사용자 생성/확인 완료:', {
-                      userId: actualUserId,
-                      email: normalizedEmail
+                  try {
+                    const createdUserId = createUser({
+                      id: actualUserId,
+                      email: normalizedEmail,
+                      blogUrl: null,
+                      name: session.user.name || undefined,
+                      image: session.user.image || undefined,
+                      provider: token.provider as string || undefined,
                     });
+                    
+                    // createUser가 반환한 실제 사용자 ID 사용 (이메일로 기존 사용자를 찾은 경우)
+                    actualUserId = createdUserId || actualUserId;
+                    
+                    // 다시 확인
+                    userByEmail = getUserByEmail(normalizedEmail);
+                    if (userByEmail) {
+                      actualUserId = userByEmail.id;
+                      console.log('✅ [Session] 사용자 생성/확인 완료:', {
+                        userId: actualUserId,
+                        email: normalizedEmail
+                      });
+                    } else {
+                      console.warn('⚠️ [Session] 사용자 생성 후에도 조회되지 않음:', {
+                        createdUserId: createdUserId,
+                        email: normalizedEmail
+                      });
+                    }
+                  } catch (error: any) {
+                    console.error('❌ [Session] 사용자 생성 오류:', error);
+                    // 사용자 생성 실패해도 세션은 유지
                   }
-                } catch (error: any) {
-                  console.error('❌ [Session] 사용자 생성 오류:', error);
-                  // 사용자 생성 실패해도 세션은 유지
                 }
               }
             }

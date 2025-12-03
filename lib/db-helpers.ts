@@ -171,6 +171,7 @@ export function getUser(userId: string) {
 /**
  * 이메일로 사용자 정보 조회
  * 이메일은 정규화(소문자, 트림)하여 검색
+ * 여러 방법으로 시도하여 안정성 향상
  */
 export function getUserByEmail(email: string) {
   // 이메일 정규화 (소문자, 트림) - 일관된 사용자 식별을 위해 중요
@@ -184,11 +185,44 @@ export function getUserByEmail(email: string) {
     ? 'id, email, blog_url, created_at, updated_at'
     : 'id, email, blog_url, created_at';
   
-  // 대소문자 구분 없이 검색 (SQLite는 기본적으로 대소문자를 구분하지만, 정규화된 이메일로 검색)
-  const stmt = db.prepare(`SELECT ${columns} FROM users WHERE LOWER(TRIM(email)) = ?`);
-  const row = stmt.get(normalizedEmail) as any;
+  // 방법 1: LOWER(TRIM(email))로 검색 (가장 안정적)
+  let stmt = db.prepare(`SELECT ${columns} FROM users WHERE LOWER(TRIM(email)) = ?`);
+  let row = stmt.get(normalizedEmail) as any;
   
-  if (!row) return null;
+  // 방법 2: 정규화된 이메일로 직접 검색 (대소문자 차이 대비)
+  if (!row) {
+    stmt = db.prepare(`SELECT ${columns} FROM users WHERE email = ?`);
+    row = stmt.get(normalizedEmail) as any;
+  }
+  
+  // 방법 3: 원본 이메일로도 검색 (정규화되지 않은 경우 대비)
+  if (!row && email !== normalizedEmail) {
+    stmt = db.prepare(`SELECT ${columns} FROM users WHERE email = ?`);
+    row = stmt.get(email) as any;
+  }
+  
+  // 방법 4: LIKE로 검색 (공백 차이 대비)
+  if (!row) {
+    stmt = db.prepare(`SELECT ${columns} FROM users WHERE LOWER(TRIM(email)) LIKE ?`);
+    row = stmt.get(`%${normalizedEmail}%`) as any;
+  }
+  
+  if (!row) {
+    // 디버깅: 해당 이메일과 유사한 사용자 찾기
+    try {
+      const debugStmt = db.prepare(`SELECT id, email FROM users WHERE email LIKE ? LIMIT 5`);
+      const similarUsers = debugStmt.all(`%${normalizedEmail.split('@')[0]}%`) as Array<{ id: string; email: string }>;
+      if (similarUsers.length > 0) {
+        console.warn('🔍 [getUserByEmail] 유사한 이메일 발견:', {
+          searchEmail: normalizedEmail,
+          similarEmails: similarUsers.map(u => ({ id: u.id, email: u.email }))
+        });
+      }
+    } catch (error) {
+      // 디버깅 실패는 무시
+    }
+    return null;
+  }
 
   return {
     id: row.id,
