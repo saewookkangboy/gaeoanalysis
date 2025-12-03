@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
-import { getUserAnalyses, getUserByEmail, getUser } from '@/lib/db-helpers';
+import { getUserAnalyses, getUserByEmail, getUser, getAnalysesByEmail } from '@/lib/db-helpers';
 import db from '@/lib/db';
 
 export async function GET(request: NextRequest) {
@@ -33,23 +33,51 @@ export async function GET(request: NextRequest) {
     const userIdsToCheck: string[] = [sessionUserId]; // 확인할 사용자 ID 목록
     
     // 1. 이메일로 사용자 찾기 (가장 안정적인 방법)
+    // 같은 이메일로 여러 사용자 ID가 생성되었을 수 있으므로 모두 확인
     if (normalizedEmail) {
-      const userByEmail = getUserByEmail(normalizedEmail);
-      if (userByEmail) {
-        actualUserId = userByEmail.id;
-        user = userByEmail;
-        if (!userIdsToCheck.includes(actualUserId)) {
-          userIdsToCheck.push(actualUserId);
+      // 이메일로 모든 사용자 찾기 (같은 이메일로 여러 ID가 있을 수 있음)
+      try {
+        const allUsersByEmailStmt = db.prepare('SELECT id, email FROM users WHERE LOWER(TRIM(email)) = ?');
+        const allUsersByEmail = allUsersByEmailStmt.all(normalizedEmail) as Array<{ id: string; email: string }>;
+        
+        if (allUsersByEmail.length > 0) {
+          // 첫 번째 사용자를 기본으로 사용
+          const userByEmail = getUserByEmail(normalizedEmail);
+          if (userByEmail) {
+            actualUserId = userByEmail.id;
+            user = userByEmail;
+            
+            // 모든 사용자 ID를 확인 목록에 추가
+            allUsersByEmail.forEach(u => {
+              if (!userIdsToCheck.includes(u.id)) {
+                userIdsToCheck.push(u.id);
+              }
+            });
+            
+            console.log('✅ [History API] 이메일로 실제 사용자 ID 확인:', {
+              sessionUserId: sessionUserId,
+              actualUserId: actualUserId,
+              email: normalizedEmail,
+              allUserIds: allUsersByEmail.map(u => u.id),
+              totalUsersWithSameEmail: allUsersByEmail.length
+            });
+          }
+        } else {
+          console.warn('⚠️ [History API] 이메일로 사용자를 찾을 수 없음:', {
+            email: normalizedEmail
+          });
         }
-        console.log('✅ [History API] 이메일로 실제 사용자 ID 확인:', {
-          sessionUserId: sessionUserId,
-          actualUserId: actualUserId,
-          email: normalizedEmail
-        });
-      } else {
-        console.warn('⚠️ [History API] 이메일로 사용자를 찾을 수 없음:', {
-          email: normalizedEmail
-        });
+      } catch (error) {
+        console.error('❌ [History API] 이메일로 사용자 조회 오류:', error);
+        // 에러 발생 시 기존 방식으로 폴백
+        const userByEmail = getUserByEmail(normalizedEmail);
+        if (userByEmail) {
+          actualUserId = userByEmail.id;
+          user = userByEmail;
+          if (!userIdsToCheck.includes(actualUserId)) {
+            userIdsToCheck.push(actualUserId);
+          }
+        }
       }
     }
     
@@ -89,22 +117,46 @@ export async function GET(request: NextRequest) {
     // 실제 사용자 ID로 분석 이력 조회 (최적화: 즉시 조회, 실패 시 1회만 재시도)
     let analyses: any[] = [];
     
-    // 첫 번째 시도: 즉시 조회
-    analyses = getUserAnalyses(actualUserId, { limit: 50 });
-    console.log('🔍 [History API] 실제 사용자 ID로 조회 결과:', {
-      userId: actualUserId,
-      count: analyses.length
-    });
+    // 첫 번째 시도: 이메일로 조회 (여러 사용자 ID에 걸쳐 조회)
+    if (normalizedEmail) {
+      analyses = getAnalysesByEmail(normalizedEmail, { limit: 50 });
+      console.log('🔍 [History API] 이메일로 조회 결과:', {
+        email: normalizedEmail,
+        count: analyses.length
+      });
+    }
+    
+    // 이메일로 조회 결과가 없으면 사용자 ID로 조회
+    if (analyses.length === 0) {
+      analyses = getUserAnalyses(actualUserId, { limit: 50 });
+      console.log('🔍 [History API] 실제 사용자 ID로 조회 결과:', {
+        userId: actualUserId,
+        count: analyses.length
+      });
+    }
     
     // Vercel 환경에서 결과가 없고, Blob Storage 동기화가 필요한 경우에만 1회 재시도
     if (analyses.length === 0 && process.env.VERCEL) {
       // 최소 대기 시간만 적용 (500ms)
       await new Promise(resolve => setTimeout(resolve, 500));
-      analyses = getUserAnalyses(actualUserId, { limit: 50 });
-      console.log('🔄 [History API] 재시도 조회 결과:', {
-        userId: actualUserId,
-        count: analyses.length
-      });
+      
+      // 이메일로 다시 조회
+      if (normalizedEmail) {
+        analyses = getAnalysesByEmail(normalizedEmail, { limit: 50 });
+        console.log('🔄 [History API] 재시도: 이메일로 조회 결과:', {
+          email: normalizedEmail,
+          count: analyses.length
+        });
+      }
+      
+      // 여전히 없으면 사용자 ID로 조회
+      if (analyses.length === 0) {
+        analyses = getUserAnalyses(actualUserId, { limit: 50 });
+        console.log('🔄 [History API] 재시도: 사용자 ID로 조회 결과:', {
+          userId: actualUserId,
+          count: analyses.length
+        });
+      }
     }
     
     // 디버깅: 조회 결과가 0개인 경우 추가 확인

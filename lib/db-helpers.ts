@@ -13,6 +13,56 @@ export interface QueryOptions {
 }
 
 /**
+ * 이메일로 분석 이력 조회 (여러 사용자 ID에 걸쳐 조회)
+ */
+export function getAnalysesByEmail(email: string, options: QueryOptions = {}) {
+  const { limit = 10, offset = 0, orderBy = 'created_at', orderDirection = 'DESC' } = options;
+  const normalizedEmail = email.toLowerCase().trim();
+  
+  // 이메일로 사용자 찾기
+  const userStmt = db.prepare('SELECT id FROM users WHERE LOWER(TRIM(email)) = ?');
+  const users = userStmt.all(normalizedEmail) as Array<{ id: string }>;
+  
+  if (users.length === 0) {
+    return [];
+  }
+  
+  const userIds = users.map(u => u.id);
+  const placeholders = userIds.map(() => '?').join(',');
+  
+  // 모든 사용자 ID로 분석 이력 조회
+  const stmt = db.prepare(`
+    SELECT 
+      id, url, aeo_score, geo_score, seo_score, overall_score, 
+      insights, chatgpt_score, perplexity_score, gemini_score, claude_score, 
+      created_at, user_id
+    FROM analyses
+    WHERE user_id IN (${placeholders})
+    ORDER BY ${orderBy} ${orderDirection}
+    LIMIT ? OFFSET ?
+  `);
+  
+  const results = stmt.all(...userIds, limit, offset);
+  
+  return results.map((row: any) => ({
+    id: row.id,
+    url: row.url,
+    aeoScore: row.aeo_score,
+    geoScore: row.geo_score,
+    seoScore: row.seo_score,
+    overallScore: row.overall_score,
+    insights: JSON.parse(row.insights),
+    aioScores: {
+      chatgpt: row.chatgpt_score,
+      perplexity: row.perplexity_score,
+      gemini: row.gemini_score,
+      claude: row.claude_score,
+    },
+    createdAt: row.created_at,
+  }));
+}
+
+/**
  * 사용자별 분석 이력 조회 (최적화된 쿼리)
  */
 export function getUserAnalyses(userId: string, options: QueryOptions = {}) {
