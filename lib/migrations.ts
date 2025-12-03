@@ -5,18 +5,37 @@ import db from './db';
  */
 function algorithmSchemaExists(): boolean {
   try {
-    const tableCheck = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='algorithm_versions'").get();
-    return !!tableCheck;
-  } catch {
+    // 여러 방법으로 확인 (더 정확한 확인)
+    const tableCheck1 = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='algorithm_versions'").get();
+    if (tableCheck1) {
+      return true;
+    }
+    
+    // PRAGMA table_info로도 확인
+    try {
+      const tableInfo = db.prepare("PRAGMA table_info(algorithm_versions)").all();
+      if (tableInfo && tableInfo.length > 0) {
+        return true;
+      }
+    } catch {
+      // 테이블이 없으면 PRAGMA가 실패할 수 있음
+    }
+    
+    return false;
+  } catch (error) {
+    console.warn('⚠️ [Migration] algorithmSchemaExists 확인 오류:', error);
     return false;
   }
 }
 
 /**
- * 알고리즘 학습 시스템 스키마 보장
+ * 알고리즘 학습 시스템 스키마 보장 (강화된 버전)
  */
-function ensureAlgorithmSchema() {
+function ensureAlgorithmSchema(): boolean {
   try {
+    console.log('🔄 [Migration] algorithm_versions 테이블 생성 시도...');
+    
+    // 테이블 생성
     db.exec(`
       -- 알고리즘 버전 관리 테이블
       CREATE TABLE IF NOT EXISTS algorithm_versions (
@@ -84,9 +103,36 @@ function ensureAlgorithmSchema() {
       CREATE INDEX IF NOT EXISTS idx_algorithm_tests_versions 
       ON algorithm_tests(version_a, version_b);
     `);
-  } catch (error) {
-    console.error('❌ [Migration] 알고리즘 스키마 보장 중 오류:', error);
-    throw error;
+    
+    // 생성 후 즉시 확인 (최대 3회 재시도)
+    let retryCount = 0;
+    const maxRetries = 3;
+    while (retryCount < maxRetries) {
+      if (algorithmSchemaExists()) {
+        console.log(`✅ [Migration] algorithm_versions 테이블 생성 완료 (확인 시도 ${retryCount + 1}/${maxRetries})`);
+        return true;
+      }
+      retryCount++;
+      if (retryCount < maxRetries) {
+        console.warn(`⚠️ [Migration] algorithm_versions 테이블 확인 실패, 재시도 중 (${retryCount}/${maxRetries})...`);
+        // 짧은 대기 후 재확인
+        const start = Date.now();
+        while (Date.now() - start < 100) {
+          // 100ms 대기
+        }
+      }
+    }
+    
+    console.error('❌ [Migration] algorithm_versions 테이블 생성 후 확인 실패');
+    return false;
+  } catch (error: any) {
+    console.error('❌ [Migration] 알고리즘 스키마 보장 중 오류:', {
+      error: error.message,
+      code: error.code,
+      stack: error.stack
+    });
+    // 에러를 throw하지 않고 false 반환
+    return false;
   }
 }
 
@@ -701,22 +747,33 @@ const migrations: Migration[] = [
     name: 'initialize_algorithms',
     up: () => {
       try {
-        // 테이블이 없으면 강제로 생성
-        if (!algorithmSchemaExists()) {
-          console.warn('⚠️ [Migration] algorithm_versions 테이블이 없습니다. v12 스키마를 재적용합니다.');
-          ensureAlgorithmSchema();
+        // 테이블이 없으면 강제로 생성 (최대 3회 시도)
+        let tableCreated = false;
+        let attemptCount = 0;
+        const maxAttempts = 3;
+        
+        while (!algorithmSchemaExists() && attemptCount < maxAttempts) {
+          attemptCount++;
+          console.warn(`⚠️ [Migration] algorithm_versions 테이블이 없습니다. 생성 시도 ${attemptCount}/${maxAttempts}...`);
           
-          // 재적용 후 즉시 확인
-          if (!algorithmSchemaExists()) {
-            console.error('❌ [Migration] algorithm_versions 테이블 생성 실패. 다시 시도합니다.');
-            // 한 번 더 시도
-            ensureAlgorithmSchema();
+          tableCreated = ensureAlgorithmSchema();
+          
+          if (tableCreated) {
+            console.log(`✅ [Migration] algorithm_versions 테이블 생성 성공 (시도 ${attemptCount}/${maxAttempts})`);
+            break;
+          } else if (attemptCount < maxAttempts) {
+            console.warn(`⚠️ [Migration] algorithm_versions 테이블 생성 실패, 재시도 중...`);
+            // 짧은 대기 후 재시도
+            const start = Date.now();
+            while (Date.now() - start < 200) {
+              // 200ms 대기
+            }
           }
         }
         
-        // 테이블이 확실히 존재하는지 재확인
+        // 테이블이 확실히 존재하는지 최종 확인
         if (!algorithmSchemaExists()) {
-          console.error('❌ [Migration] algorithm_versions 테이블이 여전히 없습니다. 스키마 재생성을 건너뜁니다.');
+          console.error(`❌ [Migration] algorithm_versions 테이블 생성 실패 (${maxAttempts}회 시도 후에도 없음). 초기화를 건너뜁니다.`);
           return;
         }
         
@@ -742,10 +799,9 @@ const migrations: Migration[] = [
       } catch (error) {
         console.error('❌ [Migration] 테이블 확인 실패:', error);
         // 에러가 발생해도 테이블 생성은 시도
-        try {
-          ensureAlgorithmSchema();
-        } catch (createError) {
-          console.error('❌ [Migration] 테이블 생성 재시도 실패:', createError);
+        const created = ensureAlgorithmSchema();
+        if (!created) {
+          console.error('❌ [Migration] 테이블 생성 재시도 실패');
         }
       }
     },
@@ -778,24 +834,33 @@ function applyMigration(migration: Migration) {
       // v12나 v13처럼 중요한 스키마가 누락된 경우 재적용
       if ((migration.version === 12 || migration.version === 13) && !algorithmSchemaExists()) {
         console.warn(`⚠️ [Migration] algorithm_versions 테이블이 없어 v${migration.version} 스키마를 재적용합니다.`);
-        try {
-          ensureAlgorithmSchema();
+        
+        // 최대 3회 시도
+        let tableCreated = false;
+        let attemptCount = 0;
+        const maxAttempts = 3;
+        
+        while (!algorithmSchemaExists() && attemptCount < maxAttempts) {
+          attemptCount++;
+          console.log(`🔄 [Migration] algorithm_versions 테이블 재생성 시도 ${attemptCount}/${maxAttempts}...`);
           
-          // 재적용 후 즉시 확인
-          if (!algorithmSchemaExists()) {
-            console.error(`❌ [Migration] algorithm_versions 테이블 재생성 실패 (v${migration.version})`);
-            // 한 번 더 시도
-            ensureAlgorithmSchema();
-            if (!algorithmSchemaExists()) {
-              console.error(`❌ [Migration] algorithm_versions 테이블 재생성 재시도 실패 (v${migration.version})`);
-            } else {
-              console.log(`✅ [Migration] algorithm_versions 테이블 재생성 완료 (v${migration.version}, 재시도 성공)`);
+          tableCreated = ensureAlgorithmSchema();
+          
+          if (tableCreated) {
+            console.log(`✅ [Migration] algorithm_versions 테이블 재생성 완료 (v${migration.version}, 시도 ${attemptCount}/${maxAttempts})`);
+            break;
+          } else if (attemptCount < maxAttempts) {
+            console.warn(`⚠️ [Migration] algorithm_versions 테이블 재생성 실패, 재시도 중...`);
+            // 짧은 대기 후 재시도
+            const start = Date.now();
+            while (Date.now() - start < 200) {
+              // 200ms 대기
             }
-          } else {
-            console.log(`✅ [Migration] algorithm_versions 테이블 재생성 완료 (v${migration.version})`);
           }
-        } catch (schemaError) {
-          console.error(`❌ [Migration] algorithm_versions 테이블 재생성 중 오류 (v${migration.version}):`, schemaError);
+        }
+        
+        if (!tableCreated) {
+          console.error(`❌ [Migration] algorithm_versions 테이블 재생성 실패 (v${migration.version}, ${maxAttempts}회 시도 후에도 없음)`);
         }
       } else {
         console.log(`⏭️  마이그레이션 이미 적용됨: ${migration.name} (v${migration.version})`);
@@ -816,7 +881,12 @@ function applyMigration(migration: Migration) {
     // v12나 v13의 경우 테이블이 확실히 생성되었는지 확인
     if ((migration.version === 12 || migration.version === 13) && !algorithmSchemaExists()) {
       console.warn(`⚠️ [Migration] v${migration.version} 적용 후에도 algorithm_versions 테이블이 없습니다. 재생성 시도...`);
-      ensureAlgorithmSchema();
+      const tableCreated = ensureAlgorithmSchema();
+      if (tableCreated) {
+        console.log(`✅ [Migration] v${migration.version} 적용 후 algorithm_versions 테이블 재생성 완료`);
+      } else {
+        console.error(`❌ [Migration] v${migration.version} 적용 후 algorithm_versions 테이블 재생성 실패`);
+      }
     }
     
     console.log(`✅ 마이그레이션 완료: ${migration.name} (v${migration.version})`);
@@ -828,7 +898,12 @@ function applyMigration(migration: Migration) {
       // v12나 v13의 경우 테이블이 확실히 생성되었는지 확인
       if ((migration.version === 12 || migration.version === 13) && !algorithmSchemaExists()) {
         console.warn(`⚠️ [Migration] v${migration.version} 적용 후에도 algorithm_versions 테이블이 없습니다. 재생성 시도...`);
-        ensureAlgorithmSchema();
+        const tableCreated = ensureAlgorithmSchema();
+        if (tableCreated) {
+          console.log(`✅ [Migration] v${migration.version} 적용 후 algorithm_versions 테이블 재생성 완료 (제약 조건 오류 후)`);
+        } else {
+          console.error(`❌ [Migration] v${migration.version} 적용 후 algorithm_versions 테이블 재생성 실패 (제약 조건 오류 후)`);
+        }
       }
       
       return;
