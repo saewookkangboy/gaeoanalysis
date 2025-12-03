@@ -80,7 +80,7 @@ export const metadata: Metadata = {
         width: 1424,
         height: 752,
         alt: "GAEO - Do it now!",
-        type: "image/png",
+        type: "image/jpeg",
       },
     ],
   },
