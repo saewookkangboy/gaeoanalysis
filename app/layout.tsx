@@ -157,8 +157,8 @@ export default function RootLayout({
               "@context": "https://schema.org",
               "@type": "Organization",
               "name": "GAEO Analysis",
-              "url": process.env.NEXT_PUBLIC_SITE_URL || "https://gaeo-analysis.vercel.app",
-              "logo": `${process.env.NEXT_PUBLIC_SITE_URL || "https://gaeo-analysis.vercel.app"}/og-image.png`,
+              "url": baseUrl,
+              "logo": `${baseUrl}/og-image.png`,
               "description": "ChatGPT, Perplexity, Gemini, Claude가 당신의 콘텐츠를 인용하도록 만드는 실전 최적화 도구",
               "sameAs": [
                 process.env.NEXT_PUBLIC_TWITTER_URL,
@@ -180,13 +180,13 @@ export default function RootLayout({
               "@context": "https://schema.org",
               "@type": "WebSite",
               "name": "GAEO Analysis",
-              "url": process.env.NEXT_PUBLIC_SITE_URL || "https://gaeo-analysis.vercel.app",
+              "url": baseUrl,
               "description": "AI 검색 최적화 분석 도구",
               "potentialAction": {
                 "@type": "SearchAction",
                 "target": {
                   "@type": "EntryPoint",
-                  "urlTemplate": `${process.env.NEXT_PUBLIC_SITE_URL || "https://gaeo-analysis.vercel.app"}/?url={search_term_string}`,
+                  "urlTemplate": `${baseUrl}/?url={search_term_string}`,
                 },
                 "query-input": "required name=search_term_string",
               },
