@@ -82,11 +82,11 @@ export default function SecurityProtection() {
     const preventDebugger = () => {
       // 디버거 키워드 사용 시 경고
       const originalEval = window.eval;
-      window.eval = function(...args: any[]) {
+      window.eval = function(code: string) {
         if (process.env.NODE_ENV === 'production') {
           console.warn('eval() 사용이 차단되었습니다.');
         }
-        return originalEval.apply(this, args);
+        return originalEval.call(this, code);
       };
     };
 
