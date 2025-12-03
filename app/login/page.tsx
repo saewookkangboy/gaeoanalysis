@@ -219,7 +219,7 @@ function LoginForm() {
               </a>
             </div>
             <p className="text-center text-xs text-gray-400 dark:text-gray-500">
-              공식 도메인: gaeo-analysis.vercel.app
+              vercel.app 으로 안전하게 보호됨
             </p>
           </div>
         </div>
