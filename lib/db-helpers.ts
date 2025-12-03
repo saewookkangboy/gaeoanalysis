@@ -249,46 +249,48 @@ export async function saveAnalysis(data: {
     }
   }
 
-  const result = dbHelpers.transaction(() => {
-    // 사용자 존재 확인
-    let userExists = getUser(data.userId);
-    
-    if (!userExists) {
-      console.error('❌ [saveAnalysis] 사용자가 존재하지 않음:', {
-        userId: data.userId,
-        analysisId: data.id,
-        url: data.url
-      });
+  let result: string;
+  try {
+    result = dbHelpers.transaction(() => {
+      // 사용자 존재 확인
+      let userExists = getUser(data.userId);
       
-      // 디버깅: 모든 사용자 확인
-      try {
-        const allUsersStmt = db.prepare('SELECT id, email FROM users LIMIT 10');
-        const allUsers = allUsersStmt.all() as Array<{ id: string; email: string }>;
-        console.warn('🔍 [saveAnalysis] DB에 존재하는 사용자 목록:', allUsers);
-      } catch (debugError) {
-        console.error('❌ [saveAnalysis] 디버깅 쿼리 오류:', debugError);
+      if (!userExists) {
+        console.error('❌ [saveAnalysis] 사용자가 존재하지 않음:', {
+          userId: data.userId,
+          analysisId: data.id,
+          url: data.url
+        });
+        
+        // 디버깅: 모든 사용자 확인
+        try {
+          const allUsersStmt = db.prepare('SELECT id, email FROM users LIMIT 10');
+          const allUsers = allUsersStmt.all() as Array<{ id: string; email: string }>;
+          console.warn('🔍 [saveAnalysis] DB에 존재하는 사용자 목록:', allUsers);
+        } catch (debugError) {
+          console.error('❌ [saveAnalysis] 디버깅 쿼리 오류:', debugError);
+        }
+        
+        throw new Error(`사용자가 존재하지 않습니다: ${data.userId}. 분석을 저장하려면 먼저 로그인하거나 사용자를 생성해야 합니다.`);
       }
       
-      throw new Error(`사용자가 존재하지 않습니다: ${data.userId}. 분석을 저장하려면 먼저 로그인하거나 사용자를 생성해야 합니다.`);
-    }
-    
-    console.log('✅ [saveAnalysis] 사용자 확인 완료:', {
-      userId: data.userId,
-      userEmail: userExists.email,
-      analysisId: data.id
-    });
+      console.log('✅ [saveAnalysis] 사용자 확인 완료:', {
+        userId: data.userId,
+        userEmail: userExists.email,
+        analysisId: data.id
+      });
 
-    const stmt = db.prepare(`
-      INSERT INTO analyses (
-        id, user_id, url, aeo_score, geo_score, seo_score, 
-        overall_score, insights, chatgpt_score, perplexity_score, 
-        gemini_score, claude_score
-      )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
+      const stmt = db.prepare(`
+        INSERT INTO analyses (
+          id, user_id, url, aeo_score, geo_score, seo_score, 
+          overall_score, insights, chatgpt_score, perplexity_score, 
+          gemini_score, claude_score
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
 
-    try {
-      stmt.run(
+      // INSERT 실행
+      const insertResult = stmt.run(
         data.id,
         data.userId,
         data.url,
@@ -303,16 +305,33 @@ export async function saveAnalysis(data: {
         data.aioScores?.claude || null
       );
 
-      // 저장 후 즉시 확인
+      // INSERT 결과 확인
+      if (!insertResult || insertResult.changes === 0) {
+        console.error('❌ [saveAnalysis] INSERT 실행 실패 (changes = 0):', {
+          analysisId: data.id,
+          userId: data.userId,
+          insertResult: insertResult
+        });
+        throw new Error('분석 저장 실패: INSERT가 실행되지 않았습니다.');
+      }
+
+      console.log('✅ [saveAnalysis] INSERT 실행 성공:', {
+        analysisId: data.id,
+        changes: insertResult.changes,
+        lastInsertRowid: insertResult.lastInsertRowid
+      });
+
+      // 저장 후 즉시 확인 (트랜잭션 내부에서)
       const verifyStmt = db.prepare('SELECT id, user_id, url FROM analyses WHERE id = ?');
       const saved = verifyStmt.get(data.id) as { id: string; user_id: string; url: string } | undefined;
       
       if (!saved) {
-        console.error('❌ [saveAnalysis] 저장 후 확인 실패:', {
+        console.error('❌ [saveAnalysis] 저장 후 확인 실패 (트랜잭션 내부):', {
           analysisId: data.id,
-          userId: data.userId
+          userId: data.userId,
+          insertChanges: insertResult.changes
         });
-        throw new Error('분석 저장 후 확인 실패');
+        throw new Error('분석 저장 후 확인 실패: 트랜잭션 내부에서 레코드를 찾을 수 없습니다.');
       }
       
       if (saved.user_id !== data.userId) {
@@ -329,7 +348,7 @@ export async function saveAnalysis(data: {
         try {
           const totalAnalysesAfter = db.prepare('SELECT COUNT(*) as count FROM analyses').get() as { count: number };
           const userAnalysesAfter = db.prepare('SELECT COUNT(*) as count FROM analyses WHERE user_id = ?').get(data.userId) as { count: number };
-          console.log('📊 [saveAnalysis] 저장 후 DB 상태:', {
+          console.log('📊 [saveAnalysis] 저장 후 DB 상태 (트랜잭션 내부):', {
             totalAnalyses: totalAnalysesAfter.count,
             userAnalyses: userAnalysesAfter.count,
             userId: data.userId,
@@ -341,52 +360,53 @@ export async function saveAnalysis(data: {
         }
       }
 
-      console.log('✅ [saveAnalysis] 분석 저장 성공:', {
+      console.log('✅ [saveAnalysis] 분석 저장 성공 (트랜잭션 내부):', {
         analysisId: data.id,
         userId: data.userId,
-        url: data.url
+        url: data.url,
+        savedUserId: saved.user_id
       });
 
       return data.id;
-    } catch (error: any) {
-      console.error('❌ [saveAnalysis] 저장 오류:', {
-        error: error.message,
-        code: error.code,
-        stack: error.stack,
+    });
+  } catch (error: any) {
+    console.error('❌ [saveAnalysis] 트랜잭션 오류:', {
+      error: error.message,
+      code: error.code,
+      stack: error.stack,
+      userId: data.userId,
+      analysisId: data.id,
+      url: data.url
+    });
+    
+    // FOREIGN KEY 제약 조건 오류인 경우 사용자 확인
+    if (error?.code === 'SQLITE_CONSTRAINT_FOREIGNKEY') {
+      const userCheck = getUser(data.userId);
+      console.error('❌ [saveAnalysis] FOREIGN KEY 제약 조건 오류 - 사용자 확인:', {
         userId: data.userId,
-        analysisId: data.id,
-        url: data.url
+        userExists: !!userCheck,
+        userEmail: userCheck?.email || 'N/A',
+        error: error.message
       });
       
-      // FOREIGN KEY 제약 조건 오류인 경우 사용자 확인
-      if (error?.code === 'SQLITE_CONSTRAINT_FOREIGNKEY') {
-        const userCheck = getUser(data.userId);
-        console.error('❌ [saveAnalysis] FOREIGN KEY 제약 조건 오류 - 사용자 확인:', {
-          userId: data.userId,
-          userExists: !!userCheck,
-          userEmail: userCheck?.email || 'N/A',
-          error: error.message
-        });
-        
-        // 사용자가 없으면 에러 메시지 개선
-        if (!userCheck) {
-          throw new Error(`사용자가 존재하지 않습니다: ${data.userId}. 분석을 저장하려면 먼저 로그인하거나 사용자를 생성해야 합니다.`);
-        }
+      // 사용자가 없으면 에러 메시지 개선
+      if (!userCheck) {
+        throw new Error(`사용자가 존재하지 않습니다: ${data.userId}. 분석을 저장하려면 먼저 로그인하거나 사용자를 생성해야 합니다.`);
       }
-      
-      // 테이블이 없는 경우
-      if (error?.code === 'SQLITE_ERROR' && error.message.includes('no such table')) {
-        console.error('❌ [saveAnalysis] 테이블이 존재하지 않음:', {
-          error: error.message,
-          userId: data.userId,
-          analysisId: data.id
-        });
-        throw new Error(`데이터베이스 테이블이 초기화되지 않았습니다: ${error.message}`);
-      }
-      
-      throw error;
     }
-  });
+    
+    // 테이블이 없는 경우
+    if (error?.code === 'SQLITE_ERROR' && error.message.includes('no such table')) {
+      console.error('❌ [saveAnalysis] 테이블이 존재하지 않음:', {
+        error: error.message,
+        userId: data.userId,
+        analysisId: data.id
+      });
+      throw new Error(`데이터베이스 테이블이 초기화되지 않았습니다: ${error.message}`);
+    }
+    
+    throw error;
+  }
   
   // 저장 후 최종 확인 (트랜잭션 외부에서)
   try {
@@ -461,32 +481,82 @@ export async function saveAnalysis(data: {
     }
   }
   
-  // 저장 후 최종 재확인 (Blob 업로드 후)
-  try {
-    const finalVerification = db.prepare('SELECT id, user_id, url, created_at FROM analyses WHERE id = ?').get(result) as { 
-      id: string; 
-      user_id: string; 
-      url: string;
-      created_at: string;
-    } | undefined;
+  // 저장 후 최종 재확인 (트랜잭션 외부에서, 최대 3회 재시도)
+  let finalVerification = null;
+  let verificationAttempts = 0;
+  const maxVerificationAttempts = 3;
+  
+  while (!finalVerification && verificationAttempts < maxVerificationAttempts) {
+    verificationAttempts++;
     
-    if (finalVerification) {
-      console.log('✅ [saveAnalysis] 최종 저장 확인 완료:', {
-        analysisId: result,
-        userId: data.userId,
-        savedUserId: finalVerification.user_id,
-        url: finalVerification.url,
-        createdAt: finalVerification.created_at,
-        verified: finalVerification.user_id === data.userId
-      });
-    } else {
-      console.error('❌ [saveAnalysis] 최종 저장 확인 실패 - 분석 기록이 없음:', {
-        analysisId: result,
-        userId: data.userId
-      });
+    // Vercel 환경에서는 Blob Storage 동기화를 위해 짧은 대기
+    if (process.env.VERCEL && verificationAttempts > 1) {
+      await new Promise(resolve => setTimeout(resolve, 500 * verificationAttempts));
     }
-  } catch (error) {
-    console.warn('⚠️ [saveAnalysis] 최종 확인 오류:', error);
+    
+    try {
+      finalVerification = db.prepare('SELECT id, user_id, url, created_at FROM analyses WHERE id = ?').get(result) as { 
+        id: string; 
+        user_id: string; 
+        url: string;
+        created_at: string;
+      } | undefined;
+      
+      if (finalVerification) {
+        console.log(`✅ [saveAnalysis] 최종 저장 확인 완료 (시도 ${verificationAttempts}/${maxVerificationAttempts}):`, {
+          analysisId: result,
+          userId: data.userId,
+          savedUserId: finalVerification.user_id,
+          url: finalVerification.url,
+          createdAt: finalVerification.created_at,
+          verified: finalVerification.user_id === data.userId
+        });
+        break;
+      } else if (verificationAttempts < maxVerificationAttempts) {
+        console.warn(`⚠️ [saveAnalysis] 최종 저장 확인 실패, 재시도 중 (${verificationAttempts}/${maxVerificationAttempts}):`, {
+          analysisId: result,
+          userId: data.userId
+        });
+      }
+    } catch (error) {
+      console.warn(`⚠️ [saveAnalysis] 최종 확인 오류 (시도 ${verificationAttempts}/${maxVerificationAttempts}):`, error);
+    }
+  }
+  
+  if (!finalVerification) {
+    console.error('❌ [saveAnalysis] 최종 저장 확인 실패 (최대 재시도 횟수 초과):', {
+      analysisId: result,
+      userId: data.userId,
+      attempts: verificationAttempts
+    });
+    
+    // 디버깅: 전체 분석 목록 확인
+    try {
+      const allAnalyses = db.prepare('SELECT id, user_id, url, created_at FROM analyses ORDER BY created_at DESC LIMIT 10').all() as Array<{
+        id: string;
+        user_id: string;
+        url: string;
+        created_at: string;
+      }>;
+      console.error('🔍 [saveAnalysis] DB에 존재하는 최근 분석 목록:', allAnalyses);
+      
+      const userAnalyses = db.prepare('SELECT id, user_id, url, created_at FROM analyses WHERE user_id = ? ORDER BY created_at DESC LIMIT 10').all(data.userId) as Array<{
+        id: string;
+        user_id: string;
+        url: string;
+        created_at: string;
+      }>;
+      console.error('🔍 [saveAnalysis] 사용자별 분석 목록:', {
+        userId: data.userId,
+        count: userAnalyses.length,
+        analyses: userAnalyses
+      });
+    } catch (debugError) {
+      console.error('❌ [saveAnalysis] 디버깅 쿼리 오류:', debugError);
+    }
+    
+    // 저장 실패는 에러로 처리하지 않고 경고만 출력 (분석 결과는 반환)
+    // 트랜잭션이 롤백되었을 가능성이 있지만, 사용자에게는 분석 결과를 제공
   }
   
   // 통계 및 강화 학습 업데이트 (비동기로 처리하여 응답 속도에 영향 없도록)

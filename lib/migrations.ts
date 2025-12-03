@@ -778,13 +778,24 @@ function applyMigration(migration: Migration) {
       // v12나 v13처럼 중요한 스키마가 누락된 경우 재적용
       if ((migration.version === 12 || migration.version === 13) && !algorithmSchemaExists()) {
         console.warn(`⚠️ [Migration] algorithm_versions 테이블이 없어 v${migration.version} 스키마를 재적용합니다.`);
-        ensureAlgorithmSchema();
-        
-        // 재적용 후 확인
-        if (!algorithmSchemaExists()) {
-          console.error(`❌ [Migration] algorithm_versions 테이블 재생성 실패 (v${migration.version})`);
-        } else {
-          console.log(`✅ [Migration] algorithm_versions 테이블 재생성 완료 (v${migration.version})`);
+        try {
+          ensureAlgorithmSchema();
+          
+          // 재적용 후 즉시 확인
+          if (!algorithmSchemaExists()) {
+            console.error(`❌ [Migration] algorithm_versions 테이블 재생성 실패 (v${migration.version})`);
+            // 한 번 더 시도
+            ensureAlgorithmSchema();
+            if (!algorithmSchemaExists()) {
+              console.error(`❌ [Migration] algorithm_versions 테이블 재생성 재시도 실패 (v${migration.version})`);
+            } else {
+              console.log(`✅ [Migration] algorithm_versions 테이블 재생성 완료 (v${migration.version}, 재시도 성공)`);
+            }
+          } else {
+            console.log(`✅ [Migration] algorithm_versions 테이블 재생성 완료 (v${migration.version})`);
+          }
+        } catch (schemaError) {
+          console.error(`❌ [Migration] algorithm_versions 테이블 재생성 중 오류 (v${migration.version}):`, schemaError);
         }
       } else {
         console.log(`⏭️  마이그레이션 이미 적용됨: ${migration.name} (v${migration.version})`);
