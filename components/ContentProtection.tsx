@@ -116,11 +116,11 @@ export default function ContentProtection() {
         return; // 입력 필드는 허용
       }
 
-      // 개발자 도구 단축키 방지
+      // 개발자 도구 단축키 방지 (페이지 소스 보기는 SEO를 위해 허용)
       if (
         e.key === 'F12' ||
-        (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'C' || e.key === 'J')) ||
-        (e.ctrlKey && e.key === 'U')
+        (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'C' || e.key === 'J'))
+        // Ctrl+U (페이지 소스 보기)는 SEO를 위해 허용
       ) {
         e.preventDefault();
         e.stopPropagation();
