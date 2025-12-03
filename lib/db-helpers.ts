@@ -32,17 +32,39 @@ export function getAnalysesByEmail(email: string, options: QueryOptions = {}) {
   const userStmt = db.prepare('SELECT id FROM users WHERE LOWER(TRIM(email)) = ?');
   const users = userStmt.all(normalizedEmail) as Array<{ id: string }>;
   
-  if (users.length === 0) {
+  let userIds = users.map(u => u.id);
+  
+  // 이메일로 사용자를 찾지 못한 경우, 유사한 이메일(같은 사용자명) 찾기
+  if (userIds.length === 0) {
+    try {
+      const emailPrefix = normalizedEmail.split('@')[0]; // @ 앞부분 (사용자명)
+      if (emailPrefix) {
+        const similarEmailStmt = db.prepare(`
+          SELECT id, email FROM users 
+          WHERE LOWER(TRIM(email)) LIKE ? 
+          LIMIT 10
+        `);
+        const similarUsers = similarEmailStmt.all(`%${emailPrefix}%`) as Array<{ id: string; email: string }>;
+        
+        if (similarUsers.length > 0) {
+          console.log('🔍 [getAnalysesByEmail] 유사한 이메일 사용자 발견:', {
+            searchEmail: normalizedEmail,
+            similarUsers: similarUsers.map(u => ({ id: u.id, email: u.email }))
+          });
+          
+          // 유사한 이메일의 사용자 ID도 포함
+          userIds = similarUsers.map(u => u.id);
+        }
+      }
+    } catch (error) {
+      console.warn('⚠️ [getAnalysesByEmail] 유사한 이메일 검색 오류:', error);
+    }
+  }
+  
+  if (userIds.length === 0) {
     console.warn('⚠️ [getAnalysesByEmail] 이메일로 등록된 사용자가 없음:', {
       email: normalizedEmail
     });
-    return [];
-  }
-  
-  const userIds = users.map(u => u.id);
-  
-  // userIds가 비어있으면 빈 배열 반환
-  if (userIds.length === 0) {
     return [];
   }
   
@@ -960,12 +982,12 @@ export function getUserByEmail(email: string) {
   }
   
   if (!row) {
-    // 디버깅: 해당 이메일과 유사한 사용자 찾기
+    // 디버깅: 해당 이메일과 유사한 사용자 찾기 (로그 레벨 낮춤)
     try {
       const debugStmt = db.prepare(`SELECT id, email FROM users WHERE email LIKE ? LIMIT 5`);
       const similarUsers = debugStmt.all(`%${normalizedEmail.split('@')[0]}%`) as Array<{ id: string; email: string }>;
-      if (similarUsers.length > 0) {
-        console.warn('🔍 [getUserByEmail] 유사한 이메일 발견:', {
+      if (similarUsers.length > 0 && process.env.DEBUG_EMAIL_MATCHING) {
+        console.log('🔍 [getUserByEmail] 유사한 이메일 발견 (디버그 모드):', {
           searchEmail: normalizedEmail,
           similarEmails: similarUsers.map(u => ({ id: u.id, email: u.email }))
         });
@@ -1306,39 +1328,51 @@ export function saveAuthLog(data: {
   success?: boolean;
   errorMessage?: string | null;
 }) {
+  // auth_logs 테이블 존재 여부 확인 및 생성 (트랜잭션 외부에서 먼저 확인)
+  try {
+    const tableInfo = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='auth_logs'").get();
+    if (!tableInfo) {
+      console.warn('⚠️ [saveAuthLog] auth_logs 테이블이 존재하지 않습니다. 자동 생성 시도...');
+      // 테이블 자동 생성 (트랜잭션 외부에서 실행)
+      try {
+        db.exec(`
+          CREATE TABLE IF NOT EXISTS auth_logs (
+            id TEXT PRIMARY KEY,
+            user_id TEXT,
+            provider TEXT NOT NULL,
+            action TEXT NOT NULL,
+            ip_address TEXT,
+            user_agent TEXT,
+            success INTEGER DEFAULT 1,
+            error_message TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+          );
+
+          CREATE INDEX IF NOT EXISTS idx_auth_logs_user_id ON auth_logs(user_id);
+          CREATE INDEX IF NOT EXISTS idx_auth_logs_provider ON auth_logs(provider);
+          CREATE INDEX IF NOT EXISTS idx_auth_logs_action ON auth_logs(action);
+          CREATE INDEX IF NOT EXISTS idx_auth_logs_created_at ON auth_logs(created_at);
+          CREATE INDEX IF NOT EXISTS idx_auth_logs_user_created ON auth_logs(user_id, created_at DESC);
+        `);
+        console.log('✅ [saveAuthLog] auth_logs 테이블 자동 생성 완료');
+      } catch (createError: any) {
+        console.error('❌ [saveAuthLog] auth_logs 테이블 생성 실패:', createError);
+        return null;
+      }
+    }
+  } catch (checkError: any) {
+    console.error('❌ [saveAuthLog] 테이블 확인 오류:', checkError);
+    return null;
+  }
+
   return dbHelpers.transaction(() => {
-    // auth_logs 테이블 존재 여부 확인 및 생성
     try {
+      // 테이블이 확실히 존재하는지 다시 확인
       const tableInfo = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='auth_logs'").get();
       if (!tableInfo) {
-        console.warn('⚠️ [saveAuthLog] auth_logs 테이블이 존재하지 않습니다. 자동 생성 시도...');
-        // 테이블 자동 생성
-        try {
-          db.exec(`
-            CREATE TABLE IF NOT EXISTS auth_logs (
-              id TEXT PRIMARY KEY,
-              user_id TEXT,
-              provider TEXT NOT NULL,
-              action TEXT NOT NULL,
-              ip_address TEXT,
-              user_agent TEXT,
-              success INTEGER DEFAULT 1,
-              error_message TEXT,
-              created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-              FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
-            );
-
-            CREATE INDEX IF NOT EXISTS idx_auth_logs_user_id ON auth_logs(user_id);
-            CREATE INDEX IF NOT EXISTS idx_auth_logs_provider ON auth_logs(provider);
-            CREATE INDEX IF NOT EXISTS idx_auth_logs_action ON auth_logs(action);
-            CREATE INDEX IF NOT EXISTS idx_auth_logs_created_at ON auth_logs(created_at);
-            CREATE INDEX IF NOT EXISTS idx_auth_logs_user_created ON auth_logs(user_id, created_at DESC);
-          `);
-          console.log('✅ [saveAuthLog] auth_logs 테이블 자동 생성 완료');
-        } catch (createError: any) {
-          console.error('❌ [saveAuthLog] auth_logs 테이블 생성 실패:', createError);
-          return null;
-        }
+        console.warn('⚠️ [saveAuthLog] 트랜잭션 내부에서도 auth_logs 테이블이 없습니다.');
+        return null;
       }
 
       const stmt = db.prepare(`
@@ -1364,10 +1398,10 @@ export function saveAuthLog(data: {
     } catch (error: any) {
       // 테이블이 없거나 컬럼이 없는 경우 무시
       if (error.code === 'SQLITE_ERROR' && error.message.includes('no such table')) {
-        console.warn('auth_logs 테이블이 존재하지 않습니다. 마이그레이션을 실행하세요.');
+        console.warn('⚠️ [saveAuthLog] auth_logs 테이블이 존재하지 않습니다.');
         return null;
       }
-      console.error('인증 로그 저장 오류:', error);
+      console.error('❌ [saveAuthLog] 인증 로그 저장 오류:', error);
       return null;
     }
   });

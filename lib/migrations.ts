@@ -680,15 +680,32 @@ const migrations: Migration[] = [
     name: 'initialize_algorithms',
     up: () => {
       try {
+        // 테이블이 없으면 강제로 생성
         if (!algorithmSchemaExists()) {
           console.warn('⚠️ [Migration] algorithm_versions 테이블이 없습니다. v12 스키마를 재적용합니다.');
           ensureAlgorithmSchema();
+          
+          // 재적용 후 즉시 확인
+          if (!algorithmSchemaExists()) {
+            console.error('❌ [Migration] algorithm_versions 테이블 생성 실패. 다시 시도합니다.');
+            // 한 번 더 시도
+            ensureAlgorithmSchema();
+          }
         }
+        
+        // 테이블이 확실히 존재하는지 재확인
+        if (!algorithmSchemaExists()) {
+          console.error('❌ [Migration] algorithm_versions 테이블이 여전히 없습니다. 스키마 재생성을 건너뜁니다.');
+          return;
+        }
+        
+        console.log('✅ [Migration] algorithm_versions 테이블 확인 완료');
 
         // 알고리즘 초기화는 비동기로 실행 (마이그레이션 완료 후)
         // 스키마 재적용 후 충분한 시간을 두고 실행
         setTimeout(() => {
           try {
+            // 다시 한 번 확인
             if (!algorithmSchemaExists()) {
               console.warn('⚠️ [Migration] algorithm_versions 테이블이 여전히 없습니다. 초기화를 건너뜁니다.');
               return;
@@ -700,9 +717,15 @@ const migrations: Migration[] = [
             console.error('❌ [Migration] 알고리즘 초기화 실패:', error);
             // 초기화 실패해도 마이그레이션은 성공으로 처리
           }
-        }, 300); // 300ms 지연 (스키마 재적용 시간 고려)
+        }, 500); // 500ms 지연 (스키마 재적용 시간 고려)
       } catch (error) {
         console.error('❌ [Migration] 테이블 확인 실패:', error);
+        // 에러가 발생해도 테이블 생성은 시도
+        try {
+          ensureAlgorithmSchema();
+        } catch (createError) {
+          console.error('❌ [Migration] 테이블 생성 재시도 실패:', createError);
+        }
       }
     },
   },
@@ -731,10 +754,17 @@ function applyMigration(migration: Migration) {
     // 트랜잭션 시작 전에 다시 확인 (동시 실행 방지)
     const alreadyApplied = db.prepare('SELECT version FROM schema_migrations WHERE version = ?').get(migration.version);
     if (alreadyApplied) {
-      // v12처럼 중요한 스키마가 누락된 경우 재적용
-      if (migration.version === 12 && !algorithmSchemaExists()) {
-        console.warn('⚠️ [Migration] algorithm_versions 테이블이 없어 v12 스키마를 재적용합니다.');
+      // v12나 v13처럼 중요한 스키마가 누락된 경우 재적용
+      if ((migration.version === 12 || migration.version === 13) && !algorithmSchemaExists()) {
+        console.warn(`⚠️ [Migration] algorithm_versions 테이블이 없어 v${migration.version} 스키마를 재적용합니다.`);
         ensureAlgorithmSchema();
+        
+        // 재적용 후 확인
+        if (!algorithmSchemaExists()) {
+          console.error(`❌ [Migration] algorithm_versions 테이블 재생성 실패 (v${migration.version})`);
+        } else {
+          console.log(`✅ [Migration] algorithm_versions 테이블 재생성 완료 (v${migration.version})`);
+        }
       } else {
         console.log(`⏭️  마이그레이션 이미 적용됨: ${migration.name} (v${migration.version})`);
       }
@@ -751,11 +781,24 @@ function applyMigration(migration: Migration) {
       );
     })();
     
+    // v12나 v13의 경우 테이블이 확실히 생성되었는지 확인
+    if ((migration.version === 12 || migration.version === 13) && !algorithmSchemaExists()) {
+      console.warn(`⚠️ [Migration] v${migration.version} 적용 후에도 algorithm_versions 테이블이 없습니다. 재생성 시도...`);
+      ensureAlgorithmSchema();
+    }
+    
     console.log(`✅ 마이그레이션 완료: ${migration.name} (v${migration.version})`);
   } catch (error: any) {
     // UNIQUE constraint 오류는 이미 적용된 것으로 간주
     if (error?.code === 'SQLITE_CONSTRAINT_PRIMARYKEY' || error?.code === 'SQLITE_CONSTRAINT_UNIQUE') {
       console.log(`⏭️  마이그레이션 이미 적용됨 (제약 조건 오류 무시): ${migration.name} (v${migration.version})`);
+      
+      // v12나 v13의 경우 테이블이 확실히 생성되었는지 확인
+      if ((migration.version === 12 || migration.version === 13) && !algorithmSchemaExists()) {
+        console.warn(`⚠️ [Migration] v${migration.version} 적용 후에도 algorithm_versions 테이블이 없습니다. 재생성 시도...`);
+        ensureAlgorithmSchema();
+      }
+      
       return;
     }
     console.error(`❌ 마이그레이션 실패: ${migration.name} (v${migration.version})`, error);

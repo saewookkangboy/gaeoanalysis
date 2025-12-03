@@ -94,7 +94,7 @@ export async function GET(request: NextRequest) {
     // 프로세스 3: 이메일 기반으로 분석 이력 조회 (동일 이메일로 로그인 시 분석 이력 불러오기)
     let analyses: any[] = [];
     
-    // 3-1. 이메일로 조회 (가장 안정적 - 여러 사용자 ID에 걸쳐 조회)
+    // 3-1. 이메일로 조회 (가장 안정적 - 여러 사용자 ID에 걸쳐 조회, 유사한 이메일 포함)
     if (normalizedEmail) {
       // 이메일로 등록된 모든 사용자 ID 확인
       try {
@@ -107,12 +107,75 @@ export async function GET(request: NextRequest) {
           userIds: allUsersByEmail.map(u => u.id)
         });
         
+        // getAnalysesByEmail은 이미 유사한 이메일도 함께 조회하도록 개선됨
         analyses = getAnalysesByEmail(normalizedEmail, { limit: 50 });
-        console.log('🔍 [History API] 이메일로 조회 결과:', {
+        console.log('🔍 [History API] 이메일로 조회 결과 (유사한 이메일 포함):', {
           email: normalizedEmail,
           count: analyses.length,
           userIds: allUsersByEmail.map(u => u.id)
         });
+        
+        // 유사한 이메일의 분석 이력도 추가로 조회 (같은 사용자명)
+        if (analyses.length === 0) {
+          try {
+            const emailPrefix = normalizedEmail.split('@')[0];
+            if (emailPrefix) {
+              const similarEmailStmt = db.prepare(`
+                SELECT DISTINCT u.id, u.email 
+                FROM users u
+                INNER JOIN analyses a ON a.user_id = u.id
+                WHERE LOWER(TRIM(u.email)) LIKE ?
+                LIMIT 10
+              `);
+              const similarUsers = similarEmailStmt.all(`%${emailPrefix}%`) as Array<{ id: string; email: string }>;
+              
+              if (similarUsers.length > 0) {
+                console.log('🔍 [History API] 유사한 이메일 사용자 발견, 분석 이력 조회:', {
+                  searchEmail: normalizedEmail,
+                  similarUsers: similarUsers.map(u => ({ id: u.id, email: u.email }))
+                });
+                
+                const similarUserIds = similarUsers.map(u => u.id);
+                const placeholders = similarUserIds.map(() => '?').join(',');
+                const similarAnalysesStmt = db.prepare(`
+                  SELECT 
+                    id, url, aeo_score, geo_score, seo_score, overall_score, 
+                    insights, chatgpt_score, perplexity_score, gemini_score, claude_score, 
+                    created_at, user_id
+                  FROM analyses
+                  WHERE user_id IN (${placeholders})
+                  ORDER BY created_at DESC
+                  LIMIT 50
+                `);
+                const similarResults = similarAnalysesStmt.all(...similarUserIds) as Array<any>;
+                
+                analyses = similarResults.map((row: any) => ({
+                  id: row.id,
+                  url: row.url,
+                  aeoScore: row.aeo_score,
+                  geoScore: row.geo_score,
+                  seoScore: row.seo_score,
+                  overallScore: row.overall_score,
+                  insights: JSON.parse(row.insights),
+                  aioScores: {
+                    chatgpt: row.chatgpt_score,
+                    perplexity: row.perplexity_score,
+                    gemini: row.gemini_score,
+                    claude: row.claude_score,
+                  },
+                  createdAt: row.created_at,
+                }));
+                
+                console.log('✅ [History API] 유사한 이메일 분석 이력 조회 완료:', {
+                  count: analyses.length,
+                  similarUserIds: similarUserIds
+                });
+              }
+            }
+          } catch (similarError) {
+            console.warn('⚠️ [History API] 유사한 이메일 조회 오류:', similarError);
+          }
+        }
       } catch (error) {
         console.error('❌ [History API] 이메일로 조회 오류:', error);
       }
