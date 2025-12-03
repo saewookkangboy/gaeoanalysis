@@ -3,6 +3,19 @@ import Google from "next-auth/providers/google";
 import GitHub from "next-auth/providers/github";
 import { createUser, getUser, getUserByEmail, saveAuthLog } from "@/lib/db-helpers";
 import { v4 as uuidv4 } from "uuid";
+import { createHash } from "crypto";
+
+/**
+ * 이메일 기반으로 일관된 사용자 ID 생성
+ * 같은 이메일은 항상 같은 ID를 반환
+ */
+function generateUserIdFromEmail(email: string): string {
+  const normalizedEmail = email.toLowerCase().trim();
+  // SHA-256 해시를 사용하여 일관된 ID 생성
+  const hash = createHash('sha256').update(normalizedEmail).digest('hex');
+  // UUID 형식으로 변환 (8-4-4-4-12)
+  return `${hash.substring(0, 8)}-${hash.substring(8, 12)}-${hash.substring(12, 16)}-${hash.substring(16, 20)}-${hash.substring(20, 32)}`;
+}
 
 // AUTH_SECRET 확인 (필수)
 const authSecret = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET;
@@ -114,9 +127,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           // 이메일 정규화 (소문자, 트림) - 일관된 사용자 식별을 위해 중요
           const normalizedEmail = user.email.toLowerCase().trim();
           
+          // 이메일 기반으로 일관된 사용자 ID 생성 (핵심 개선)
+          // 같은 이메일은 항상 같은 ID를 사용하여 분석 이력 유지
+          const emailBasedUserId = generateUserIdFromEmail(normalizedEmail);
+          
           // 이메일로 기존 사용자 확인 (중요: 이메일 기반으로 일관된 사용자 ID 유지)
           const existingUserByEmail = getUserByEmail(normalizedEmail);
-          let actualUserId = user.id;
+          let actualUserId = emailBasedUserId; // 이메일 기반 ID 사용
           let isNewUser = false;
           
           if (existingUserByEmail) {
@@ -124,21 +141,22 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             actualUserId = existingUserByEmail.id;
             isNewUser = false;
             console.log('📧 [signIn] 이메일로 기존 사용자 발견:', { 
-              nextAuthId: user.id, 
+              nextAuthId: user.id,
+              emailBasedId: emailBasedUserId,
               actualUserId: actualUserId, 
               email: normalizedEmail,
               provider: account.provider 
             });
           } else {
-            // 새 사용자인지 확인
-            const existingUser = getUser(user.id);
+            // 새 사용자인지 확인 (이메일 기반 ID로 확인)
+            const existingUser = getUser(emailBasedUserId);
             isNewUser = !existingUser;
           }
           
-          // 사용자 생성 또는 업데이트 (createUser는 이메일로 기존 사용자를 찾으면 기존 ID 반환)
-          // 정규화된 이메일 사용
+          // 사용자 생성 또는 업데이트 (이메일 기반 ID 사용)
+          // createUser는 이메일로 기존 사용자를 찾으면 기존 ID 반환
           const createdUserId = createUser({
-            id: user.id,
+            id: emailBasedUserId, // 이메일 기반 ID 사용
             email: normalizedEmail,
             blogUrl: null,
             name: user.name || undefined,
@@ -147,7 +165,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           });
           
           // createUser가 반환한 실제 사용자 ID 사용 (이메일로 기존 사용자를 찾은 경우 기존 ID 반환)
-          actualUserId = createdUserId || actualUserId;
+          actualUserId = createdUserId || emailBasedUserId;
           
           if (isNewUser) {
             console.log('✅ [signIn] 새 사용자 생성:', { 
@@ -212,33 +230,26 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         // 이메일 정규화
         const normalizedEmail = user.email ? user.email.toLowerCase().trim() : null;
         
-        // 사용자 정보가 있으면 토큰에 저장
-        token.id = user.id;
-        token.email = normalizedEmail || user.email;
-        token.provider = account?.provider;
+        // 이메일 기반으로 일관된 사용자 ID 생성 (핵심 개선)
+        let emailBasedUserId = normalizedEmail ? generateUserIdFromEmail(normalizedEmail) : user.id;
         
-        // 이메일로 실제 사용자 ID 확인 (세션 ID와 DB ID 불일치 방지)
-        // 이메일 기반으로 항상 확인하여 일관된 사용자 ID 보장
+        // 이메일로 기존 사용자 확인
         if (normalizedEmail) {
           try {
             const userByEmail = getUserByEmail(normalizedEmail);
             if (userByEmail) {
-              if (userByEmail.id !== user.id) {
-                console.log('🔄 [JWT] 이메일로 실제 사용자 ID 확인 및 업데이트:', {
-                  nextAuthId: user.id,
-                  actualUserId: userByEmail.id,
-                  email: normalizedEmail
-                });
-                token.id = userByEmail.id; // 실제 사용자 ID 사용
-              } else {
-                console.log('✅ [JWT] 사용자 ID 일치:', {
-                  userId: user.id,
-                  email: normalizedEmail
-                });
-              }
-            } else {
-              console.warn('⚠️ [JWT] 이메일로 사용자를 찾을 수 없음:', {
+              // 기존 사용자가 있으면 그 ID 사용
+              emailBasedUserId = userByEmail.id;
+              console.log('✅ [JWT] 이메일로 기존 사용자 ID 확인:', {
                 nextAuthId: user.id,
+                emailBasedId: generateUserIdFromEmail(normalizedEmail),
+                actualUserId: emailBasedUserId,
+                email: normalizedEmail
+              });
+            } else {
+              console.log('📝 [JWT] 새 사용자, 이메일 기반 ID 사용:', {
+                nextAuthId: user.id,
+                emailBasedId: emailBasedUserId,
                 email: normalizedEmail
               });
             }
@@ -246,46 +257,69 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             console.error('❌ [JWT] 사용자 확인 오류:', error);
           }
         }
+        
+        // 이메일 기반 사용자 ID를 토큰에 저장
+        token.id = emailBasedUserId;
+        token.email = normalizedEmail || user.email;
+        token.provider = account?.provider;
       } else if (token.email) {
         // 사용자 정보가 없지만 토큰에 이메일이 있는 경우 (기존 세션)
-        // 이메일로 실제 사용자 ID 재확인
+        // 이메일 기반으로 사용자 ID 재확인
         const normalizedEmail = (token.email as string).toLowerCase().trim();
+        const emailBasedUserId = generateUserIdFromEmail(normalizedEmail);
+        
         try {
           const userByEmail = getUserByEmail(normalizedEmail);
-          if (userByEmail && userByEmail.id !== token.id) {
-            console.log('🔄 [JWT] 기존 토큰: 이메일로 실제 사용자 ID 확인 및 업데이트:', {
-              tokenId: token.id,
+          if (userByEmail) {
+            // 기존 사용자가 있으면 그 ID 사용
+            token.id = userByEmail.id;
+            console.log('🔄 [JWT] 기존 토큰: 이메일로 실제 사용자 ID 확인:', {
+              originalTokenId: token.id,
+              emailBasedId: emailBasedUserId,
               actualUserId: userByEmail.id,
               email: normalizedEmail
             });
-            token.id = userByEmail.id; // 실제 사용자 ID 사용
+          } else {
+            // 기존 사용자가 없으면 이메일 기반 ID 사용
+            token.id = emailBasedUserId;
+            console.log('📝 [JWT] 기존 토큰: 이메일 기반 ID 사용:', {
+              originalTokenId: token.id,
+              emailBasedId: emailBasedUserId,
+              email: normalizedEmail
+            });
           }
         } catch (error) {
           console.error('❌ [JWT] 기존 토큰 사용자 확인 오류:', error);
+          // 오류 발생 시 이메일 기반 ID 사용
+          token.id = emailBasedUserId;
         }
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
-        // 토큰에서 실제 사용자 ID 가져오기
+        // 이메일 기반으로 일관된 사용자 ID 확인
         let actualUserId = token.id as string;
         
-        // 이메일 정규화 및 실제 사용자 ID 재확인 (안정성 향상)
-        // 매번 세션 요청 시 이메일 기반으로 확인하여 일관성 보장
         if (token.email) {
           try {
             const normalizedEmail = (token.email as string).toLowerCase().trim();
-            let userByEmail = getUserByEmail(normalizedEmail);
+            // 이메일 기반으로 일관된 사용자 ID 생성
+            const emailBasedUserId = generateUserIdFromEmail(normalizedEmail);
+            
+            // 이메일로 기존 사용자 확인
+            const userByEmail = getUserByEmail(normalizedEmail);
             
             if (userByEmail) {
-              if (userByEmail.id !== actualUserId) {
-                console.log('🔄 [Session] 이메일로 실제 사용자 ID 확인 및 업데이트:', {
-                  tokenId: actualUserId,
+              // 기존 사용자가 있으면 그 ID 사용
+              actualUserId = userByEmail.id;
+              if (userByEmail.id !== emailBasedUserId) {
+                console.log('🔄 [Session] 이메일로 기존 사용자 ID 확인:', {
+                  tokenId: token.id,
+                  emailBasedId: emailBasedUserId,
                   actualUserId: userByEmail.id,
                   email: normalizedEmail
                 });
-                actualUserId = userByEmail.id; // 실제 사용자 ID 사용
               } else {
                 console.log('✅ [Session] 사용자 ID 일치:', {
                   userId: actualUserId,
@@ -293,93 +327,35 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 });
               }
             } else {
-              // 사용자를 찾을 수 없으면 세션 ID로 확인
-              const userById = getUser(actualUserId);
-              if (userById) {
-                console.log('✅ [Session] 세션 ID로 사용자 확인:', {
+              // 기존 사용자가 없으면 이메일 기반 ID 사용
+              actualUserId = emailBasedUserId;
+              console.log('📝 [Session] 새 사용자, 이메일 기반 ID 사용:', {
+                tokenId: token.id,
+                emailBasedId: emailBasedUserId,
+                email: normalizedEmail
+              });
+              
+              // 사용자가 DB에 없으면 생성 시도 (signIn 콜백이 실행되지 않은 경우 대비)
+              try {
+                const createdUserId = createUser({
+                  id: emailBasedUserId,
+                  email: normalizedEmail,
+                  blogUrl: null,
+                  name: session.user.name || undefined,
+                  image: session.user.image || undefined,
+                  provider: token.provider as string || undefined,
+                });
+                
+                // createUser가 반환한 실제 사용자 ID 사용
+                actualUserId = createdUserId || emailBasedUserId;
+                
+                console.log('✅ [Session] 사용자 생성 완료:', {
                   userId: actualUserId,
-                  email: normalizedEmail,
-                  dbEmail: userById.email
+                  email: normalizedEmail
                 });
-                
-                // 세션 ID로 찾은 사용자의 이메일과 토큰 이메일이 다를 수 있음
-                // 이 경우 DB의 이메일로 다시 검색하여 실제 사용자 ID 확인
-                const dbEmailNormalized = userById.email?.toLowerCase().trim();
-                if (dbEmailNormalized && dbEmailNormalized !== normalizedEmail) {
-                  console.warn('⚠️ [Session] 세션 ID 사용자의 이메일이 다름:', {
-                    tokenEmail: normalizedEmail,
-                    dbEmail: userById.email,
-                    dbEmailNormalized: dbEmailNormalized
-                  });
-                  
-                  // DB에 저장된 이메일로 다시 검색
-                  const userByDbEmail = getUserByEmail(userById.email);
-                  if (userByDbEmail && userByDbEmail.id !== actualUserId) {
-                    console.log('🔄 [Session] DB 이메일로 실제 사용자 ID 확인:', {
-                      sessionId: actualUserId,
-                      actualUserId: userByDbEmail.id,
-                      email: userByDbEmail.email
-                    });
-                    actualUserId = userByDbEmail.id;
-                  }
-                }
-              } else {
-                // 사용자를 찾을 수 없으면 이메일로 다시 한 번 확인 (정규화 문제 대비)
-                console.warn('⚠️ [Session] 이메일로 사용자를 찾을 수 없음, 재확인 시도:', {
-                  tokenId: actualUserId,
-                  email: normalizedEmail,
-                  provider: token.provider
-                });
-                
-                // 이메일로 다시 확인 (여러 방법 시도)
-                const retryUserByEmail = getUserByEmail(normalizedEmail);
-                if (retryUserByEmail) {
-                  actualUserId = retryUserByEmail.id;
-                  console.log('✅ [Session] 재확인: 이메일로 사용자 발견:', {
-                    originalTokenId: token.id,
-                    actualUserId: actualUserId,
-                    email: normalizedEmail
-                  });
-                } else {
-                  // 사용자가 DB에 없으면 생성 시도 (signIn 콜백이 실행되지 않은 경우 대비)
-                  console.warn('⚠️ [Session] 사용자가 DB에 없음, 사용자 생성 시도:', {
-                    tokenId: actualUserId,
-                    email: normalizedEmail,
-                    provider: token.provider
-                  });
-                  
-                  try {
-                    const createdUserId = createUser({
-                      id: actualUserId,
-                      email: normalizedEmail,
-                      blogUrl: null,
-                      name: session.user.name || undefined,
-                      image: session.user.image || undefined,
-                      provider: token.provider as string || undefined,
-                    });
-                    
-                    // createUser가 반환한 실제 사용자 ID 사용 (이메일로 기존 사용자를 찾은 경우)
-                    actualUserId = createdUserId || actualUserId;
-                    
-                    // 다시 확인
-                    userByEmail = getUserByEmail(normalizedEmail);
-                    if (userByEmail) {
-                      actualUserId = userByEmail.id;
-                      console.log('✅ [Session] 사용자 생성/확인 완료:', {
-                        userId: actualUserId,
-                        email: normalizedEmail
-                      });
-                    } else {
-                      console.warn('⚠️ [Session] 사용자 생성 후에도 조회되지 않음:', {
-                        createdUserId: createdUserId,
-                        email: normalizedEmail
-                      });
-                    }
-                  } catch (error: any) {
-                    console.error('❌ [Session] 사용자 생성 오류:', error);
-                    // 사용자 생성 실패해도 세션은 유지
-                  }
-                }
+              } catch (error: any) {
+                console.error('❌ [Session] 사용자 생성 오류:', error);
+                // 사용자 생성 실패해도 세션은 유지 (이메일 기반 ID 사용)
               }
             }
           } catch (error) {
