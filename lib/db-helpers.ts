@@ -682,6 +682,30 @@ export function saveOrUpdateChatConversation(data: {
   analysisId: string | null;
   messages: any[];
 }) {
+  // 저장 전 사용자 존재 확인
+  const userCheck = getUser(data.userId);
+  if (!userCheck) {
+    console.error('❌ [saveOrUpdateChatConversation] 사용자가 존재하지 않음:', {
+      userId: data.userId,
+      conversationId: data.conversationId,
+      analysisId: data.analysisId
+    });
+    throw new Error(`사용자가 존재하지 않습니다: ${data.userId}. 대화를 저장하려면 먼저 로그인하거나 사용자를 생성해야 합니다.`);
+  }
+  
+  // analysisId가 제공된 경우 분석 존재 확인
+  if (data.analysisId) {
+    const analysisCheck = db.prepare('SELECT id FROM analyses WHERE id = ?').get(data.analysisId) as { id: string } | undefined;
+    if (!analysisCheck) {
+      console.warn('⚠️ [saveOrUpdateChatConversation] 분석이 존재하지 않음 (analysisId를 null로 설정):', {
+        analysisId: data.analysisId,
+        userId: data.userId
+      });
+      // 분석이 없으면 analysisId를 null로 설정
+      data.analysisId = null;
+    }
+  }
+  
   return dbHelpers.transaction(() => {
     // 기존 대화 확인
     if (data.conversationId) {
@@ -710,20 +734,98 @@ export function saveOrUpdateChatConversation(data: {
       VALUES (?, ?, ?, ?)
     `);
 
-    insertStmt.run(
-      conversationId,
-      data.userId,
-      data.analysisId || null,
-      JSON.stringify(data.messages)
-    );
+    try {
+      insertStmt.run(
+        conversationId,
+        data.userId,
+        data.analysisId || null,
+        JSON.stringify(data.messages)
+      );
+    } catch (insertError: any) {
+      if (insertError?.code === 'SQLITE_CONSTRAINT_FOREIGNKEY') {
+        console.error('❌ [saveOrUpdateChatConversation] FOREIGN KEY 제약 조건 오류:', {
+          error: insertError.message,
+          userId: data.userId,
+          analysisId: data.analysisId,
+          conversationId: conversationId
+        });
+        // 사용자 재확인
+        const retryUserCheck = getUser(data.userId);
+        if (!retryUserCheck) {
+          throw new Error(`사용자가 존재하지 않습니다: ${data.userId}`);
+        }
+        // analysisId가 있으면 재확인
+        if (data.analysisId) {
+          const retryAnalysisCheck = db.prepare('SELECT id FROM analyses WHERE id = ?').get(data.analysisId) as { id: string } | undefined;
+          if (!retryAnalysisCheck) {
+            // analysisId를 null로 설정하고 재시도
+            console.warn('⚠️ [saveOrUpdateChatConversation] 분석이 존재하지 않아 analysisId를 null로 설정하고 재시도');
+            data.analysisId = null;
+            insertStmt.run(
+              conversationId,
+              data.userId,
+              null,
+              JSON.stringify(data.messages)
+            );
+          } else {
+            throw insertError; // 분석은 존재하는데 오류가 발생하면 재시도 불가
+          }
+        } else {
+          throw insertError; // analysisId가 null인데 오류가 발생하면 재시도 불가
+        }
+      } else {
+        throw insertError;
+      }
+    }
 
     // 통계 업데이트 (비동기로 처리)
     setImmediate(() => {
       try {
+        // 통계 업데이트 전 사용자 존재 확인
+        const userCheck = getUser(data.userId);
+        if (!userCheck) {
+          console.warn('⚠️ [saveOrUpdateChatConversation] 통계 업데이트 전 사용자 확인 실패:', {
+            userId: data.userId,
+            conversationId: conversationId
+          });
+          return; // 사용자가 없으면 통계 업데이트 스킵
+        }
+        
         const { updateUserActivityStatistics } = getStatisticsHelpers();
-        updateUserActivityStatistics(data.userId, 'chat');
-      } catch (statError) {
-        console.error('❌ [saveOrUpdateChatConversation] 통계 업데이트 오류:', statError);
+        
+        // FOREIGN KEY 제약 조건 오류 방지
+        try {
+          updateUserActivityStatistics(data.userId, 'chat');
+        } catch (userStatError: any) {
+          if (userStatError?.code === 'SQLITE_CONSTRAINT_FOREIGNKEY') {
+            console.warn('⚠️ [saveOrUpdateChatConversation] 사용자 활동 통계 업데이트 FOREIGN KEY 오류 (사용자 확인 후 재시도):', {
+              userId: data.userId,
+              error: userStatError.message
+            });
+            // 사용자 재확인 후 재시도
+            const retryUserCheck = getUser(data.userId);
+            if (retryUserCheck) {
+              try {
+                updateUserActivityStatistics(data.userId, 'chat');
+              } catch (retryError) {
+                console.warn('⚠️ [saveOrUpdateChatConversation] 사용자 활동 통계 업데이트 재시도 실패 (무시):', retryError);
+              }
+            }
+          } else {
+            throw userStatError;
+          }
+        }
+      } catch (statError: any) {
+        // FOREIGN KEY 제약 조건 오류는 경고만 출력 (대화 저장은 성공)
+        if (statError?.code === 'SQLITE_CONSTRAINT_FOREIGNKEY') {
+          console.warn('⚠️ [saveOrUpdateChatConversation] 통계 업데이트 FOREIGN KEY 제약 조건 오류 (무시):', {
+            error: statError.message,
+            userId: data.userId
+          });
+        } else {
+          console.error('❌ [saveOrUpdateChatConversation] 통계 업데이트 오류:', statError);
+        }
+        // 통계 업데이트 실패해도 대화 저장은 성공한 것으로 처리
       }
     });
     
