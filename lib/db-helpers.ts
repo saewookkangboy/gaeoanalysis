@@ -119,6 +119,22 @@ export function saveAnalysis(data: {
     claude?: number;
   };
 }) {
+  // 저장 전 DB 상태 확인 (디버깅용)
+  if (process.env.NODE_ENV === 'development' || process.env.DEBUG_DB || process.env.VERCEL) {
+    try {
+      const totalAnalysesBefore = db.prepare('SELECT COUNT(*) as count FROM analyses').get() as { count: number };
+      const userAnalysesBefore = db.prepare('SELECT COUNT(*) as count FROM analyses WHERE user_id = ?').get(data.userId) as { count: number };
+      console.log('📊 [saveAnalysis] 저장 전 DB 상태:', {
+        totalAnalyses: totalAnalysesBefore.count,
+        userAnalyses: userAnalysesBefore.count,
+        userId: data.userId,
+        analysisId: data.id
+      });
+    } catch (error) {
+      console.warn('⚠️ [saveAnalysis] 저장 전 상태 확인 실패:', error);
+    }
+  }
+
   const result = dbHelpers.transaction(() => {
     // 사용자 존재 확인
     const userExists = getUser(data.userId);
@@ -130,6 +146,12 @@ export function saveAnalysis(data: {
       });
       throw new Error(`사용자가 존재하지 않습니다: ${data.userId}`);
     }
+    
+    console.log('✅ [saveAnalysis] 사용자 확인 완료:', {
+      userId: data.userId,
+      userEmail: userExists.email,
+      analysisId: data.id
+    });
 
     const stmt = db.prepare(`
       INSERT INTO analyses (
@@ -177,6 +199,29 @@ export function saveAnalysis(data: {
         throw new Error(`저장된 user_id가 다릅니다: ${saved.user_id} !== ${data.userId}`);
       }
 
+      // 저장 후 즉시 DB 상태 확인 (디버깅용)
+      if (process.env.NODE_ENV === 'development' || process.env.DEBUG_DB || process.env.VERCEL) {
+        try {
+          const totalAnalysesAfter = db.prepare('SELECT COUNT(*) as count FROM analyses').get() as { count: number };
+          const userAnalysesAfter = db.prepare('SELECT COUNT(*) as count FROM analyses WHERE user_id = ?').get(data.userId) as { count: number };
+          console.log('📊 [saveAnalysis] 저장 후 DB 상태:', {
+            totalAnalyses: totalAnalysesAfter.count,
+            userAnalyses: userAnalysesAfter.count,
+            userId: data.userId,
+            analysisId: data.id,
+            savedUserId: saved.user_id
+          });
+        } catch (error) {
+          console.warn('⚠️ [saveAnalysis] 저장 후 상태 확인 실패:', error);
+        }
+      }
+
+      console.log('✅ [saveAnalysis] 분석 저장 성공:', {
+        analysisId: data.id,
+        userId: data.userId,
+        url: data.url
+      });
+
       return data.id;
     } catch (error: any) {
       console.error('❌ [saveAnalysis] 저장 오류:', {
@@ -190,6 +235,26 @@ export function saveAnalysis(data: {
     }
   });
   
+  // 저장 후 최종 확인 (트랜잭션 외부에서)
+  try {
+    const finalCheck = db.prepare('SELECT id, user_id, url FROM analyses WHERE id = ?').get(result) as { id: string; user_id: string; url: string } | undefined;
+    if (!finalCheck) {
+      console.error('❌ [saveAnalysis] 트랜잭션 후 최종 확인 실패:', {
+        analysisId: result,
+        userId: data.userId
+      });
+    } else {
+      console.log('✅ [saveAnalysis] 트랜잭션 후 최종 확인 성공:', {
+        analysisId: result,
+        userId: data.userId,
+        savedUserId: finalCheck.user_id,
+        url: finalCheck.url
+      });
+    }
+  } catch (error) {
+    console.warn('⚠️ [saveAnalysis] 최종 확인 오류:', error);
+  }
+
   // Vercel 환경에서는 DELETE 모드를 사용하므로 체크포인트 불필요
   // 하지만 서버리스 환경에서 동기화를 보장하기 위해 강제 동기화 실행
   try {

@@ -18,6 +18,17 @@ if (!existsSync(dbDir)) {
 }
 
 const dbPath = join(dbDir, 'gaeo.db');
+
+// DB 파일 경로 로깅 (디버깅용)
+if (process.env.NODE_ENV === 'development' || process.env.DEBUG_DB || process.env.VERCEL) {
+  console.log('📁 [DB] 데이터베이스 경로:', {
+    dbPath,
+    dbDir,
+    isVercel: !!process.env.VERCEL,
+    exists: existsSync(dbPath)
+  });
+}
+
 const db = new Database(dbPath);
 
 // 성능 최적화 설정

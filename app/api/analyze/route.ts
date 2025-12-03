@@ -29,6 +29,8 @@ const getRateLimitKey = async (request: NextRequest): Promise<string> => {
 };
 
 async function handleAnalyze(request: NextRequest) {
+  console.log('🚀 [Analyze API] 분석 요청 시작');
+  
   const body = await request.json();
   const { url } = analyzeSchema.parse(body);
 
@@ -38,6 +40,12 @@ async function handleAnalyze(request: NextRequest) {
   // 세션 확인
   const session = await auth();
   const userId = session?.user?.id;
+  
+  console.log('🔐 [Analyze API] 세션 확인:', {
+    hasSession: !!session,
+    userId: userId,
+    userEmail: session?.user?.email
+  });
 
   // 캐시 키 생성
   const cacheKey = createCacheKey('analysis', sanitizedUrl);
