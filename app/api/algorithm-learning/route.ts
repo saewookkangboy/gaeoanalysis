@@ -249,7 +249,7 @@ export async function POST(request: NextRequest) {
     if (error instanceof z.ZodError) {
       return createErrorResponse(
         'VALIDATION_ERROR',
-        `요청 데이터 검증 실패: ${error.errors.map(e => e.message).join(', ')}`,
+        `요청 데이터 검증 실패: ${error.issues.map(e => e.message).join(', ')}`,
         400
       );
     }
