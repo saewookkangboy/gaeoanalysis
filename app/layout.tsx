@@ -140,6 +140,15 @@ export default function RootLayout({
           rel="stylesheet"
           href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@100;200;300;400;500;600;700&family=IBM+Plex+Sans:ital,wght@0,100..700;1,100..700&family=Noto+Sans+KR:wght@100..900&display=swap"
         />
+        {/* Open Graph 메타 태그 직접 추가 (보완) */}
+        <meta property="og:image" content={`${baseUrl}/og-image.png`} />
+        <meta property="og:image:width" content="1376" />
+        <meta property="og:image:height" content="768" />
+        <meta property="og:image:type" content="image/jpeg" />
+        <meta property="og:image:alt" content="GAEO - Do it now!" />
+        {/* Twitter Card 메타 태그 직접 추가 (보완) */}
+        <meta name="twitter:image" content={`${baseUrl}/og-image.png`} />
+        <meta name="twitter:image:alt" content="GAEO - Do it now!" />
         {/* 구조화된 데이터 - Organization */}
         <script
           type="application/ld+json"
