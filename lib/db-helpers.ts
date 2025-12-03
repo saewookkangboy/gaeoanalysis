@@ -170,8 +170,12 @@ export function getUser(userId: string) {
 
 /**
  * 이메일로 사용자 정보 조회
+ * 이메일은 정규화(소문자, 트림)하여 검색
  */
 export function getUserByEmail(email: string) {
+  // 이메일 정규화 (소문자, 트림) - 일관된 사용자 식별을 위해 중요
+  const normalizedEmail = email.toLowerCase().trim();
+  
   // updated_at 컬럼 존재 여부 확인
   const tableInfo = db.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
   const hasUpdatedAt = tableInfo.some(col => col.name === 'updated_at');
@@ -180,8 +184,9 @@ export function getUserByEmail(email: string) {
     ? 'id, email, blog_url, created_at, updated_at'
     : 'id, email, blog_url, created_at';
   
-  const stmt = db.prepare(`SELECT ${columns} FROM users WHERE email = ?`);
-  const row = stmt.get(email) as any;
+  // 대소문자 구분 없이 검색 (SQLite는 기본적으로 대소문자를 구분하지만, 정규화된 이메일로 검색)
+  const stmt = db.prepare(`SELECT ${columns} FROM users WHERE LOWER(TRIM(email)) = ?`);
+  const row = stmt.get(normalizedEmail) as any;
   
   if (!row) return null;
 
@@ -207,10 +212,13 @@ export function createUser(data: {
   provider?: string;
 }) {
   return dbHelpers.transaction(() => {
+    // 이메일 정규화 (소문자, 트림) - 일관된 사용자 식별을 위해 중요
+    const normalizedEmail = data.email.toLowerCase().trim();
+    
     // 먼저 사용자가 존재하는지 확인
     const existingUser = getUser(data.id);
     if (existingUser) {
-      console.log('사용자 이미 존재:', { id: data.id, email: data.email });
+      console.log('사용자 이미 존재:', { id: data.id, email: normalizedEmail });
       // last_login_at 업데이트
       const updateStmt = db.prepare('UPDATE users SET last_login_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
       updateStmt.run(data.id);
@@ -218,13 +226,14 @@ export function createUser(data: {
     }
 
     // 이메일로도 확인 (다른 ID로 이미 등록된 경우)
-    const emailStmt = db.prepare('SELECT id FROM users WHERE email = ?');
-    const emailUser = emailStmt.get(data.email) as { id: string } | undefined;
+    // 대소문자 구분 없이 검색
+    const emailStmt = db.prepare('SELECT id FROM users WHERE LOWER(TRIM(email)) = ?');
+    const emailUser = emailStmt.get(normalizedEmail) as { id: string } | undefined;
     if (emailUser) {
       console.log('이메일로 이미 등록된 사용자 발견:', { 
         existingId: emailUser.id, 
         newId: data.id, 
-        email: data.email 
+        email: normalizedEmail 
       });
       // 기존 사용자 ID 반환 (FOREIGN KEY 제약 조건을 위해)
       // last_login_at 업데이트
@@ -233,7 +242,7 @@ export function createUser(data: {
       return emailUser.id;
     }
 
-    // 새 사용자 생성
+    // 새 사용자 생성 (정규화된 이메일 사용)
     try {
       const tableInfo = db.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
       const columnNames = tableInfo.map(col => col.name);
@@ -247,7 +256,7 @@ export function createUser(data: {
         const stmt = db.prepare('INSERT INTO users (id, email, blog_url, name, image, provider, last_login_at) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)');
         stmt.run(
           data.id, 
-          data.email, 
+          normalizedEmail, // 정규화된 이메일 저장
           data.blogUrl || null,
           data.name || null,
           data.image || null,
@@ -255,7 +264,7 @@ export function createUser(data: {
         );
       } else {
         const stmt = db.prepare('INSERT INTO users (id, email, blog_url) VALUES (?, ?, ?)');
-        stmt.run(data.id, data.email, data.blogUrl || null);
+        stmt.run(data.id, normalizedEmail, data.blogUrl || null); // 정규화된 이메일 저장
       }
       return data.id;
     } catch (error: any) {
@@ -266,7 +275,7 @@ export function createUser(data: {
         if (retryUser) {
           return data.id;
         }
-        const retryEmailUser = emailStmt.get(data.email) as { id: string } | undefined;
+        const retryEmailUser = emailStmt.get(normalizedEmail) as { id: string } | undefined;
         if (retryEmailUser) {
           return retryEmailUser.id;
         }
