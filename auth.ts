@@ -38,6 +38,10 @@ if (!authSecret) {
 } else {
   if (!isBuildTime) {
     console.log('✅ AUTH_SECRET 설정 확인됨');
+    // AUTH_SECRET 길이 확인 (최소 32자 권장)
+    if (authSecret.length < 32) {
+      console.warn('⚠️ AUTH_SECRET이 너무 짧습니다. 최소 32자 이상 권장합니다.');
+    }
   }
   if (process.env.NEXTAUTH_SECRET && !process.env.AUTH_SECRET) {
     console.warn('⚠️ NEXTAUTH_SECRET을 사용 중입니다. AUTH_SECRET으로 변경하는 것을 권장합니다.');
@@ -84,6 +88,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   ],
   // 쿠키 설정 (PKCE 코드 검증을 위해 중요)
   // AUTH_SECRET이 없으면 쿠키 암호화/복호화가 실패합니다
+  // Vercel 환경에서는 도메인을 명시적으로 설정하지 않는 것이 안전합니다
   cookies: {
     pkceCodeVerifier: {
       name: `${process.env.NODE_ENV === 'production' ? '__Secure-' : ''}authjs.pkce.code_verifier`,
@@ -94,20 +99,28 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         secure: process.env.NODE_ENV === 'production',
         // PKCE 코드 검증자를 충분히 오래 유지 (OAuth 콜백까지)
         maxAge: 60 * 15, // 15분
-        // 도메인 설정 (서브도메인 지원) - 안전하게 처리
-        ...(process.env.NODE_ENV === 'production' && authUrl && (() => {
-          try {
-            const url = new URL(authUrl);
-            const hostname = url.hostname;
-            // 서브도메인이 있는 경우에만 도메인 설정 (예: gaeo.allrounder.im -> .allrounder.im)
-            if (hostname.split('.').length > 2) {
-              return { domain: hostname.replace(/^[^.]+\./, '.') };
-            }
-          } catch {
-            // URL 파싱 실패 시 도메인 설정하지 않음
-          }
-          return {};
-        })()),
+        // Vercel 환경에서는 도메인을 설정하지 않음 (자동 처리)
+        // 서브도메인을 사용하는 경우에만 도메인 설정
+        ...(process.env.NODE_ENV === 'production' && 
+            authUrl && 
+            !authUrl.includes('vercel.app') && 
+            (() => {
+              try {
+                const url = new URL(authUrl);
+                const hostname = url.hostname;
+                // 서브도메인이 있는 경우에만 도메인 설정 (예: gaeo.allrounder.im -> .allrounder.im)
+                if (hostname.split('.').length > 2) {
+                  const rootDomain = hostname.replace(/^[^.]+\./, '.');
+                  // 로컬호스트나 IP 주소가 아닌 경우에만 도메인 설정
+                  if (!rootDomain.includes('localhost') && !rootDomain.match(/^\d+\./)) {
+                    return { domain: rootDomain };
+                  }
+                }
+              } catch {
+                // URL 파싱 실패 시 도메인 설정하지 않음
+              }
+              return {};
+            })()),
       },
     },
     state: {
@@ -118,18 +131,24 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         path: '/',
         secure: process.env.NODE_ENV === 'production',
         maxAge: 60 * 15, // 15분
-        ...(process.env.NODE_ENV === 'production' && authUrl && (() => {
-          try {
-            const url = new URL(authUrl);
-            const hostname = url.hostname;
-            if (hostname.split('.').length > 2) {
-              return { domain: hostname.replace(/^[^.]+\./, '.') };
-            }
-          } catch {
-            // URL 파싱 실패 시 도메인 설정하지 않음
-          }
-          return {};
-        })()),
+        ...(process.env.NODE_ENV === 'production' && 
+            authUrl && 
+            !authUrl.includes('vercel.app') && 
+            (() => {
+              try {
+                const url = new URL(authUrl);
+                const hostname = url.hostname;
+                if (hostname.split('.').length > 2) {
+                  const rootDomain = hostname.replace(/^[^.]+\./, '.');
+                  if (!rootDomain.includes('localhost') && !rootDomain.match(/^\d+\./)) {
+                    return { domain: rootDomain };
+                  }
+                }
+              } catch {
+                // URL 파싱 실패 시 도메인 설정하지 않음
+              }
+              return {};
+            })()),
       },
     },
     sessionToken: {
@@ -139,18 +158,24 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         sameSite: 'lax' as const,
         path: '/',
         secure: process.env.NODE_ENV === 'production',
-        ...(process.env.NODE_ENV === 'production' && authUrl && (() => {
-          try {
-            const url = new URL(authUrl);
-            const hostname = url.hostname;
-            if (hostname.split('.').length > 2) {
-              return { domain: hostname.replace(/^[^.]+\./, '.') };
-            }
-          } catch {
-            // URL 파싱 실패 시 도메인 설정하지 않음
-          }
-          return {};
-        })()),
+        ...(process.env.NODE_ENV === 'production' && 
+            authUrl && 
+            !authUrl.includes('vercel.app') && 
+            (() => {
+              try {
+                const url = new URL(authUrl);
+                const hostname = url.hostname;
+                if (hostname.split('.').length > 2) {
+                  const rootDomain = hostname.replace(/^[^.]+\./, '.');
+                  if (!rootDomain.includes('localhost') && !rootDomain.match(/^\d+\./)) {
+                    return { domain: rootDomain };
+                  }
+                }
+              } catch {
+                // URL 파싱 실패 시 도메인 설정하지 않음
+              }
+              return {};
+            })()),
       },
     },
   },
@@ -469,11 +494,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     maxAge: 30 * 24 * 60 * 60, // 30일
     // PKCE 검증을 위한 세션 설정
     updateAge: 24 * 60 * 60, // 24시간마다 세션 업데이트
-  },
-  // PKCE 검증 강화
-  experimental: {
-    // NextAuth.js v5에서 PKCE 검증 개선
-    enableWebAuthn: false, // WebAuthn 비활성화 (필요시)
   },
 });
 
