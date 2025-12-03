@@ -33,8 +33,10 @@ const ibmPlexSans = IBM_Plex_Sans({
   display: "swap",
 });
 
+const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://gaeo-analysis.vercel.app';
+
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://gaeo-analysis.vercel.app'),
+  metadataBase: new URL(baseUrl),
   title: {
     default: "GAEO - Do it now! | AI 검색 최적화 분석 도구",
     template: "%s | GAEO",
@@ -68,15 +70,15 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "ko_KR",
-    url: "/",
+    url: baseUrl,
     siteName: "GAEO Analysis",
     title: "GAEO - Do it now!",
     description: "ChatGPT, Perplexity, Gemini, Claude가 당신의 콘텐츠를 인용하도록 만드는 실전 최적화 도구. 30초 안에 종합 진단 완료.",
     images: [
       {
-        url: "/og-image.png",
-        width: 1200,
-        height: 630,
+        url: `${baseUrl}/og-image.png`,
+        width: 1424,
+        height: 752,
         alt: "GAEO - Do it now!",
         type: "image/png",
       },
@@ -88,9 +90,9 @@ export const metadata: Metadata = {
     description: "ChatGPT, Perplexity, Gemini, Claude가 당신의 콘텐츠를 인용하도록 만드는 실전 최적화 도구",
     images: [
       {
-        url: "/og-image.png",
-        width: 1200,
-        height: 630,
+        url: `${baseUrl}/og-image.png`,
+        width: 1424,
+        height: 752,
         alt: "GAEO - Do it now!",
       },
     ],
