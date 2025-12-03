@@ -73,16 +73,23 @@ async function handleAnalyze(request: NextRequest) {
     let finalUserId = userId;
     let user = null;
     
+    // 이메일 정규화
+    const normalizedEmail = session?.user?.email ? session.user.email.toLowerCase().trim() : null;
+    
     // 1. 이메일로 사용자 찾기 (가장 안정적인 방법)
-    if (session?.user?.email) {
-      const userByEmail = getUserByEmail(session.user.email);
+    if (normalizedEmail) {
+      const userByEmail = getUserByEmail(normalizedEmail);
       if (userByEmail) {
         finalUserId = userByEmail.id;
         user = userByEmail;
-        console.log('✅ 이메일로 사용자 확인:', { 
+        console.log('✅ [Analyze API] 이메일로 사용자 확인:', { 
           sessionId: userId, 
           actualUserId: finalUserId, 
-          email: session.user.email 
+          email: normalizedEmail 
+        });
+      } else {
+        console.warn('⚠️ [Analyze API] 이메일로 사용자를 찾을 수 없음:', {
+          email: normalizedEmail
         });
       }
     }
@@ -92,23 +99,34 @@ async function handleAnalyze(request: NextRequest) {
       user = getUser(userId);
       if (user) {
         finalUserId = user.id;
-        console.log('✅ 세션 ID로 사용자 확인:', { 
+        console.log('✅ [Analyze API] 세션 ID로 사용자 확인:', { 
           sessionId: userId, 
           actualUserId: finalUserId 
+        });
+      } else {
+        console.warn('⚠️ [Analyze API] 세션 ID로 사용자를 찾을 수 없음:', {
+          sessionId: userId
         });
       }
     }
     
     // 3. 사용자가 여전히 없으면 생성 (이메일이 있는 경우에만)
-    if (!user && session?.user?.email) {
+    if (!user && normalizedEmail) {
       try {
         // provider 정보 추출
         const provider = session.user.provider || (session as any).account?.provider || null;
         
+        console.log('👤 [Analyze API] 사용자 생성 시도:', {
+          sessionId: userId,
+          email: normalizedEmail,
+          provider: provider
+        });
+        
         // createUser는 이메일로 이미 등록된 사용자를 찾으면 기존 ID를 반환
+        // 정규화된 이메일 사용
         const createdUserId = createUser({
           id: userId,
-          email: session.user.email,
+          email: normalizedEmail,
           blogUrl: null,
           name: session.user.name || undefined,
           image: session.user.image || undefined,
@@ -118,36 +136,47 @@ async function handleAnalyze(request: NextRequest) {
         // createUser가 반환한 실제 사용자 ID 사용
         finalUserId = createdUserId || userId;
         
+        console.log('👤 [Analyze API] createUser 반환값:', {
+          requestedId: userId,
+          returnedId: createdUserId,
+          finalUserId: finalUserId
+        });
+        
         // 다시 확인
         user = getUser(finalUserId);
-        if (!user && session?.user?.email) {
+        if (!user && normalizedEmail) {
           // 최종 확인: 이메일로 다시 찾기
-          const finalUserByEmail = getUserByEmail(session.user.email);
+          const finalUserByEmail = getUserByEmail(normalizedEmail);
           if (finalUserByEmail) {
             finalUserId = finalUserByEmail.id;
             user = finalUserByEmail;
+            console.log('🔄 [Analyze API] createUser 후 이메일로 재확인:', {
+              createdUserId: createdUserId,
+              finalUserId: finalUserId,
+              email: normalizedEmail
+            });
           }
         }
         
-        console.log('👤 사용자 확인/생성 완료:', { 
+        console.log('👤 [Analyze API] 사용자 확인/생성 완료:', { 
           originalSessionId: userId, 
           finalUserId: finalUserId,
-          email: session.user.email,
+          email: normalizedEmail,
           provider: provider,
           userExists: !!user
         });
       } catch (error) {
-        console.error('❌ 사용자 생성 오류:', error);
+        console.error('❌ [Analyze API] 사용자 생성 오류:', error);
         // 사용자 생성 실패해도 분석은 계속 진행
         // 이메일로 다시 시도
-        if (session?.user?.email) {
-          const retryUser = getUserByEmail(session.user.email);
+        if (normalizedEmail) {
+          const retryUser = getUserByEmail(normalizedEmail);
           if (retryUser) {
             finalUserId = retryUser.id;
             user = retryUser;
-            console.log('🔄 사용자 생성 실패 후 이메일로 재확인 성공:', { 
+            console.log('🔄 [Analyze API] 사용자 생성 실패 후 이메일로 재확인 성공:', { 
               finalUserId: finalUserId,
-              email: session.user.email 
+              email: normalizedEmail 
             });
           }
         }
@@ -155,24 +184,26 @@ async function handleAnalyze(request: NextRequest) {
     }
     
     // 최종 사용자 ID 확인
-    if (!user && session?.user?.email) {
+    if (!user && normalizedEmail) {
       // 마지막 시도: 이메일로 확인
-      const lastTryUser = getUserByEmail(session.user.email);
+      const lastTryUser = getUserByEmail(normalizedEmail);
       if (lastTryUser) {
         finalUserId = lastTryUser.id;
         user = lastTryUser;
-        console.log('🔄 최종 확인: 이메일로 사용자 발견:', { 
+        console.log('🔄 [Analyze API] 최종 확인: 이메일로 사용자 발견:', { 
           finalUserId: finalUserId,
-          email: session.user.email 
+          email: normalizedEmail 
         });
       }
     }
 
     analysisId = uuidv4();
     try {
-      console.log('💾 분석 결과 저장 시도:', { 
+      console.log('💾 [Analyze API] 분석 결과 저장 시도:', { 
         analysisId, 
-        userId: finalUserId, 
+        userId: finalUserId,
+        sessionId: userId,
+        email: normalizedEmail,
         url: sanitizedUrl 
       });
       
@@ -188,14 +219,21 @@ async function handleAnalyze(request: NextRequest) {
         aioScores: result.aioAnalysis?.scores,
       });
       
+      console.log('💾 [Analyze API] saveAnalysis 반환값:', {
+        requestedId: analysisId,
+        returnedId: savedId
+      });
+      
       // 저장 후 즉시 확인 (실제 사용자 ID로 조회)
       const savedAnalyses = getUserAnalyses(finalUserId, { limit: 10 });
       const savedRecord = savedAnalyses.find(a => a.id === savedId);
       
       if (savedRecord) {
-        console.log('✅ 분석 결과 저장 및 확인 성공:', { 
+        console.log('✅ [Analyze API] 분석 결과 저장 및 확인 성공:', { 
           analysisId: savedId, 
-          userId: finalUserId, 
+          userId: finalUserId,
+          sessionId: userId,
+          email: normalizedEmail,
           url: sanitizedUrl,
           savedAt: savedRecord.createdAt,
           totalAnalyses: savedAnalyses.length,
@@ -207,12 +245,25 @@ async function handleAnalyze(request: NextRequest) {
           }
         });
       } else {
-        console.warn('⚠️ 분석 저장은 성공했지만 조회되지 않음:', { 
+        console.warn('⚠️ [Analyze API] 분석 저장은 성공했지만 조회되지 않음:', { 
           analysisId: savedId, 
           userId: finalUserId,
+          sessionId: userId,
+          email: normalizedEmail,
           totalAnalyses: savedAnalyses.length,
-          allAnalysisIds: savedAnalyses.map(a => a.id)
+          allAnalysisIds: savedAnalyses.map(a => a.id),
+          allAnalyses: savedAnalyses.map(a => ({ id: a.id, url: a.url, userId: '확인 필요' }))
         });
+        
+        // 세션 ID로도 확인 시도
+        if (finalUserId !== userId) {
+          const sessionAnalyses = getUserAnalyses(userId, { limit: 10 });
+          console.log('🔍 [Analyze API] 세션 ID로 분석 이력 확인:', {
+            sessionId: userId,
+            count: sessionAnalyses.length,
+            analyses: sessionAnalyses.map(a => ({ id: a.id, url: a.url }))
+          });
+        }
       }
     } catch (error: any) {
       console.error('❌ 분석 저장 오류:', {
