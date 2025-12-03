@@ -94,12 +94,39 @@ function LoginForm() {
     <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
       <div className="w-full max-w-md">
         <div className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800 p-8 shadow-sm">
-          <h1 className="mb-6 text-center text-2xl font-bold text-gray-900 dark:text-gray-100">
+          {/* 사이트 신뢰성 표시 */}
+          <div className="mb-6 text-center">
+            <h1 className="mb-2 text-2xl font-bold text-gray-900 dark:text-gray-100">
+              GAEO Analysis
+            </h1>
+            <p className="text-sm font-medium text-sky-600 dark:text-sky-400">
+              AI 검색 최적화 분석 도구
+            </p>
+          </div>
+          
+          <h2 className="mb-4 text-center text-xl font-semibold text-gray-900 dark:text-gray-100">
             로그인
-          </h1>
+          </h2>
           <p className="mb-6 text-center text-sm text-gray-600 dark:text-gray-400">
             소셜 계정으로 간편하게 로그인하세요
           </p>
+          
+          {/* 보안 및 신뢰성 안내 */}
+          <div className="mb-6 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-4">
+            <div className="flex items-start gap-3">
+              <svg className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+              </svg>
+              <div className="flex-1">
+                <p className="text-xs font-medium text-blue-900 dark:text-blue-100 mb-1">
+                  안전한 로그인
+                </p>
+                <p className="text-xs text-blue-700 dark:text-blue-300">
+                  Google 및 GitHub의 공식 OAuth 인증을 사용합니다. 비밀번호는 저장되지 않으며, 소셜 계정의 보안 설정을 따릅니다.
+                </p>
+              </div>
+            </div>
+          </div>
           
           {error && (
             <div className="mb-4 rounded-md bg-red-50 dark:bg-red-900/20 p-3 text-sm text-red-800 dark:text-red-200">
@@ -170,9 +197,31 @@ function LoginForm() {
             </button>
           </div>
 
-          <p className="mt-6 text-center text-xs text-gray-500 dark:text-gray-400">
-            로그인 시 서비스 이용약관 및 개인정보처리방침에 동의한 것으로 간주됩니다.
-          </p>
+          <div className="mt-6 space-y-2">
+            <p className="text-center text-xs text-gray-500 dark:text-gray-400">
+              로그인 시 서비스 이용약관 및 개인정보처리방침에 동의한 것으로 간주됩니다.
+            </p>
+            <div className="flex items-center justify-center gap-4 text-xs">
+              <a 
+                href="/about" 
+                className="text-sky-600 dark:text-sky-400 hover:underline"
+                rel="noopener noreferrer"
+              >
+                서비스 소개
+              </a>
+              <span className="text-gray-300 dark:text-gray-600">|</span>
+              <a 
+                href="https://gaeo-analysis.vercel.app" 
+                className="text-sky-600 dark:text-sky-400 hover:underline"
+                rel="noopener noreferrer"
+              >
+                홈페이지
+              </a>
+            </div>
+            <p className="text-center text-xs text-gray-400 dark:text-gray-500">
+              공식 도메인: gaeo-analysis.vercel.app
+            </p>
+          </div>
         </div>
       </div>
     </div>
