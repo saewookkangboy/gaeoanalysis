@@ -1,11 +1,23 @@
 'use client';
 
 interface ProgressBarProps {
-  steps: Array<{ label: string; completed: boolean }>;
+  steps: Array<{ 
+    label: string; 
+    completed: boolean;
+    description?: string;
+    estimatedTime?: number;
+  }>;
   currentStep: number;
+  estimatedTime?: number;
+  elapsedTime?: number;
 }
 
-export default function ProgressBar({ steps, currentStep }: ProgressBarProps) {
+export default function ProgressBar({ 
+  steps, 
+  currentStep,
+  estimatedTime = 0,
+  elapsedTime = 0
+}: ProgressBarProps) {
   return (
     <div className="w-full">
       <div className="mb-4 flex items-center justify-between">
@@ -53,11 +65,20 @@ export default function ProgressBar({ steps, currentStep }: ProgressBarProps) {
           }}
         />
       </div>
-      <div className="mt-3 text-center">
-        <span className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-sky-100 to-indigo-100 px-4 py-1.5 text-sm font-semibold text-sky-700 shadow-sm">
+      <div className="mt-3 flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4">
+        <span className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-sky-100 to-indigo-100 px-3 sm:px-4 py-1.5 text-xs sm:text-sm font-semibold text-sky-700 shadow-sm">
           <span className="animate-pulse-slow">●</span>
-          {steps[currentStep]?.label} 중...
+          {steps[currentStep]?.description || `${steps[currentStep]?.label} 중...`}
         </span>
+        {(estimatedTime > 0 || elapsedTime > 0) && (
+          <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-600">
+            <span className="font-medium">
+              {elapsedTime > 0 && `${elapsedTime}초 경과`}
+              {elapsedTime > 0 && estimatedTime > 0 && ' / '}
+              {estimatedTime > 0 && `예상 ${estimatedTime}초`}
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );

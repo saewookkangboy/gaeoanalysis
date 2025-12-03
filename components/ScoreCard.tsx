@@ -26,17 +26,17 @@ export default function ScoreCard({ title, score, color }: ScoreCardProps) {
   };
 
   return (
-    <div className={`group relative overflow-hidden rounded-xl border-2 border-gray-200 bg-gradient-to-br ${getCardGradient(score)} p-6 shadow-md transition-all duration-300 hover:shadow-xl hover:scale-[1.02] hover:border-sky-300 animate-fade-in`}>
-      {/* 장식 요소 */}
-      <div className="absolute -top-10 -right-10 h-24 w-24 rounded-full bg-sky-200/20 blur-2xl group-hover:bg-sky-300/30 transition-colors"></div>
+    <div className={`group relative overflow-hidden rounded-lg sm:rounded-xl border-2 border-gray-200 bg-gradient-to-br ${getCardGradient(score)} p-4 sm:p-6 shadow-md transition-all duration-300 hover:shadow-xl hover:scale-[1.02] hover:border-sky-300 animate-fade-in`}>
+      {/* 장식 요소 - 모바일에서 숨김 */}
+      <div className="hidden sm:block absolute -top-10 -right-10 h-24 w-24 rounded-full bg-sky-200/20 blur-2xl group-hover:bg-sky-300/30 transition-colors"></div>
       
       <div className="relative z-10">
-        <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">{title}</h3>
-        <div className="mt-3 flex items-baseline gap-2">
-          <span className={`text-5xl font-bold ${getScoreColor(score)}`}>
+        <h3 className="text-xs sm:text-sm font-semibold text-gray-700 uppercase tracking-wide">{title}</h3>
+        <div className="mt-2 sm:mt-3 flex items-baseline gap-2">
+          <span className={`text-4xl sm:text-5xl font-bold ${getScoreColor(score)}`}>
             {score}
           </span>
-          <span className="text-xl text-gray-500">/ 100</span>
+          <span className="text-lg sm:text-xl text-gray-500">/ 100</span>
         </div>
         
         {/* 개선된 진행 바 */}
