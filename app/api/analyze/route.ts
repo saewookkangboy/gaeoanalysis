@@ -215,7 +215,7 @@ async function handleAnalyze(request: NextRequest) {
         url: sanitizedUrl 
       });
       
-      const savedId = saveAnalysis({
+      const savedId = await saveAnalysis({
         id: analysisId,
         userId: finalUserId, // 실제 사용자 ID 사용
         url: sanitizedUrl,
@@ -232,28 +232,52 @@ async function handleAnalyze(request: NextRequest) {
         returnedId: savedId
       });
       
-      // 저장 후 즉시 확인 (실제 사용자 ID로 조회)
-      const savedAnalyses = getUserAnalyses(finalUserId, { limit: 10 });
-      const savedRecord = savedAnalyses.find(a => a.id === savedId);
+      // 저장 후 즉시 확인 (실제 사용자 ID로 조회, 최대 3회 재시도)
+      let savedRecord = null;
+      let savedAnalyses: any[] = [];
+      let verificationAttempts = 0;
+      const maxVerificationAttempts = 3;
       
-      if (savedRecord) {
-        console.log('✅ [Analyze API] 분석 결과 저장 및 확인 성공:', { 
-          analysisId: savedId, 
-          userId: finalUserId,
-          sessionId: userId,
-          email: normalizedEmail,
-          url: sanitizedUrl,
-          savedAt: savedRecord.createdAt,
-          totalAnalyses: savedAnalyses.length,
-          scores: {
-            aeo: result.aeoScore,
-            geo: result.geoScore,
-            seo: result.seoScore,
-            overall: result.overallScore
-          }
-        });
-      } else {
-        console.warn('⚠️ [Analyze API] 분석 저장은 성공했지만 조회되지 않음:', { 
+      while (!savedRecord && verificationAttempts < maxVerificationAttempts) {
+        verificationAttempts++;
+        
+        // Vercel 환경에서는 Blob Storage 동기화를 위해 짧은 대기
+        if (process.env.VERCEL && verificationAttempts > 1) {
+          await new Promise(resolve => setTimeout(resolve, 500 * verificationAttempts));
+        }
+        
+        savedAnalyses = getUserAnalyses(finalUserId, { limit: 10 });
+        savedRecord = savedAnalyses.find(a => a.id === savedId);
+        
+        if (savedRecord) {
+          console.log(`✅ [Analyze API] 분석 결과 저장 및 확인 성공 (시도 ${verificationAttempts}/${maxVerificationAttempts}):`, { 
+            analysisId: savedId, 
+            userId: finalUserId,
+            sessionId: userId,
+            email: normalizedEmail,
+            url: sanitizedUrl,
+            savedAt: savedRecord.createdAt,
+            totalAnalyses: savedAnalyses.length,
+            scores: {
+              aeo: result.aeoScore,
+              geo: result.geoScore,
+              seo: result.seoScore,
+              overall: result.overallScore
+            }
+          });
+          break;
+        } else if (verificationAttempts < maxVerificationAttempts) {
+          console.warn(`⚠️ [Analyze API] 저장 확인 실패, 재시도 중 (${verificationAttempts}/${maxVerificationAttempts}):`, { 
+            analysisId: savedId, 
+            userId: finalUserId,
+            totalAnalyses: savedAnalyses.length,
+            allAnalysisIds: savedAnalyses.map(a => a.id)
+          });
+        }
+      }
+      
+      if (!savedRecord) {
+        console.error('❌ [Analyze API] 분석 저장 후 확인 실패 (최대 재시도 횟수 초과):', { 
           analysisId: savedId, 
           userId: finalUserId,
           sessionId: userId,
@@ -319,7 +343,7 @@ async function handleAnalyze(request: NextRequest) {
           }
           
           // 재시도 (실제 사용자 ID 사용)
-          const savedId = saveAnalysis({
+          const savedId = await saveAnalysis({
             id: analysisId,
             userId: retryUserId,
             url: sanitizedUrl,

@@ -86,12 +86,29 @@ export async function GET(request: NextRequest) {
       }
     }
     
-    // 실제 사용자 ID로 분석 이력 조회
-    let analyses = getUserAnalyses(actualUserId, { limit: 50 });
-    console.log('🔍 [History API] 실제 사용자 ID로 조회 결과:', {
-      userId: actualUserId,
-      count: analyses.length
-    });
+    // 실제 사용자 ID로 분석 이력 조회 (최대 3회 재시도)
+    let analyses: any[] = [];
+    let verificationAttempts = 0;
+    const maxVerificationAttempts = 3;
+    
+    while (analyses.length === 0 && verificationAttempts < maxVerificationAttempts) {
+      verificationAttempts++;
+      
+      // Vercel 환경에서는 Blob Storage 동기화를 위해 짧은 대기
+      if (process.env.VERCEL && verificationAttempts > 1) {
+        await new Promise(resolve => setTimeout(resolve, 500 * verificationAttempts));
+      }
+      
+      analyses = getUserAnalyses(actualUserId, { limit: 50 });
+      console.log(`🔍 [History API] 실제 사용자 ID로 조회 결과 (시도 ${verificationAttempts}/${maxVerificationAttempts}):`, {
+        userId: actualUserId,
+        count: analyses.length
+      });
+      
+      if (analyses.length > 0) {
+        break;
+      }
+    }
     
     // 디버깅: 조회 결과가 0개인 경우 추가 확인
     if (analyses.length === 0) {

@@ -102,9 +102,15 @@ export function getUserAnalyses(userId: string, options: QueryOptions = {}) {
 }
 
 /**
- * 분석 결과 저장 (트랜잭션 사용)
+ * 분석 결과 저장 (트랜잭션 사용, 다중 검증 포함)
+ * 
+ * 저장 프로세스:
+ * 1. 트랜잭션 내부에서 저장 및 즉시 확인
+ * 2. 트랜잭션 완료 후 재확인
+ * 3. Blob Storage 업로드 (Vercel 환경)
+ * 4. 최종 재확인
  */
-export function saveAnalysis(data: {
+export async function saveAnalysis(data: {
   id: string;
   userId: string;
   url: string;
@@ -277,22 +283,64 @@ export function saveAnalysis(data: {
     console.warn('⚠️ [saveAnalysis] 동기화 경고:', error);
   }
 
-  // Vercel 환경에서만 Blob Storage에 업로드 (비동기, 블로킹하지 않음)
+  // Vercel 환경에서만 Blob Storage에 업로드 (동기화하여 저장 보장)
   // Railway나 다른 영구 파일 시스템 환경에서는 불필요
   const isVercel = !!process.env.VERCEL;
   const isRailway = !!process.env.RAILWAY_ENVIRONMENT || !!process.env.RAILWAY;
   if (isVercel && !isRailway) {
-    setImmediate(async () => {
-      try {
-        const { join } = require('path');
-        const dbPath = process.env.VERCEL 
-          ? '/tmp/gaeo.db' 
-          : require('path').join(process.cwd(), 'data', 'gaeo.db');
-        await uploadDbToBlob(dbPath);
-      } catch (error) {
-        console.warn('⚠️ [saveAnalysis] Blob Storage 업로드 실패 (무시됨):', error);
-      }
-    });
+    try {
+      const { join } = require('path');
+      const dbPath = process.env.VERCEL 
+        ? '/tmp/gaeo.db' 
+        : require('path').join(process.cwd(), 'data', 'gaeo.db');
+      
+      // 동기적으로 업로드하여 저장 보장 (타임아웃 10초)
+      const uploadPromise = uploadDbToBlob(dbPath);
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Blob Storage 업로드 타임아웃')), 10000)
+      );
+      
+      await Promise.race([uploadPromise, timeoutPromise]);
+      console.log('✅ [saveAnalysis] Blob Storage 업로드 완료 (동기화됨):', {
+        analysisId: result,
+        userId: data.userId
+      });
+    } catch (error: any) {
+      // 업로드 실패해도 로컬 저장은 완료되었으므로 경고만 출력
+      console.warn('⚠️ [saveAnalysis] Blob Storage 업로드 실패 (로컬 저장은 완료됨):', {
+        error: error.message,
+        analysisId: result,
+        userId: data.userId
+      });
+    }
+  }
+  
+  // 저장 후 최종 재확인 (Blob 업로드 후)
+  try {
+    const finalVerification = db.prepare('SELECT id, user_id, url, created_at FROM analyses WHERE id = ?').get(result) as { 
+      id: string; 
+      user_id: string; 
+      url: string;
+      created_at: string;
+    } | undefined;
+    
+    if (finalVerification) {
+      console.log('✅ [saveAnalysis] 최종 저장 확인 완료:', {
+        analysisId: result,
+        userId: data.userId,
+        savedUserId: finalVerification.user_id,
+        url: finalVerification.url,
+        createdAt: finalVerification.created_at,
+        verified: finalVerification.user_id === data.userId
+      });
+    } else {
+      console.error('❌ [saveAnalysis] 최종 저장 확인 실패 - 분석 기록이 없음:', {
+        analysisId: result,
+        userId: data.userId
+      });
+    }
+  } catch (error) {
+    console.warn('⚠️ [saveAnalysis] 최종 확인 오류:', error);
   }
   
   return result;
