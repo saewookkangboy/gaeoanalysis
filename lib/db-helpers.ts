@@ -33,10 +33,19 @@ export function getAnalysesByEmail(email: string, options: QueryOptions = {}) {
   const users = userStmt.all(normalizedEmail) as Array<{ id: string }>;
   
   if (users.length === 0) {
+    console.warn('⚠️ [getAnalysesByEmail] 이메일로 등록된 사용자가 없음:', {
+      email: normalizedEmail
+    });
     return [];
   }
   
   const userIds = users.map(u => u.id);
+  
+  // userIds가 비어있으면 빈 배열 반환
+  if (userIds.length === 0) {
+    return [];
+  }
+  
   const placeholders = userIds.map(() => '?').join(',');
   
   // 모든 사용자 ID로 분석 이력 조회
@@ -51,24 +60,41 @@ export function getAnalysesByEmail(email: string, options: QueryOptions = {}) {
     LIMIT ? OFFSET ?
   `);
   
-  const results = stmt.all(...userIds, limit, offset);
-  
-  return results.map((row: any) => ({
-    id: row.id,
-    url: row.url,
-    aeoScore: row.aeo_score,
-    geoScore: row.geo_score,
-    seoScore: row.seo_score,
-    overallScore: row.overall_score,
-    insights: JSON.parse(row.insights),
-    aioScores: {
-      chatgpt: row.chatgpt_score,
-      perplexity: row.perplexity_score,
-      gemini: row.gemini_score,
-      claude: row.claude_score,
-    },
-    createdAt: row.created_at,
-  }));
+  try {
+    const results = stmt.all(...userIds, limit, offset);
+    
+    console.log('🔍 [getAnalysesByEmail] 조회 결과:', {
+      email: normalizedEmail,
+      userIds: userIds,
+      resultCount: results.length,
+      limit: limit,
+      offset: offset
+    });
+    
+    return results.map((row: any) => ({
+      id: row.id,
+      url: row.url,
+      aeoScore: row.aeo_score,
+      geoScore: row.geo_score,
+      seoScore: row.seo_score,
+      overallScore: row.overall_score,
+      insights: JSON.parse(row.insights),
+      aioScores: {
+        chatgpt: row.chatgpt_score,
+        perplexity: row.perplexity_score,
+        gemini: row.gemini_score,
+        claude: row.claude_score,
+      },
+      createdAt: row.created_at,
+    }));
+  } catch (error) {
+    console.error('❌ [getAnalysesByEmail] 쿼리 실행 오류:', {
+      email: normalizedEmail,
+      userIds: userIds,
+      error: error
+    });
+    return [];
+  }
 }
 
 /**

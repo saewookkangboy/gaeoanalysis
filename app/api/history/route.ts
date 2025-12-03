@@ -96,11 +96,26 @@ export async function GET(request: NextRequest) {
     
     // 3-1. 이메일로 조회 (가장 안정적 - 여러 사용자 ID에 걸쳐 조회)
     if (normalizedEmail) {
-      analyses = getAnalysesByEmail(normalizedEmail, { limit: 50 });
-      console.log('🔍 [History API] 이메일로 조회 결과:', {
-        email: normalizedEmail,
-        count: analyses.length
-      });
+      // 이메일로 등록된 모든 사용자 ID 확인
+      try {
+        const allUsersByEmailStmt = db.prepare('SELECT id, email FROM users WHERE LOWER(TRIM(email)) = ?');
+        const allUsersByEmail = allUsersByEmailStmt.all(normalizedEmail) as Array<{ id: string; email: string }>;
+        
+        console.log('🔍 [History API] 이메일로 등록된 사용자 확인:', {
+          email: normalizedEmail,
+          userCount: allUsersByEmail.length,
+          userIds: allUsersByEmail.map(u => u.id)
+        });
+        
+        analyses = getAnalysesByEmail(normalizedEmail, { limit: 50 });
+        console.log('🔍 [History API] 이메일로 조회 결과:', {
+          email: normalizedEmail,
+          count: analyses.length,
+          userIds: allUsersByEmail.map(u => u.id)
+        });
+      } catch (error) {
+        console.error('❌ [History API] 이메일로 조회 오류:', error);
+      }
     }
     
     // 3-2. 이메일로 조회 결과가 없으면 실제 사용자 ID로 조회
@@ -122,6 +137,51 @@ export async function GET(request: NextRequest) {
           count: sessionAnalyses.length
         });
         analyses = sessionAnalyses;
+      }
+    }
+    
+    // 3-4. 여전히 결과가 없으면 모든 사용자 ID로 조회 시도 (디버깅 및 복구)
+    if (analyses.length === 0 && normalizedEmail) {
+      try {
+        // 이메일로 등록된 모든 사용자 ID 가져오기
+        const allUsersStmt = db.prepare('SELECT id FROM users WHERE LOWER(TRIM(email)) = ?');
+        const allUsers = allUsersStmt.all(normalizedEmail) as Array<{ id: string }>;
+        
+        if (allUsers.length > 0) {
+          const allUserIds = allUsers.map(u => u.id);
+          console.log('🔍 [History API] 모든 관련 사용자 ID로 조회 시도:', {
+            email: normalizedEmail,
+            userIds: allUserIds
+          });
+          
+          // 각 사용자 ID로 조회하여 결과 합치기
+          for (const userId of allUserIds) {
+            const userAnalyses = getUserAnalyses(userId, { limit: 50 });
+            if (userAnalyses.length > 0) {
+              console.log('✅ [History API] 다른 사용자 ID로 분석 이력 발견:', {
+                userId: userId,
+                count: userAnalyses.length
+              });
+              analyses = [...analyses, ...userAnalyses];
+            }
+          }
+          
+          // 중복 제거 (같은 분석 ID가 여러 번 나타날 수 있음)
+          const uniqueAnalyses = analyses.filter((analysis, index, self) =>
+            index === self.findIndex(a => a.id === analysis.id)
+          );
+          analyses = uniqueAnalyses;
+          
+          if (analyses.length > 0) {
+            console.log('✅ [History API] 모든 관련 사용자 ID로 조회 완료:', {
+              email: normalizedEmail,
+              totalCount: analyses.length,
+              userIds: allUserIds
+            });
+          }
+        }
+      } catch (error) {
+        console.error('❌ [History API] 모든 사용자 ID로 조회 오류:', error);
       }
     }
     
@@ -184,8 +244,20 @@ export async function GET(request: NextRequest) {
         if (allUserCounts.length > 0) {
           console.warn('🔍 [History API] 모든 사용자별 분석 이력:', {
             requestedUserId: actualUserId,
+            requestedEmail: normalizedEmail,
             allUserCounts: allUserCounts
           });
+          
+          // 이메일로 등록된 다른 사용자 ID가 있는지 확인
+          if (normalizedEmail) {
+            const emailUsersStmt = db.prepare('SELECT id, email FROM users WHERE LOWER(TRIM(email)) = ?');
+            const emailUsers = emailUsersStmt.all(normalizedEmail) as Array<{ id: string; email: string }>;
+            console.warn('🔍 [History API] 이메일로 등록된 모든 사용자:', {
+              email: normalizedEmail,
+              users: emailUsers,
+              analysisCounts: allUserCounts.filter(uc => emailUsers.some(u => u.id === uc.user_id))
+            });
+          }
         }
       } catch (error) {
         console.error('❌ [History API] 디버깅 쿼리 오류:', error);
