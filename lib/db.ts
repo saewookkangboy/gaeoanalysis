@@ -3,78 +3,94 @@ import { join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
 import { downloadDbFromBlob } from './db-blob';
 
-// Vercel 환경에서는 /tmp 디렉토리 사용 (서버리스, 영구 저장 불가)
-// Railway나 다른 영구 파일 시스템이 있는 환경에서는 data 디렉토리 사용
-const dbDir = process.env.VERCEL 
-  ? '/tmp' 
-  : join(process.cwd(), 'data');
-
-// 디렉토리가 없으면 생성 (Vercel에서는 /tmp가 이미 존재하므로 안전)
-if (!existsSync(dbDir)) {
-  try {
-    mkdirSync(dbDir, { recursive: true });
-  } catch (error) {
-    // Vercel 환경에서 mkdirSync가 실패할 수 있으므로 에러 무시
-    console.warn('디렉토리 생성 실패 (무시됨):', error);
-  }
-}
-
-const dbPath = join(dbDir, 'gaeo.db');
-
-// Vercel 환경에서만 Blob Storage에서 DB 파일 다운로드 시도
-// Railway나 다른 영구 파일 시스템 환경에서는 Blob Storage 불필요
-let dbDownloadPromise: Promise<boolean> | null = null;
-const isVercel = !!process.env.VERCEL;
-const isRailway = !!process.env.RAILWAY_ENVIRONMENT || !!process.env.RAILWAY;
-
-if (isVercel && !isRailway) {
-  console.log('📥 [DB] Vercel 환경 감지: Blob Storage에서 DB 파일 다운로드 시작...');
-  dbDownloadPromise = downloadDbFromBlob(dbPath).catch((error) => {
-    console.warn('⚠️ [DB] Blob Storage에서 DB 파일 다운로드 실패 (새 DB 사용):', error);
-    return false;
-  });
-  
-  // 다운로드 완료를 기다리되, 최대 5초 타임아웃
-  // 비동기로 실행하되, DB 초기화 전에 완료되도록 시도
-  (async () => {
-    try {
-      const result = await Promise.race([
-        dbDownloadPromise!,
-        new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 5000))
-      ]);
-      if (result) {
-        console.log('✅ [DB] Blob Storage에서 DB 파일 다운로드 완료');
-      } else {
-        console.log('ℹ️ [DB] Blob Storage 다운로드 타임아웃 또는 실패, 새 DB 사용');
-      }
-    } catch (error) {
-      console.warn('⚠️ [DB] Blob Storage 다운로드 오류:', error);
-    }
-  })();
-} else if (isRailway) {
-  console.log('🚂 [DB] Railway 환경 감지: 영구 파일 시스템 사용 (Blob Storage 불필요)');
-}
-
-// DB 파일 경로 로깅 (디버깅용)
-if (process.env.NODE_ENV === 'development' || process.env.DEBUG_DB || isVercel || isRailway) {
-  console.log('📁 [DB] 데이터베이스 경로:', {
-    dbPath,
-    dbDir,
-    isVercel,
-    isRailway,
-    exists: existsSync(dbPath)
-  });
-}
-
 // 빌드 타임 감지 (Next.js 빌드 시 여러 워커가 동시에 실행되어 DB lock 발생 방지)
+// 가장 먼저 체크하여 빌드 타임에는 모든 DB 관련 코드를 스킵
 const isBuildTime = process.env.NEXT_PHASE === 'phase-production-build' || 
                     process.env.NEXT_PHASE === 'phase-development-build';
+
+// 빌드 타임에는 모든 DB 관련 초기화 스킵
+let dbDir: string;
+let dbPath: string;
+let dbDownloadPromise: Promise<boolean> | null = null;
+let isVercel: boolean;
+let isRailway: boolean;
+
+if (!isBuildTime) {
+  // Vercel 환경에서는 /tmp 디렉토리 사용 (서버리스, 영구 저장 불가)
+  // Railway나 다른 영구 파일 시스템이 있는 환경에서는 data 디렉토리 사용
+  dbDir = process.env.VERCEL 
+    ? '/tmp' 
+    : join(process.cwd(), 'data');
+
+  // 디렉토리가 없으면 생성 (Vercel에서는 /tmp가 이미 존재하므로 안전)
+  if (!existsSync(dbDir)) {
+    try {
+      mkdirSync(dbDir, { recursive: true });
+    } catch (error) {
+      // Vercel 환경에서 mkdirSync가 실패할 수 있으므로 에러 무시
+      console.warn('디렉토리 생성 실패 (무시됨):', error);
+    }
+  }
+
+  dbPath = join(dbDir, 'gaeo.db');
+
+  // Vercel 환경에서만 Blob Storage에서 DB 파일 다운로드 시도
+  // Railway나 다른 영구 파일 시스템 환경에서는 Blob Storage 불필요
+  isVercel = !!process.env.VERCEL;
+  isRailway = !!process.env.RAILWAY_ENVIRONMENT || !!process.env.RAILWAY;
+
+  if (isVercel && !isRailway) {
+    console.log('📥 [DB] Vercel 환경 감지: Blob Storage에서 DB 파일 다운로드 시작...');
+    dbDownloadPromise = downloadDbFromBlob(dbPath).catch((error) => {
+      console.warn('⚠️ [DB] Blob Storage에서 DB 파일 다운로드 실패 (새 DB 사용):', error);
+      return false;
+    });
+    
+    // 다운로드 완료를 기다리되, 최대 5초 타임아웃
+    // 비동기로 실행하되, DB 초기화 전에 완료되도록 시도
+    (async () => {
+      try {
+        const result = await Promise.race([
+          dbDownloadPromise!,
+          new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 5000))
+        ]);
+        if (result) {
+          console.log('✅ [DB] Blob Storage에서 DB 파일 다운로드 완료');
+        } else {
+          console.log('ℹ️ [DB] Blob Storage 다운로드 타임아웃 또는 실패, 새 DB 사용');
+        }
+      } catch (error) {
+        console.warn('⚠️ [DB] Blob Storage 다운로드 오류:', error);
+      }
+    })();
+  } else if (isRailway) {
+    console.log('🚂 [DB] Railway 환경 감지: 영구 파일 시스템 사용 (Blob Storage 불필요)');
+  }
+
+  // DB 파일 경로 로깅 (디버깅용)
+  if (process.env.NODE_ENV === 'development' || process.env.DEBUG_DB || isVercel || isRailway) {
+    console.log('📁 [DB] 데이터베이스 경로:', {
+      dbPath,
+      dbDir,
+      isVercel,
+      isRailway,
+      exists: existsSync(dbPath)
+    });
+  }
+} else {
+  // 빌드 타임에는 더미 값 설정 (실제로 사용되지 않음)
+  dbDir = '';
+  dbPath = '';
+  isVercel = false;
+  isRailway = false;
+  console.log('🔨 [DB] 빌드 타임 감지: DB 초기화 스킵 (런타임에 초기화됨)');
+}
 
 // DB 인스턴스 생성 (빌드 타임에는 스킵, 런타임에만 초기화)
 let db: DatabaseType | null = null;
 
 // 빌드 타임이 아닐 때만 DB 초기화
-if (!isBuildTime) {
+if (!isBuildTime && dbPath) {
   try {
     db = new Database(dbPath);
 
@@ -188,10 +204,15 @@ db.exec(`
 
 // DB 인스턴스 getter (lazy initialization)
 function getDb(): DatabaseType {
+  if (isBuildTime) {
+    throw new Error('DB는 빌드 타임에 사용할 수 없습니다. 런타임에만 사용 가능합니다.');
+  }
+  
+  if (!dbPath) {
+    throw new Error('DB 경로가 초기화되지 않았습니다. 런타임에만 사용 가능합니다.');
+  }
+  
   if (!db) {
-    if (isBuildTime) {
-      throw new Error('DB는 빌드 타임에 사용할 수 없습니다. 런타임에만 사용 가능합니다.');
-    }
     // 런타임에 지연 초기화
     db = new Database(dbPath);
     const journalMode = isVercel && !isRailway ? 'DELETE' : 'WAL';
