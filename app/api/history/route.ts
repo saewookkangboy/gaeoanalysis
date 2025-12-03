@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
-import { getUserAnalyses, getUserByEmail } from '@/lib/db-helpers';
+import { getUserAnalyses, getUserByEmail, getUser } from '@/lib/db-helpers';
 
 export async function GET(request: NextRequest) {
   try {
@@ -83,7 +83,7 @@ export async function GET(request: NextRequest) {
     }
     
     console.log('✅ 분석 이력 조회 성공:', { 
-      userId, 
+      userId: actualUserId, 
       userEmail,
       count: analyses.length,
       analyses: analyses.map(a => ({ id: a.id, url: a.url, createdAt: a.createdAt }))
