@@ -92,7 +92,7 @@ const createVersionSchema = z.object({
   action: z.literal('create-version'),
   algorithmType: z.enum(['aeo', 'geo', 'seo', 'aio']),
   weights: z.record(z.string(), z.number()),
-  config: z.record(z.any()).optional(),
+  config: z.record(z.string(), z.unknown()).optional(),
   researchFindings: z.array(z.string()).optional(),
 });
 
