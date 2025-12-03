@@ -1,6 +1,15 @@
 import db, { dbHelpers } from './db';
 import { uploadDbToBlob } from './db-blob';
 
+// 통계 헬퍼 함수 (순환 참조 방지를 위해 동적 import)
+let statisticsHelpers: any = null;
+function getStatisticsHelpers() {
+  if (!statisticsHelpers) {
+    statisticsHelpers = require('./statistics-helpers');
+  }
+  return statisticsHelpers;
+}
+
 /**
  * 데이터베이스 쿼리 헬퍼 함수들
  */
@@ -404,6 +413,47 @@ export async function saveAnalysis(data: {
     console.warn('⚠️ [saveAnalysis] 최종 확인 오류:', error);
   }
   
+  // 통계 업데이트 (비동기로 처리하여 응답 속도에 영향 없도록)
+  setImmediate(() => {
+    try {
+      const { updateAnalysisItemStatistics, updateUserActivityStatistics, updateAnalysisDetailStatistics } = getStatisticsHelpers();
+      
+      // 분석 항목별 통계 업데이트
+      updateAnalysisItemStatistics('aeo', data.aeoScore);
+      updateAnalysisItemStatistics('geo', data.geoScore);
+      updateAnalysisItemStatistics('seo', data.seoScore);
+      
+      if (data.aioScores) {
+        if (data.aioScores.chatgpt !== undefined) {
+          updateAnalysisItemStatistics('chatgpt', data.aioScores.chatgpt);
+        }
+        if (data.aioScores.perplexity !== undefined) {
+          updateAnalysisItemStatistics('perplexity', data.aioScores.perplexity);
+        }
+        if (data.aioScores.gemini !== undefined) {
+          updateAnalysisItemStatistics('gemini', data.aioScores.gemini);
+        }
+        if (data.aioScores.claude !== undefined) {
+          updateAnalysisItemStatistics('claude', data.aioScores.claude);
+        }
+      }
+      
+      // 사용자 활동 통계 업데이트
+      updateUserActivityStatistics(data.userId, 'analysis', data.overallScore);
+      
+      // 분석 상세 통계 업데이트
+      updateAnalysisDetailStatistics(data.url, {
+        aeoScore: data.aeoScore,
+        geoScore: data.geoScore,
+        seoScore: data.seoScore,
+        overallScore: data.overallScore,
+      });
+    } catch (statError) {
+      console.error('❌ [saveAnalysis] 통계 업데이트 오류:', statError);
+      // 통계 업데이트 실패해도 분석 저장은 성공한 것으로 처리
+    }
+  });
+  
   return result;
 }
 
@@ -451,6 +501,16 @@ export function saveOrUpdateChatConversation(data: {
       JSON.stringify(data.messages)
     );
 
+    // 통계 업데이트 (비동기로 처리)
+    setImmediate(() => {
+      try {
+        const { updateUserActivityStatistics } = getStatisticsHelpers();
+        updateUserActivityStatistics(data.userId, 'chat');
+      } catch (statError) {
+        console.error('❌ [saveOrUpdateChatConversation] 통계 업데이트 오류:', statError);
+      }
+    });
+    
     return conversationId;
   });
 }

@@ -427,6 +427,155 @@ const migrations: Migration[] = [
       }
     },
   },
+  // 통계 테이블 추가 (분석 항목별, 사용자 활동, 분석 상세 통계)
+  {
+    version: 12,
+    name: 'add_statistics_tables',
+    up: () => {
+      // 분석 항목별 통계 테이블
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS analysis_item_statistics (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          date DATE NOT NULL,
+          item_type TEXT NOT NULL CHECK(item_type IN ('aeo', 'geo', 'seo', 'chatgpt', 'perplexity', 'gemini', 'claude')),
+          score_range TEXT NOT NULL CHECK(score_range IN ('0-20', '21-40', '41-60', '61-80', '81-100')),
+          count INTEGER DEFAULT 0,
+          avg_score REAL DEFAULT 0.0,
+          min_score INTEGER DEFAULT 0,
+          max_score INTEGER DEFAULT 0,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(date, item_type, score_range)
+        );
+      `);
+
+      // 사용자 활동 통계 테이블
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS user_activity_statistics (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          date DATE NOT NULL,
+          user_id TEXT,
+          provider TEXT,
+          total_analyses INTEGER DEFAULT 0,
+          total_chat_messages INTEGER DEFAULT 0,
+          total_exports INTEGER DEFAULT 0,
+          avg_analysis_score REAL DEFAULT 0.0,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+          UNIQUE(date, user_id)
+        );
+      `);
+
+      // 분석 결과 상세 통계 테이블
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS analysis_detail_statistics (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          date DATE NOT NULL,
+          domain TEXT,
+          total_analyses INTEGER DEFAULT 0,
+          avg_aeo_score REAL DEFAULT 0.0,
+          avg_geo_score REAL DEFAULT 0.0,
+          avg_seo_score REAL DEFAULT 0.0,
+          avg_overall_score REAL DEFAULT 0.0,
+          improvement_items TEXT,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(date, domain)
+        );
+      `);
+
+      // AI 학습 데이터 테이블
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS ai_training_data (
+          id TEXT PRIMARY KEY,
+          analysis_id TEXT,
+          user_id TEXT,
+          input_data TEXT NOT NULL,
+          output_data TEXT NOT NULL,
+          reward_score REAL DEFAULT 0.0,
+          feedback TEXT,
+          model_version TEXT,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (analysis_id) REFERENCES analyses(id) ON DELETE SET NULL,
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+        );
+      `);
+
+      // AI 모델 성능 추적 테이블
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS ai_model_performance (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          model_version TEXT NOT NULL,
+          date DATE NOT NULL,
+          total_requests INTEGER DEFAULT 0,
+          success_count INTEGER DEFAULT 0,
+          error_count INTEGER DEFAULT 0,
+          avg_response_time_ms REAL DEFAULT 0.0,
+          avg_reward_score REAL DEFAULT 0.0,
+          total_cost REAL DEFAULT 0.0,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(model_version, date)
+        );
+      `);
+
+      // 인덱스 생성
+      db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_analysis_item_stats_date ON analysis_item_statistics(date);
+        CREATE INDEX IF NOT EXISTS idx_analysis_item_stats_type ON analysis_item_statistics(item_type);
+        CREATE INDEX IF NOT EXISTS idx_analysis_item_stats_date_type ON analysis_item_statistics(date, item_type);
+        
+        CREATE INDEX IF NOT EXISTS idx_user_activity_stats_date ON user_activity_statistics(date);
+        CREATE INDEX IF NOT EXISTS idx_user_activity_stats_user ON user_activity_statistics(user_id);
+        CREATE INDEX IF NOT EXISTS idx_user_activity_stats_provider ON user_activity_statistics(provider);
+        CREATE INDEX IF NOT EXISTS idx_user_activity_stats_date_user ON user_activity_statistics(date, user_id);
+        
+        CREATE INDEX IF NOT EXISTS idx_analysis_detail_stats_date ON analysis_detail_statistics(date);
+        CREATE INDEX IF NOT EXISTS idx_analysis_detail_stats_domain ON analysis_detail_statistics(domain);
+        CREATE INDEX IF NOT EXISTS idx_analysis_detail_stats_date_domain ON analysis_detail_statistics(date, domain);
+        
+        CREATE INDEX IF NOT EXISTS idx_ai_training_data_analysis ON ai_training_data(analysis_id);
+        CREATE INDEX IF NOT EXISTS idx_ai_training_data_user ON ai_training_data(user_id);
+        CREATE INDEX IF NOT EXISTS idx_ai_training_data_created ON ai_training_data(created_at);
+        
+        CREATE INDEX IF NOT EXISTS idx_ai_model_perf_version ON ai_model_performance(model_version);
+        CREATE INDEX IF NOT EXISTS idx_ai_model_perf_date ON ai_model_performance(date);
+        CREATE INDEX IF NOT EXISTS idx_ai_model_perf_version_date ON ai_model_performance(model_version, date);
+      `);
+
+      // 트리거: updated_at 자동 업데이트
+      db.exec(`
+        CREATE TRIGGER IF NOT EXISTS update_analysis_item_stats_updated_at
+        AFTER UPDATE ON analysis_item_statistics
+        FOR EACH ROW
+        BEGIN
+          UPDATE analysis_item_statistics SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+        END;
+
+        CREATE TRIGGER IF NOT EXISTS update_user_activity_stats_updated_at
+        AFTER UPDATE ON user_activity_statistics
+        FOR EACH ROW
+        BEGIN
+          UPDATE user_activity_statistics SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+        END;
+
+        CREATE TRIGGER IF NOT EXISTS update_analysis_detail_stats_updated_at
+        AFTER UPDATE ON analysis_detail_statistics
+        FOR EACH ROW
+        BEGIN
+          UPDATE analysis_detail_statistics SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+        END;
+
+        CREATE TRIGGER IF NOT EXISTS update_ai_model_perf_updated_at
+        AFTER UPDATE ON ai_model_performance
+        FOR EACH ROW
+        BEGIN
+          UPDATE ai_model_performance SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+        END;
+      `);
+    },
+  },
 ];
 
 /**
