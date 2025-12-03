@@ -4,21 +4,48 @@
 
 ## 주요 기능
 
+### 핵심 분석 기능
 - **통합 점수 분석**: AEO(Answer Engine Optimization), GEO(Generative Engine Optimization), SEO 점수를 종합적으로 분석
 - **AI 모델별 인용 확률**: ChatGPT, Perplexity, Gemini, Claude 각 AI 모델의 특성을 반영한 인용 확률 시뮬레이션
+- **알고리즘 자동 학습 시스템**: 
+  - 분석 결과 기반 자동 가중치 학습
+  - 리서치 결과 반영 및 알고리즘 버전 관리
+  - A/B 테스트를 통한 성능 개선
+  - 실시간 성능 모니터링 및 대시보드
 - **고도화된 AI Agent**: 
   - 마크다운 형식 답변 렌더링 (코드 블록, 리스트, 링크 등)
   - 답변 복사 기능 (호버 시 복사 버튼 표시)
   - 동적 추천 질문 생성 (대화 맥락 학습)
   - 실시간 로딩 상태 표시
   - 토큰 최적화로 빠른 응답 처리
+  - Agent Lightning 통합 (프롬프트 자동 최적화, 학습 메트릭 추적)
+
+### 사용자 경험
 - **다크 모드 지원**: 시스템 테마 자동 감지 및 수동 전환, 모든 컴포넌트 다크 모드 지원
 - **반응형 디자인**: 모바일, 태블릿, 데스크톱 완벽 지원
 - **토스트 알림 시스템**: 성공/에러/경고/정보 메시지 자동 표시
 - **개인화**: 회원가입/로그인 기반으로 사용자 블로그 URL을 연동하여 자동 분석 환경 구축
 - **소셜 로그인**: Google, GitHub 계정으로 간편 로그인 지원
-- **분석 이력**: 최근 분석 기록을 최대 10개까지 조회 가능 (중복 분석 자동 감지)
+- **분석 이력**: 최근 분석 기록 조회 (플랜별 제한)
 - **원클릭 복사**: 분석 결과를 Markdown 형식으로 클립보드에 복사
+- **네트워크 상태 모니터링**: 실시간 온라인/오프라인 상태 표시
+- **진행 상태 표시**: 분석 단계별 진행 상황 및 예상 소요 시간 표시
+- **에러 복구**: 자동 재시도 및 상세한 에러 메시지 제공
+
+### Freemium 모델
+- **구독 플랜**: Free, Pro, Business 플랜 지원
+- **사용량 추적**: 월간 분석/챗봇 사용량 실시간 추적
+- **사용량 제한**: 플랜별 기능 제한 및 한도 관리
+- **구독 관리**: 구독 생성, 업그레이드, 취소 기능
+- **자동 만료 처리**: 구독 만료 시 Free 플랜으로 자동 다운그레이드
+
+### 성능 및 안정성
+- **캐싱 시스템**: 메모리 기반 캐시로 동일 URL 재분석 시 빠른 응답
+- **레이트 리미팅**: IP/사용자별 요청 제한으로 서버 보호
+- **네트워크 에러 핸들링**: 자동 재시도 및 Exponential Backoff
+- **보안 헤더**: CORS, XSS 보호, CSRF 방지 등 보안 헤더 자동 설정
+- **헬스 체크**: 데이터베이스, 외부 API 상태 모니터링
+- **통계 및 모니터링**: 분석 통계, 사용자 활동 통계, 학습 메트릭 추적
 
 ## 기술 스택
 
@@ -166,7 +193,16 @@ gaeo-analysis/
 │   │   │   ├── save/          # 대화 저장 API
 │   │   │   └── history/       # 대화 이력 조회 API
 │   │   ├── history/       # 분석 이력 API
-│   │   └── register/      # 회원가입 API
+│   │   ├── register/      # 회원가입 API
+│   │   ├── subscription/  # 구독 관리 API
+│   │   ├── usage/         # 사용량 조회 API
+│   │   ├── algorithm-learning/  # 알고리즘 학습 API
+│   │   ├── algorithm-performance/  # 알고리즘 성능 모니터링 API
+│   │   ├── algorithm-initialize/  # 알고리즘 초기화 API
+│   │   ├── learning-metrics/  # 학습 메트릭 조회 API
+│   │   ├── statistics/     # 통계 조회 API
+│   │   ├── health/        # 헬스 체크 API
+│   │   └── user/          # 사용자 정보 API
 │   ├── login/             # 로그인 페이지
 │   ├── register/          # 회원가입 페이지
 │   ├── about/             # 서비스 소개 페이지
@@ -180,7 +216,13 @@ gaeo-analysis/
 │   ├── AIOCitationCards.tsx  # AI 모델별 인용 확률 카드
 │   ├── AIOModal.tsx       # AI 모델별 상세 정보 모달
 │   ├── ContentGuidelines.tsx  # 콘텐츠 작성 가이드라인
+│   ├── ComprehensiveChecklistModal.tsx  # 종합 개선 체크리스트 모달
 │   ├── CopyButton.tsx     # 복사 버튼
+│   ├── ShareButton.tsx    # 공유 버튼
+│   ├── NetworkStatus.tsx  # 네트워크 상태 표시
+│   ├── ProgressBar.tsx    # 진행 상태 표시
+│   ├── SkeletonLoader.tsx  # 로딩 스켈레톤 UI
+│   ├── ErrorBoundary.tsx  # 에러 바운더리
 │   ├── ThemeProvider.tsx  # 테마 관리 (다크 모드)
 │   ├── ThemeToggle.tsx    # 테마 전환 버튼
 │   └── Toast.tsx          # 토스트 알림 컴포넌트
@@ -192,6 +234,19 @@ gaeo-analysis/
 │   ├── ai-agent-prompt.ts  # AI Agent 프롬프트 생성 (토큰 최적화)
 │   ├── ai-citation-analyzer.ts  # AI 모델별 인용 확률 계산
 │   ├── seo-guidelines.ts  # SEO/AEO/GEO 가이드라인
+│   ├── subscription-helpers.ts  # 구독 관리 헬퍼 함수
+│   ├── usage-helpers.ts   # 사용량 추적 헬퍼 함수
+│   ├── algorithm-learning.ts  # 알고리즘 학습 로직
+│   ├── algorithm-auto-learning.ts  # 알고리즘 자동 학습 파이프라인
+│   ├── algorithm-initializer.ts  # 알고리즘 초기화 로직
+│   ├── agent-lightning.ts  # Agent Lightning 통합 (프롬프트 최적화)
+│   ├── cache.ts           # 메모리 기반 캐시 시스템
+│   ├── rate-limiter.ts   # 레이트 리미팅 시스템
+│   ├── retry.ts           # 재시도 로직 (Exponential Backoff)
+│   ├── fetch-with-retry.ts  # 재시도가 포함된 fetch
+│   ├── api-utils.ts       # API 유틸리티 (에러 핸들링, 검증)
+│   ├── headers.ts         # 보안 헤더 설정
+│   ├── statistics-helpers.ts  # 통계 계산 헬퍼
 │   ├── auth.ts            # NextAuth 설정
 │   └── firebase.ts        # Firebase 초기화
 ├── scripts/               # 유틸리티 스크립트
@@ -271,13 +326,68 @@ URL을 입력하면 다음 항목들을 분석합니다:
 
 ### 분석 이력
 
-로그인한 사용자의 최근 분석 기록을 최대 10개까지 저장하고 조회할 수 있습니다.
+로그인한 사용자의 분석 기록을 저장하고 조회할 수 있습니다. 플랜별로 저장 가능한 이력 수가 다릅니다:
+- **Free 플랜**: 최근 5개
+- **Pro/Business 플랜**: 무제한
+
+### Freemium 모델
+
+서비스는 3가지 구독 플랜을 제공합니다:
+
+#### 🆓 Free 플랜
+- 월간 분석: 10회
+- 월간 챗봇: 20회
+- AI 모델: 2개 (ChatGPT, Perplexity)
+- 분석 이력: 최근 5개
+
+#### 💎 Pro 플랜 (월 19,000원)
+- 월간 분석: 무제한
+- 월간 챗봇: 무제한
+- AI 모델: 4개 (전체)
+- 분석 이력: 무제한
+- CSV/PDF 내보내기
+- API 액세스
+- 웹훅 알림
+
+#### 🏢 Business 플랜 (월 99,000원)
+- Pro의 모든 기능
+- 팀 협업 (최대 10명)
+- 공유 대시보드
+- 브랜드 리포트
+- 전담 지원
+
+### 알고리즘 자동 학습 시스템
+
+분석 알고리즘의 정확도를 지속적으로 개선하는 자동 학습 시스템입니다:
+
+- **자동 가중치 학습**: 분석 결과를 기반으로 알고리즘 가중치 자동 조정
+- **리서치 결과 반영**: 최신 SEO/GEO/AEO 연구 결과를 알고리즘에 자동 반영
+- **A/B 테스트**: 여러 알고리즘 버전을 비교하여 최적 버전 선택
+- **성능 모니터링**: 알고리즘별 성능 지표 실시간 추적
+- **버전 관리**: 알고리즘 버전별 성능 추적 및 롤백 지원
 
 ### AI 모델별 인용 확률
 
 ChatGPT, Perplexity, Gemini, Claude 각 AI 모델의 특성을 반영하여 콘텐츠가 각 모델에서 인용될 확률을 계산하고 시각화합니다. 각 모델별로 맞춤형 개선 제안을 제공합니다.
 
 ## 최근 업데이트 (2025년 1월)
+
+### Freemium 모델 도입 💎
+- ✅ **구독 플랜 시스템**: Free, Pro, Business 플랜 지원
+- ✅ **사용량 추적**: 월간 분석/챗봇 사용량 실시간 추적
+- ✅ **사용량 제한**: 플랜별 기능 제한 및 한도 관리
+- ✅ **구독 관리 API**: 구독 생성, 업그레이드, 취소 기능
+- ✅ **자동 만료 처리**: 구독 만료 시 Free 플랜으로 자동 다운그레이드
+- 📚 참고: [Freemium 모델 가이드](./FREEMIUM_SUMMARY.md)
+
+### 알고리즘 자동 학습 시스템 🤖
+- ✅ **자동 가중치 학습**: 분석 결과 기반 알고리즘 가중치 자동 조정
+- ✅ **리서치 결과 반영**: 최신 연구 결과를 알고리즘에 자동 반영
+- ✅ **A/B 테스트**: 여러 알고리즘 버전 비교 및 최적 버전 선택
+- ✅ **성능 모니터링**: 알고리즘별 성능 지표 실시간 추적 및 대시보드
+- ✅ **버전 관리**: 알고리즘 버전별 성능 추적 및 롤백 지원
+- ✅ **자동 학습 파이프라인**: 분석 결과를 기반으로 자동 학습 수행
+- 📚 참고: [알고리즘 학습 시스템 가이드](./ALGORITHM_LEARNING_SYSTEM.md)
 
 ### Claude Skill SEO/GEO Optimizer 가이드라인 통합 📊
 - ✅ **향상된 분석 알고리즘**: 2025년 연구 기반 (41M AI 검색 결과, 680M 인용 분석)
@@ -350,10 +460,15 @@ ChatGPT, Perplexity, Gemini, Claude 각 AI 모델의 특성을 반영하여 콘�
 - [GitHub OAuth 프로덕션 오류 해결](./GITHUB_OAUTH_PRODUCTION_FIX.md) - 프로덕션 환경 오류 해결
 
 ### 기술 문서
+- [상세 기능 가이드](./FEATURES.md) - 모든 기능의 상세 설명
 - [데이터베이스 개선 사항](./DATABASE_IMPROVEMENTS.md) - 데이터베이스 개선 상세 내용
 - [서비스 안정화 개선 아이디어](./STABILITY_IMPROVEMENTS.md) - 향후 개선 계획
 - [Firebase 설정 가이드](./FIREBASE_SETUP.md) - Firebase 프로젝트 설정 방법
 - [문제 해결 가이드](./TROUBLESHOOTING.md) - 일반적인 문제 해결 방법
+- [Freemium 모델 가이드](./FREEMIUM_SUMMARY.md) - Freemium 모델 상세 설명
+- [Freemium 구현 가이드](./FREEMIUM_IMPLEMENTATION_GUIDE.md) - Freemium 모델 구현 방법
+- [알고리즘 학습 시스템](./ALGORITHM_LEARNING_SYSTEM.md) - 알고리즘 자동 학습 시스템 상세 가이드
+- [Agent Lightning 통합](./AGENT_LIGHTNING_INTEGRATION.md) - Agent Lightning 통합 가이드
 
 ## 기여
 
