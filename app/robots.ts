@@ -1,7 +1,7 @@
 import { MetadataRoute } from 'next';
 
 export default function robots(): MetadataRoute.Robots {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://gaeo-analysis.vercel.app';
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://gaeo.allrounder.im';
   
   return {
     rules: [
@@ -24,6 +24,13 @@ export default function robots(): MetadataRoute.Robots {
       },
       {
         userAgent: 'Bingbot',
+        allow: '/',
+        disallow: [
+          '/api/',
+        ],
+      },
+      {
+        userAgent: 'LinkedInBot',
         allow: '/',
         disallow: [
           '/api/',
