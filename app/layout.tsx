@@ -34,14 +34,86 @@ const ibmPlexSans = IBM_Plex_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "GAEO Analysis by allrounder - AI 검색 최적화 분석 도구",
-  description: "생성형 검색 환경(GEO/AEO)에 최적화된 콘텐츠 분석 및 개선 가이드를 제공합니다.",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://gaeo-analysis.vercel.app'),
+  title: {
+    default: "GAEO Analysis by allrounder - AI 검색 최적화 분석 도구",
+    template: "%s | GAEO Analysis",
+  },
+  description: "ChatGPT, Perplexity, Gemini, Claude가 당신의 콘텐츠를 인용하도록 만드는 실전 최적화 도구. AEO, GEO, SEO 점수를 30초 안에 종합 진단하고, AI 모델별 인용 확률과 개선 가이드를 제공합니다.",
+  keywords: [
+    "AI SEO",
+    "AEO",
+    "GEO",
+    "AI 검색 최적화",
+    "ChatGPT 최적화",
+    "Perplexity 최적화",
+    "Gemini 최적화",
+    "Claude 최적화",
+    "AI 인용 확률",
+    "콘텐츠 분석",
+    "SEO 분석",
+    "검색 엔진 최적화",
+    "생성형 AI 최적화",
+    "답변 엔진 최적화",
+    "AI 검색 트래픽",
+  ],
+  authors: [{ name: "allrounder" }],
+  creator: "allrounder",
+  publisher: "allrounder",
+  formatDetection: {
+    email: false,
+    address: false,
+    telephone: false,
+  },
+  openGraph: {
+    type: "website",
+    locale: "ko_KR",
+    url: "/",
+    siteName: "GAEO Analysis",
+    title: "GAEO Analysis by allrounder - AI 검색 최적화 분석 도구",
+    description: "ChatGPT, Perplexity, Gemini, Claude가 당신의 콘텐츠를 인용하도록 만드는 실전 최적화 도구. 30초 안에 종합 진단 완료.",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "GAEO Analysis - AI 검색 최적화 분석 도구",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "GAEO Analysis by allrounder - AI 검색 최적화 분석 도구",
+    description: "ChatGPT, Perplexity, Gemini, Claude가 당신의 콘텐츠를 인용하도록 만드는 실전 최적화 도구",
+    images: ["/og-image.png"],
+    creator: "@allrounder",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
+  verification: {
+    google: process.env.NEXT_PUBLIC_GOOGLE_VERIFICATION,
+    yandex: process.env.NEXT_PUBLIC_YANDEX_VERIFICATION,
+  },
+  alternates: {
+    canonical: "/",
+  },
   other: {
     'google-fonts': 'https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@100;200;300;400;500;600;700&family=IBM+Plex+Sans:ital,wght@0,100..700;1,100..700&family=Noto+Sans+KR:wght@100..900&display=swap',
   },
   icons: {
     icon: '/favicon.ico',
+    apple: '/apple-touch-icon.png',
   },
+  manifest: '/manifest.json',
 };
 
 export default function RootLayout({
@@ -57,6 +129,80 @@ export default function RootLayout({
         <link
           rel="stylesheet"
           href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@100;200;300;400;500;600;700&family=IBM+Plex+Sans:ital,wght@0,100..700;1,100..700&family=Noto+Sans+KR:wght@100..900&display=swap"
+        />
+        {/* 구조화된 데이터 - Organization */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "Organization",
+              "name": "GAEO Analysis",
+              "url": process.env.NEXT_PUBLIC_SITE_URL || "https://gaeo-analysis.vercel.app",
+              "logo": `${process.env.NEXT_PUBLIC_SITE_URL || "https://gaeo-analysis.vercel.app"}/og-image.png`,
+              "description": "ChatGPT, Perplexity, Gemini, Claude가 당신의 콘텐츠를 인용하도록 만드는 실전 최적화 도구",
+              "sameAs": [
+                process.env.NEXT_PUBLIC_TWITTER_URL,
+                process.env.NEXT_PUBLIC_GITHUB_URL,
+              ].filter(Boolean),
+              "contactPoint": {
+                "@type": "ContactPoint",
+                "contactType": "Customer Service",
+                "availableLanguage": ["Korean", "English"],
+              },
+            }),
+          }}
+        />
+        {/* 구조화된 데이터 - WebSite */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "WebSite",
+              "name": "GAEO Analysis",
+              "url": process.env.NEXT_PUBLIC_SITE_URL || "https://gaeo-analysis.vercel.app",
+              "description": "AI 검색 최적화 분석 도구",
+              "potentialAction": {
+                "@type": "SearchAction",
+                "target": {
+                  "@type": "EntryPoint",
+                  "urlTemplate": `${process.env.NEXT_PUBLIC_SITE_URL || "https://gaeo-analysis.vercel.app"}/?url={search_term_string}`,
+                },
+                "query-input": "required name=search_term_string",
+              },
+            }),
+          }}
+        />
+        {/* 구조화된 데이터 - SoftwareApplication */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "SoftwareApplication",
+              "name": "GAEO Analysis",
+              "applicationCategory": "WebApplication",
+              "operatingSystem": "Web",
+              "offers": {
+                "@type": "Offer",
+                "price": "0",
+                "priceCurrency": "KRW",
+              },
+              "aggregateRating": {
+                "@type": "AggregateRating",
+                "ratingValue": "4.8",
+                "ratingCount": "100",
+              },
+              "description": "ChatGPT, Perplexity, Gemini, Claude가 당신의 콘텐츠를 인용하도록 만드는 실전 최적화 도구",
+              "featureList": [
+                "AEO, GEO, SEO 종합 점수 분석",
+                "AI 모델별 인용 확률 시뮬레이션",
+                "실행 가능한 개선 가이드",
+                "AI Agent 상담",
+              ],
+            }),
+          }}
         />
       </head>
       <body

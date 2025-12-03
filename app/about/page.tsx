@@ -1,8 +1,51 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect } from 'react';
 
 export default function AboutPage() {
+  // 구조화된 데이터 추가 (클라이언트 컴포넌트에서)
+  useEffect(() => {
+    const faqSchema = {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "GAEO Analysis는 무엇인가요?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "GAEO Analysis는 ChatGPT, Perplexity, Gemini, Claude가 당신의 콘텐츠를 인용하도록 만드는 실전 최적화 도구입니다. AEO, GEO, SEO 점수를 30초 안에 종합 진단하고, AI 모델별 인용 확률과 개선 가이드를 제공합니다."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "어떻게 사용하나요?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "분석하고 싶은 콘텐츠의 URL을 입력하고 분석 시작 버튼을 클릭하면 됩니다. 30초 안에 종합 진단이 완료되며, 개선 사항을 체크리스트로 확인할 수 있습니다."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "무료로 사용할 수 있나요?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "네, 기본 분석 기능은 무료로 사용할 수 있습니다. 회원가입은 선택사항이며, 무료 플랜에서도 핵심 기능을 모두 사용할 수 있습니다."
+          }
+        }
+      ]
+    };
+
+    const script = document.createElement('script');
+    script.type = 'application/ld+json';
+    script.text = JSON.stringify(faqSchema);
+    document.head.appendChild(script);
+
+    return () => {
+      document.head.removeChild(script);
+    };
+  }, []);
   return (
     <div className="flex-1 bg-white">
       <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">

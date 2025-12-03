@@ -1,0 +1,21 @@
+{
+  "name": "GAEO Analysis - AI 검색 최적화 분석 도구",
+  "short_name": "GAEO Analysis",
+  "description": "ChatGPT, Perplexity, Gemini, Claude가 당신의 콘텐츠를 인용하도록 만드는 실전 최적화 도구",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0ea5e9",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "any",
+      "type": "image/x-icon"
+    }
+  ],
+  "categories": ["productivity", "business", "utilities"],
+  "lang": "ko-KR",
+  "dir": "ltr"
+}
+

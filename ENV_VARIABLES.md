@@ -44,6 +44,25 @@ NEXT_PUBLIC_FIREBASE_APP_ID=your-app-id
 GEMINI_API_KEY=your-gemini-api-key
 ```
 
+## 🔍 SEO 최적화 환경 변수 (선택 사항)
+
+```env
+# 사이트 URL (메타데이터 및 구조화된 데이터에 사용)
+NEXT_PUBLIC_SITE_URL=https://gaeo-analysis.vercel.app
+
+# Google Search Console 검증 (선택 사항)
+NEXT_PUBLIC_GOOGLE_VERIFICATION=your-google-verification-code
+
+# Yandex 검증 (선택 사항)
+NEXT_PUBLIC_YANDEX_VERIFICATION=your-yandex-verification-code
+
+# 소셜 미디어 URL (선택 사항)
+NEXT_PUBLIC_TWITTER_URL=https://twitter.com/allrounder
+NEXT_PUBLIC_GITHUB_URL=https://github.com/allrounder
+```
+
+**참고:** 이 변수들은 SEO 최적화를 위해 사용되며, 설정하지 않아도 기본값으로 동작합니다.
+
 ## 🔐 선택적 환경 변수 (OAuth 로그인)
 
 ### Google OAuth
