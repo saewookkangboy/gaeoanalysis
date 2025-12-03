@@ -4,30 +4,62 @@
 
 Google 로그인 시 다음과 같은 문제가 발생합니다:
 
-1. **브라우저 콘솔 오류**: `inject.js` TrustedHTML 오류 (브라우저 확장 프로그램 관련, 무시 가능)
-2. **로그인 후 계속 로딩**: 로그인은 성공하지만 리디렉션이 제대로 되지 않음
-3. **콜백 URL 불일치**: Google OAuth 콜백 URL이 `http://localhost:3000`으로 설정되어 있는데 프로덕션에서 실행 중
+1. **redirect_uri_mismatch 오류**: `400 오류: redirect_uri_mismatch`
+2. **브라우저 콘솔 오류**: `inject.js` TrustedHTML 오류 (브라우저 확장 프로그램 관련, 무시 가능)
+3. **로그인 후 계속 로딩**: 로그인은 성공하지만 리디렉션이 제대로 되지 않음
+4. **콜백 URL 불일치**: Google OAuth 콜백 URL이 `http://localhost:3000`으로 설정되어 있는데 프로덕션에서 실행 중
 
 ## 해결 방법
 
+### 0단계: 정확한 콜백 URL 확인 (가장 중요!)
+
+**프로덕션 서버에서 실행:**
+1. 브라우저에서 다음 URL 접속:
+   ```
+   https://your-domain.com/api/auth/debug
+   ```
+2. 응답에서 `callbackUrls.google` 값을 복사
+3. 이 값이 정확한 콜백 URL입니다
+
+**예시 응답:**
+```json
+{
+  "callbackUrls": {
+    "google": "https://gaeo.allrounder.im/api/auth/callback/google"
+  }
+}
+```
+
+⚠️ **중요**: 이 URL을 정확히 복사하여 Google Cloud Console에 입력해야 합니다.
+
 ### 1단계: Google Cloud Console 설정 확인
 
-1. [Google Cloud Console](https://console.cloud.google.com/) 접속
-2. **APIs & Services** → **Credentials**로 이동
-3. 해당 OAuth 2.0 Client ID 클릭
-4. **승인된 리디렉션 URI** 확인 및 수정:
+1. [Google Cloud Console](https://console.cloud.google.com/apis/credentials) 접속
+2. **프로젝트 선택** (상단에서)
+3. **APIs & Services** → **Credentials**로 이동
+4. **OAuth 2.0 Client ID** 목록에서 웹 애플리케이션 타입 클릭
+5. **"승인된 리디렉션 URI"** 섹션 찾기
+6. **"URI 추가"** 또는 **"ADD URI"** 클릭
+7. **0단계에서 확인한 정확한 URL 입력:**
+   ```
+   https://your-domain.com/api/auth/callback/google
+   ```
+8. **"저장"** 또는 **"SAVE"** 클릭
 
-   **로컬 개발 환경:**
-   ```
-   http://localhost:3000/api/auth/callback/google
-   ```
+**로컬 개발 환경 (선택 사항):**
+```
+http://localhost:3000/api/auth/callback/google
+```
 
-   **프로덕션 환경:**
-   ```
-   https://gaeoanalysis.vercel.app/api/auth/callback/google
-   ```
+**프로덕션 환경:**
+```
+https://your-domain.com/api/auth/callback/google
+```
 
-   ⚠️ **중요**: 여러 환경 사용 시 두 URL 모두 추가해야 합니다.
+⚠️ **중요**: 
+- 여러 환경 사용 시 두 URL 모두 추가해야 합니다.
+- URL은 정확히 일치해야 합니다 (프로토콜, 도메인, 포트, 경로 모두).
+- 마지막에 슬래시(/)를 추가하지 마세요.
 
 ### 2단계: 환경 변수 확인
 

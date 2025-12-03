@@ -36,6 +36,25 @@ export async function GET(request: NextRequest) {
     ],
   };
 
+  // Google OAuth App 설정 확인 가이드
+  const googleGuide = {
+    step1: 'Google Cloud Console → APIs & Services → Credentials로 이동',
+    step2: 'OAuth 2.0 Client ID 클릭 (웹 애플리케이션 타입)',
+    step3: `"승인된 리디렉션 URI" 섹션에서 "URI 추가" 클릭`,
+    step4: `다음 URL을 정확히 입력: ${callbackUrls.google}`,
+    step5: '"저장" 버튼 클릭',
+    step6: '변경사항 적용까지 몇 분 대기 후 테스트',
+    commonMistakes: [
+      '마지막에 슬래시(/)를 추가하지 마세요',
+      '프로토콜(http/https)이 정확히 일치해야 합니다',
+      '도메인과 경로가 정확히 일치해야 합니다',
+      '여러 환경 사용 시 각각의 URL을 모두 추가해야 합니다',
+      '로컬: http://localhost:3000/api/auth/callback/google',
+      '프로덕션: https://your-domain.com/api/auth/callback/google',
+    ],
+    directLink: 'https://console.cloud.google.com/apis/credentials',
+  };
+
   return NextResponse.json({
     message: 'NextAuth 콜백 URL 정보',
     currentBaseUrl: baseUrl,
@@ -43,19 +62,18 @@ export async function GET(request: NextRequest) {
     environment: envInfo,
     instructions: {
       github: githubGuide,
-      google: {
-        step1: 'Google Cloud Console → APIs & Services → Credentials로 이동',
-        step2: `승인된 리디렉션 URI에 다음을 추가: ${callbackUrls.google}`,
-      },
+      google: googleGuide,
     },
     troubleshooting: {
       title: '여전히 오류가 발생한다면',
       checks: [
-        'GitHub OAuth App의 Authorization callback URL이 위의 callbackUrls.github와 정확히 일치하는지 확인',
-        'GitHub OAuth App의 Client ID와 Client Secret이 환경 변수와 일치하는지 확인',
+        'OAuth App의 콜백 URL이 위의 callbackUrls와 정확히 일치하는지 확인',
+        '프로토콜(http/https), 도메인, 포트, 경로가 모두 정확히 일치해야 합니다',
+        'OAuth App의 Client ID와 Client Secret이 환경 변수와 일치하는지 확인',
         '개발 서버를 재시작했는지 확인',
         '브라우저 캐시를 지우고 다시 시도',
         'OAuth App 설정을 저장한 후 몇 분 기다렸다가 다시 시도',
+        'Google OAuth의 경우 변경사항 적용까지 최대 5분 소요될 수 있습니다',
       ],
     },
   }, {
