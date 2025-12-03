@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/auth';
+import { auth, generateUserIdFromEmail } from '@/auth';
 import { analyzeContent } from '@/lib/analyzer';
 import { saveAnalysis, checkDuplicateAnalysis, getUser, createUser, getUserAnalyses, getUserByEmail } from '@/lib/db-helpers';
 import { createErrorResponse, createSuccessResponse, withErrorHandling, sanitizeUrl } from '@/lib/api-utils';
@@ -98,32 +98,32 @@ async function handleAnalyze(request: NextRequest) {
   const result = await analyzeContent(sanitizedUrl);
 
   // 로그인된 사용자인 경우 분석 결과 저장 (중복 여부와 관계없이 항상 저장)
+  // 핵심: 이메일 기반으로 일관된 사용자 ID 사용 (auth.ts와 동일한 로직)
   let analysisId = null;
   if (userId) {
-    // 이메일 기반으로 일관된 사용자 ID 사용 (핵심 개선)
-    // auth.ts와 동일한 로직 사용
     const normalizedEmail = session?.user?.email ? session.user.email.toLowerCase().trim() : null;
     let finalUserId = userId;
     
-    // 1. 이메일이 있으면 이메일로 사용자 찾기 (가장 안정적)
+    // 프로세스 1: 이메일 기반으로 일관된 사용자 ID 확인/생성
     if (normalizedEmail) {
+      // 1-1. 이메일 기반 ID 생성 (auth.ts와 동일)
+      const emailBasedUserId = generateUserIdFromEmail(normalizedEmail);
+      
+      // 1-2. 이메일로 사용자 찾기 (기존 사용자 확인)
       const userByEmail = getUserByEmail(normalizedEmail);
       if (userByEmail) {
+        // 기존 사용자가 있으면 그 ID 사용 (분석 이력 유지)
         finalUserId = userByEmail.id;
-        console.log('✅ [Analyze API] 이메일로 사용자 확인:', { 
+        console.log('✅ [Analyze API] 이메일로 기존 사용자 확인:', { 
           sessionId: userId, 
+          emailBasedId: emailBasedUserId,
           actualUserId: finalUserId, 
           email: normalizedEmail 
         });
       } else {
-        // 이메일로 사용자가 없으면 이메일 기반 ID로 생성
+        // 1-3. 기존 사용자가 없으면 이메일 기반 ID로 생성
         try {
           const provider = session.user.provider || (session as any).account?.provider || null;
-          
-          // auth.ts의 generateUserIdFromEmail과 동일한 로직 사용
-          const { createHash } = require('crypto');
-          const hash = createHash('sha256').update(normalizedEmail).digest('hex');
-          const emailBasedUserId = `${hash.substring(0, 8)}-${hash.substring(8, 12)}-${hash.substring(12, 16)}-${hash.substring(16, 20)}-${hash.substring(20, 32)}`;
           
           console.log('👤 [Analyze API] 이메일 기반 ID로 사용자 생성:', {
             email: normalizedEmail,
@@ -141,6 +141,7 @@ async function handleAnalyze(request: NextRequest) {
             provider: provider,
           });
           
+          // createUser가 반환한 실제 사용자 ID 사용
           finalUserId = createdUserId || emailBasedUserId;
           console.log('✅ [Analyze API] 사용자 생성 완료:', {
             emailBasedUserId: emailBasedUserId,
@@ -149,7 +150,8 @@ async function handleAnalyze(request: NextRequest) {
           });
         } catch (error: any) {
           console.error('❌ [Analyze API] 사용자 생성 오류:', error);
-          // 사용자 생성 실패 시 세션 ID 사용
+          // 사용자 생성 실패 시 이메일 기반 ID 사용
+          finalUserId = emailBasedUserId;
         }
       }
     } else {

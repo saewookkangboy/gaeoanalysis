@@ -8,8 +8,9 @@ import { createHash } from "crypto";
 /**
  * 이메일 기반으로 일관된 사용자 ID 생성
  * 같은 이메일은 항상 같은 ID를 반환
+ * 다른 모듈에서도 사용할 수 있도록 export
  */
-function generateUserIdFromEmail(email: string): string {
+export function generateUserIdFromEmail(email: string): string {
   const normalizedEmail = email.toLowerCase().trim();
   // SHA-256 해시를 사용하여 일관된 ID 생성
   const hash = createHash('sha256').update(normalizedEmail).digest('hex');
