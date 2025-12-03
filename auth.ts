@@ -30,6 +30,7 @@ if (!authSecret) {
   console.error('💡 해결 방법: 환경 변수에 다음을 추가하세요:');
   console.error('   AUTH_SECRET=$(openssl rand -base64 32)');
   console.error('   또는 Railway/Vercel 대시보드에서 환경 변수 설정');
+  console.error('   Vercel: Settings → Environment Variables → AUTH_SECRET 추가');
   
   // 빌드 타임이 아니고 프로덕션 런타임에서만 에러 던지기
   if (!isBuildTime && process.env.NODE_ENV === 'production') {
@@ -41,6 +42,13 @@ if (!authSecret) {
     // AUTH_SECRET 길이 확인 (최소 32자 권장)
     if (authSecret.length < 32) {
       console.warn('⚠️ AUTH_SECRET이 너무 짧습니다. 최소 32자 이상 권장합니다.');
+      console.warn('   현재 길이:', authSecret.length);
+    } else {
+      console.log('   AUTH_SECRET 길이:', authSecret.length, '(권장: 32자 이상)');
+    }
+    // AUTH_SECRET 형식 확인 (base64 형식인지 확인)
+    if (!/^[A-Za-z0-9+/=]+$/.test(authSecret)) {
+      console.warn('⚠️ AUTH_SECRET 형식이 올바르지 않을 수 있습니다. base64 형식 권장.');
     }
   }
   if (process.env.NEXTAUTH_SECRET && !process.env.AUTH_SECRET) {
@@ -100,27 +108,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         // PKCE 코드 검증자를 충분히 오래 유지 (OAuth 콜백까지)
         maxAge: 60 * 15, // 15분
         // Vercel 환경에서는 도메인을 설정하지 않음 (자동 처리)
-        // 서브도메인을 사용하는 경우에만 도메인 설정
-        ...(process.env.NODE_ENV === 'production' && 
-            authUrl && 
-            !authUrl.includes('vercel.app') && 
-            (() => {
-              try {
-                const url = new URL(authUrl);
-                const hostname = url.hostname;
-                // 서브도메인이 있는 경우에만 도메인 설정 (예: gaeo.allrounder.im -> .allrounder.im)
-                if (hostname.split('.').length > 2) {
-                  const rootDomain = hostname.replace(/^[^.]+\./, '.');
-                  // 로컬호스트나 IP 주소가 아닌 경우에만 도메인 설정
-                  if (!rootDomain.includes('localhost') && !rootDomain.match(/^\d+\./)) {
-                    return { domain: rootDomain };
-                  }
-                }
-              } catch {
-                // URL 파싱 실패 시 도메인 설정하지 않음
-              }
-              return {};
-            })()),
+        // 명시적으로 도메인을 설정하지 않아서 브라우저가 자동으로 처리하도록 함
+        // 이렇게 하면 Vercel의 자동 도메인 감지가 작동함
       },
     },
     state: {
@@ -131,24 +120,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         path: '/',
         secure: process.env.NODE_ENV === 'production',
         maxAge: 60 * 15, // 15분
-        ...(process.env.NODE_ENV === 'production' && 
-            authUrl && 
-            !authUrl.includes('vercel.app') && 
-            (() => {
-              try {
-                const url = new URL(authUrl);
-                const hostname = url.hostname;
-                if (hostname.split('.').length > 2) {
-                  const rootDomain = hostname.replace(/^[^.]+\./, '.');
-                  if (!rootDomain.includes('localhost') && !rootDomain.match(/^\d+\./)) {
-                    return { domain: rootDomain };
-                  }
-                }
-              } catch {
-                // URL 파싱 실패 시 도메인 설정하지 않음
-              }
-              return {};
-            })()),
+        // Vercel 환경에서는 도메인을 설정하지 않음 (자동 처리)
       },
     },
     sessionToken: {
@@ -158,24 +130,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         sameSite: 'lax' as const,
         path: '/',
         secure: process.env.NODE_ENV === 'production',
-        ...(process.env.NODE_ENV === 'production' && 
-            authUrl && 
-            !authUrl.includes('vercel.app') && 
-            (() => {
-              try {
-                const url = new URL(authUrl);
-                const hostname = url.hostname;
-                if (hostname.split('.').length > 2) {
-                  const rootDomain = hostname.replace(/^[^.]+\./, '.');
-                  if (!rootDomain.includes('localhost') && !rootDomain.match(/^\d+\./)) {
-                    return { domain: rootDomain };
-                  }
-                }
-              } catch {
-                // URL 파싱 실패 시 도메인 설정하지 않음
-              }
-              return {};
-            })()),
+        // Vercel 환경에서는 도메인을 설정하지 않음 (자동 처리)
       },
     },
   },

@@ -413,10 +413,92 @@ export async function saveAnalysis(data: {
     console.warn('⚠️ [saveAnalysis] 최종 확인 오류:', error);
   }
   
-  // 통계 업데이트 (비동기로 처리하여 응답 속도에 영향 없도록)
+  // 통계 및 강화 학습 업데이트 (비동기로 처리하여 응답 속도에 영향 없도록)
   setImmediate(() => {
     try {
       const { updateAnalysisItemStatistics, updateUserActivityStatistics, updateAnalysisDetailStatistics } = getStatisticsHelpers();
+      
+      // Agent Lightning: 분석 결과 기반 보상 계산 및 저장
+      const { 
+        calculateAnalysisReward, 
+        saveAnalysisSpan, 
+        saveAnalysisRewards, 
+        updateLearningMetrics 
+      } = require('./analysis-reward-calculator');
+      
+      // 이전 분석 결과 조회 (개선율 계산용)
+      let previousAnalysis = null;
+      try {
+        const previousStmt = db.prepare(`
+          SELECT aeo_score, geo_score, seo_score, overall_score
+          FROM analyses
+          WHERE user_id = ? AND url = ? AND id != ?
+          ORDER BY created_at DESC
+          LIMIT 1
+        `);
+        previousAnalysis = previousStmt.get(data.userId, data.url, data.id) as {
+          aeo_score: number;
+          geo_score: number;
+          seo_score: number;
+          overall_score: number;
+        } | undefined;
+      } catch (error) {
+        // 이전 분석이 없어도 계속 진행
+      }
+      
+      // 분석 결과 재구성
+      const analysisResult = {
+        aeoScore: data.aeoScore,
+        geoScore: data.geoScore,
+        seoScore: data.seoScore,
+        overallScore: data.overallScore,
+        insights: data.insights,
+        aioAnalysis: data.aioScores ? {
+          scores: {
+            chatgpt: data.aioScores.chatgpt || 0,
+            perplexity: data.aioScores.perplexity || 0,
+            gemini: data.aioScores.gemini || 0,
+            claude: data.aioScores.claude || 0,
+          },
+          insights: [],
+        } : undefined,
+      };
+      
+      // 보상 계산
+      const rewards = calculateAnalysisReward(
+        data.id,
+        analysisResult,
+        previousAnalysis ? {
+          aeoScore: previousAnalysis.aeo_score,
+          geoScore: previousAnalysis.geo_score,
+          seoScore: previousAnalysis.seo_score,
+          overallScore: previousAnalysis.overall_score,
+        } : undefined
+      );
+      
+      // Span 저장
+      const spanId = saveAnalysisSpan(data.id, data.userId, analysisResult, data.url);
+      
+      // Rewards 저장
+      saveAnalysisRewards(spanId, data.id, data.userId, rewards);
+      
+      // 학습 메트릭 업데이트
+      updateLearningMetrics('aeo', rewards.aeo);
+      updateLearningMetrics('geo', rewards.geo);
+      updateLearningMetrics('seo', rewards.seo);
+      if (rewards.aio) {
+        updateLearningMetrics('aio', rewards.aio);
+      }
+      
+      console.log('✅ [saveAnalysis] Agent Lightning 보상 계산 및 저장 완료:', {
+        analysisId: data.id,
+        rewards: {
+          aeo: rewards.aeo.reward,
+          geo: rewards.geo.reward,
+          seo: rewards.seo.reward,
+          aio: rewards.aio?.reward,
+        },
+      });
       
       // 분석 항목별 통계 업데이트
       updateAnalysisItemStatistics('aeo', data.aeoScore);

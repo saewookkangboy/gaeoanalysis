@@ -5,7 +5,52 @@ import { handleCorsPreflight } from '@/lib/headers';
 // NextAuth v5 App Router 지원
 // handlers에서 직접 GET, POST를 export
 
-export const { GET, POST } = handlers;
+// PKCE 에러 핸들링을 위한 래퍼 함수
+async function handleAuthRequest(
+  handler: (req: NextRequest) => Promise<Response>,
+  req: NextRequest
+): Promise<Response> {
+  try {
+    return await handler(req);
+  } catch (error: any) {
+    // PKCE 관련 에러인지 확인
+    if (error?.message?.includes('pkceCodeVerifier') || 
+        error?.message?.includes('InvalidCheck') ||
+        error?.cause?.message?.includes('pkceCodeVerifier')) {
+      console.error('❌ [NextAuth] PKCE 에러 발생:', {
+        message: error.message,
+        cause: error.cause?.message,
+        path: req.nextUrl.pathname,
+        method: req.method,
+        hasAuthSecret: !!process.env.AUTH_SECRET || !!process.env.NEXTAUTH_SECRET,
+        nodeEnv: process.env.NODE_ENV,
+      });
+      
+      // AUTH_SECRET 확인
+      if (!process.env.AUTH_SECRET && !process.env.NEXTAUTH_SECRET) {
+        console.error('❌ [NextAuth] AUTH_SECRET이 설정되지 않았습니다!');
+        return NextResponse.json(
+          { 
+            error: 'Server configuration error',
+            message: 'AUTH_SECRET이 설정되지 않았습니다. Vercel 환경 변수를 확인하세요.',
+          },
+          { status: 500 }
+        );
+      }
+    }
+    
+    // 다른 에러는 그대로 전달
+    throw error;
+  }
+}
+
+export async function GET(req: NextRequest) {
+  return handleAuthRequest(handlers.GET, req);
+}
+
+export async function POST(req: NextRequest) {
+  return handleAuthRequest(handlers.POST, req);
+}
 
 export async function OPTIONS(request: NextRequest) {
   try {

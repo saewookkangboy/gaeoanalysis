@@ -376,11 +376,18 @@ A: (마크다운 형식으로 답변)`;
 
   /**
    * 프롬프트 성능 기반 자동 최적화
+   * 분석 결과를 기반으로 AEO, GEO, SEO 특화 프롬프트 최적화
    */
   static optimizePrompt(
     agentType: string,
     currentTemplate: PromptTemplate,
-    rewards: AgentReward[]
+    rewards: AgentReward[],
+    analysisData?: {
+      avgAeoScore?: number;
+      avgGeoScore?: number;
+      avgSeoScore?: number;
+      commonInsights?: Array<{ category: string; message: string }>;
+    }
   ): PromptTemplate | null {
     const recentRewards = rewards
       .filter(r => r.agentType === agentType)
@@ -398,10 +405,48 @@ A: (마크다운 형식으로 답변)`;
       return null;
     }
 
-    // 새로운 버전의 템플릿 생성 (간단한 버전)
-    // 실제로는 더 정교한 최적화 알고리즘 사용 가능
+    // 분석 데이터 기반 프롬프트 개선
+    let optimizedTemplateText = currentTemplate.template;
+    
+    if (analysisData) {
+      // AEO 특화 최적화
+      if (agentType === 'aeo' && analysisData.avgAeoScore !== undefined) {
+        if (analysisData.avgAeoScore < 60) {
+          optimizedTemplateText += '\n\n**중요**: 현재 평균 AEO 점수가 낮습니다. FAQ 섹션 강화, 질문 형식 콘텐츠 구조화에 집중하세요.';
+        } else if (analysisData.avgAeoScore >= 80) {
+          optimizedTemplateText += '\n\n**최적화 팁**: 현재 AEO 점수가 우수합니다. 고급 전략(구조화된 데이터, 음성 검색 최적화)을 제안하세요.';
+        }
+      }
+      
+      // GEO 특화 최적화
+      if (agentType === 'geo' && analysisData.avgGeoScore !== undefined) {
+        if (analysisData.avgGeoScore < 60) {
+          optimizedTemplateText += '\n\n**중요**: 현재 평균 GEO 점수가 낮습니다. 콘텐츠 길이 확장(최소 1,500자), 섹션 구조화(H2, H3), 미디어 추가를 강조하세요.';
+        } else if (analysisData.avgGeoScore >= 80) {
+          optimizedTemplateText += '\n\n**최적화 팁**: 현재 GEO 점수가 우수합니다. 고급 전략(다중 미디어, 키워드 다양성, 신선도 최적화)을 제안하세요.';
+        }
+      }
+      
+      // SEO 특화 최적화
+      if (agentType === 'seo' && analysisData.avgSeoScore !== undefined) {
+        if (analysisData.avgSeoScore < 60) {
+          optimizedTemplateText += '\n\n**중요**: 현재 평균 SEO 점수가 낮습니다. 기본 SEO 요소(메타 태그, 구조화된 데이터, 내부 링크) 개선에 집중하세요.';
+        } else if (analysisData.avgSeoScore >= 80) {
+          optimizedTemplateText += '\n\n**최적화 팁**: 현재 SEO 점수가 우수합니다. 고급 전략(소셜 미디어 최적화, Core Web Vitals, 국제화 SEO)을 제안하세요.';
+        }
+      }
+      
+      // 공통 인사이트 기반 최적화
+      if (analysisData.commonInsights && analysisData.commonInsights.length > 0) {
+        const topInsights = analysisData.commonInsights.slice(0, 3);
+        optimizedTemplateText += `\n\n**자주 발견되는 문제점**:\n${topInsights.map(i => `- ${i.category}: ${i.message}`).join('\n')}\n\n이러한 문제점에 대한 구체적인 해결 방안을 우선적으로 제시하세요.`;
+      }
+    }
+
+    // 새로운 버전의 템플릿 생성
     const optimizedTemplate: PromptTemplate = {
       ...currentTemplate,
+      template: optimizedTemplateText,
       version: currentTemplate.version + 1,
       performance: {
         avgScore,
