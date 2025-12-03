@@ -82,11 +82,13 @@ export default function SecurityProtection() {
     const preventDebugger = () => {
       // 디버거 키워드 사용 시 경고
       const originalEval = window.eval;
-      window.eval = function(code: string) {
+      // eval 함수는 정확히 하나의 string 인자를 받음
+      window.eval = function(code: string): any {
         if (process.env.NODE_ENV === 'production') {
           console.warn('eval() 사용이 차단되었습니다.');
         }
-        return originalEval.call(this, code);
+        // eval은 Function이므로 call 사용
+        return (originalEval as Function).call(this, code);
       };
     };
 
