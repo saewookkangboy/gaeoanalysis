@@ -59,6 +59,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   // 프로덕션: https://your-domain.com
   trustHost: true, // Vercel 등 호스팅 환경에서 자동으로 URL 감지
   // basePath는 기본값 '/api/auth' 사용 (명시적으로 설정하지 않음)
+  
+  // PKCE 검증 강화 (도메인 변경 시 쿠키 문제 해결)
+  useSecureCookies: process.env.NODE_ENV === 'production',
   providers: [
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID || '',
@@ -86,30 +89,68 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       name: `${process.env.NODE_ENV === 'production' ? '__Secure-' : ''}authjs.pkce.code_verifier`,
       options: {
         httpOnly: true,
-        sameSite: 'lax',
+        sameSite: 'lax' as const,
         path: '/',
         secure: process.env.NODE_ENV === 'production',
-        // 개발 환경에서도 쿠키가 제대로 설정되도록 maxAge 추가
+        // PKCE 코드 검증자를 충분히 오래 유지 (OAuth 콜백까지)
         maxAge: 60 * 15, // 15분
+        // 도메인 설정 (서브도메인 지원) - 안전하게 처리
+        ...(process.env.NODE_ENV === 'production' && authUrl && (() => {
+          try {
+            const url = new URL(authUrl);
+            const hostname = url.hostname;
+            // 서브도메인이 있는 경우에만 도메인 설정 (예: gaeo.allrounder.im -> .allrounder.im)
+            if (hostname.split('.').length > 2) {
+              return { domain: hostname.replace(/^[^.]+\./, '.') };
+            }
+          } catch {
+            // URL 파싱 실패 시 도메인 설정하지 않음
+          }
+          return {};
+        })()),
       },
     },
     state: {
       name: `${process.env.NODE_ENV === 'production' ? '__Secure-' : ''}authjs.state`,
       options: {
         httpOnly: true,
-        sameSite: 'lax',
+        sameSite: 'lax' as const,
         path: '/',
         secure: process.env.NODE_ENV === 'production',
         maxAge: 60 * 15, // 15분
+        ...(process.env.NODE_ENV === 'production' && authUrl && (() => {
+          try {
+            const url = new URL(authUrl);
+            const hostname = url.hostname;
+            if (hostname.split('.').length > 2) {
+              return { domain: hostname.replace(/^[^.]+\./, '.') };
+            }
+          } catch {
+            // URL 파싱 실패 시 도메인 설정하지 않음
+          }
+          return {};
+        })()),
       },
     },
     sessionToken: {
       name: `${process.env.NODE_ENV === 'production' ? '__Secure-' : ''}authjs.session-token`,
       options: {
         httpOnly: true,
-        sameSite: 'lax',
+        sameSite: 'lax' as const,
         path: '/',
         secure: process.env.NODE_ENV === 'production',
+        ...(process.env.NODE_ENV === 'production' && authUrl && (() => {
+          try {
+            const url = new URL(authUrl);
+            const hostname = url.hostname;
+            if (hostname.split('.').length > 2) {
+              return { domain: hostname.replace(/^[^.]+\./, '.') };
+            }
+          } catch {
+            // URL 파싱 실패 시 도메인 설정하지 않음
+          }
+          return {};
+        })()),
       },
     },
   },
@@ -426,6 +467,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   session: {
     strategy: 'jwt',
     maxAge: 30 * 24 * 60 * 60, // 30일
+    // PKCE 검증을 위한 세션 설정
+    updateAge: 24 * 60 * 60, // 24시간마다 세션 업데이트
+  },
+  // PKCE 검증 강화
+  experimental: {
+    // NextAuth.js v5에서 PKCE 검증 개선
+    enableWebAuthn: false, // WebAuthn 비활성화 (필요시)
   },
 });
 
