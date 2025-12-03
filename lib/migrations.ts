@@ -689,18 +689,30 @@ function applyMigration(migration: Migration) {
   console.log(`🔄 마이그레이션 적용 중: ${migration.name} (v${migration.version})`);
   
   try {
+    // 트랜잭션 시작 전에 다시 확인 (동시 실행 방지)
+    const alreadyApplied = db.prepare('SELECT version FROM schema_migrations WHERE version = ?').get(migration.version);
+    if (alreadyApplied) {
+      console.log(`⏭️  마이그레이션 이미 적용됨: ${migration.name} (v${migration.version})`);
+      return;
+    }
+    
     db.transaction(() => {
       migration.up();
       
-      // 마이그레이션 기록 저장
-      db.prepare('INSERT INTO schema_migrations (version, name) VALUES (?, ?)').run(
+      // 마이그레이션 기록 저장 (INSERT OR IGNORE로 중복 방지)
+      db.prepare('INSERT OR IGNORE INTO schema_migrations (version, name) VALUES (?, ?)').run(
         migration.version,
         migration.name
       );
     })();
     
     console.log(`✅ 마이그레이션 완료: ${migration.name} (v${migration.version})`);
-  } catch (error) {
+  } catch (error: any) {
+    // UNIQUE constraint 오류는 이미 적용된 것으로 간주
+    if (error?.code === 'SQLITE_CONSTRAINT_PRIMARYKEY' || error?.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+      console.log(`⏭️  마이그레이션 이미 적용됨 (제약 조건 오류 무시): ${migration.name} (v${migration.version})`);
+      return;
+    }
     console.error(`❌ 마이그레이션 실패: ${migration.name} (v${migration.version})`, error);
     throw error;
   }
