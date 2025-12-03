@@ -277,8 +277,11 @@ export function saveAnalysis(data: {
     console.warn('⚠️ [saveAnalysis] 동기화 경고:', error);
   }
 
-  // Vercel 환경에서 Blob Storage에 업로드 (비동기, 블로킹하지 않음)
-  if (process.env.VERCEL) {
+  // Vercel 환경에서만 Blob Storage에 업로드 (비동기, 블로킹하지 않음)
+  // Railway나 다른 영구 파일 시스템 환경에서는 불필요
+  const isVercel = !!process.env.VERCEL;
+  const isRailway = !!process.env.RAILWAY_ENVIRONMENT || !!process.env.RAILWAY;
+  if (isVercel && !isRailway) {
     setImmediate(async () => {
       try {
         const { join } = require('path');

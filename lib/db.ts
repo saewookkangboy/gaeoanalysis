@@ -3,7 +3,8 @@ import { join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
 import { downloadDbFromBlob } from './db-blob';
 
-// Vercel 환경에서는 /tmp 디렉토리 사용, 로컬에서는 data 디렉토리 사용
+// Vercel 환경에서는 /tmp 디렉토리 사용 (서버리스, 영구 저장 불가)
+// Railway나 다른 영구 파일 시스템이 있는 환경에서는 data 디렉토리 사용
 const dbDir = process.env.VERCEL 
   ? '/tmp' 
   : join(process.cwd(), 'data');
@@ -20,10 +21,14 @@ if (!existsSync(dbDir)) {
 
 const dbPath = join(dbDir, 'gaeo.db');
 
-// Vercel 환경에서 Blob Storage에서 DB 파일 다운로드 시도
+// Vercel 환경에서만 Blob Storage에서 DB 파일 다운로드 시도
+// Railway나 다른 영구 파일 시스템 환경에서는 Blob Storage 불필요
 let dbDownloadPromise: Promise<boolean> | null = null;
-if (process.env.VERCEL) {
-  console.log('📥 [DB] Blob Storage에서 DB 파일 다운로드 시작...');
+const isVercel = !!process.env.VERCEL;
+const isRailway = !!process.env.RAILWAY_ENVIRONMENT || !!process.env.RAILWAY;
+
+if (isVercel && !isRailway) {
+  console.log('📥 [DB] Vercel 환경 감지: Blob Storage에서 DB 파일 다운로드 시작...');
   dbDownloadPromise = downloadDbFromBlob(dbPath).catch((error) => {
     console.warn('⚠️ [DB] Blob Storage에서 DB 파일 다운로드 실패 (새 DB 사용):', error);
     return false;
@@ -46,14 +51,17 @@ if (process.env.VERCEL) {
       console.warn('⚠️ [DB] Blob Storage 다운로드 오류:', error);
     }
   })();
+} else if (isRailway) {
+  console.log('🚂 [DB] Railway 환경 감지: 영구 파일 시스템 사용 (Blob Storage 불필요)');
 }
 
 // DB 파일 경로 로깅 (디버깅용)
-if (process.env.NODE_ENV === 'development' || process.env.DEBUG_DB || process.env.VERCEL) {
+if (process.env.NODE_ENV === 'development' || process.env.DEBUG_DB || isVercel || isRailway) {
   console.log('📁 [DB] 데이터베이스 경로:', {
     dbPath,
     dbDir,
-    isVercel: !!process.env.VERCEL,
+    isVercel,
+    isRailway,
     exists: existsSync(dbPath)
   });
 }
@@ -64,7 +72,8 @@ let db = new Database(dbPath);
 // 성능 최적화 설정
 // Vercel 서버리스 환경에서는 각 함수 호출마다 새로운 DB 인스턴스가 생성되므로
 // WAL 모드 대신 DELETE 모드 사용 (더 안정적)
-const journalMode = process.env.VERCEL ? 'DELETE' : 'WAL';
+// Railway나 다른 영구 파일 시스템 환경에서는 WAL 모드 사용 가능
+const journalMode = isVercel && !isRailway ? 'DELETE' : 'WAL';
 db.pragma(`journal_mode = ${journalMode}`);
 db.pragma('synchronous = FULL'); // 서버리스 환경에서 안정성 우선
 db.pragma('foreign_keys = ON'); // 외래 키 제약 조건 활성화
@@ -161,7 +170,7 @@ db.exec(`
 setImmediate(async () => {
   try {
     // Vercel 환경에서 Blob Storage 다운로드 완료 대기
-    if (process.env.VERCEL && dbDownloadPromise) {
+    if (isVercel && !isRailway && dbDownloadPromise) {
       try {
         const downloaded = await Promise.race([
           dbDownloadPromise,
@@ -176,7 +185,7 @@ setImmediate(async () => {
             db = new Database(dbPath);
             
             // DB 설정 재적용
-            const journalMode = process.env.VERCEL ? 'DELETE' : 'WAL';
+            const journalMode = isVercel && !isRailway ? 'DELETE' : 'WAL';
             db.pragma(`journal_mode = ${journalMode}`);
             db.pragma('synchronous = FULL');
             db.pragma('foreign_keys = ON');
