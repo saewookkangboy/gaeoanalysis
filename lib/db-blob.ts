@@ -28,26 +28,32 @@ export async function uploadDbToBlob(dbPath: string): Promise<void> {
 
     const dbFile = readFileSync(dbPath);
     
-    // Blob Storage에 업로드
-    await put(BLOB_DB_KEY, dbFile, {
+    // Blob Storage에 업로드 (덮어쓰기 허용)
+    const { url } = await put(BLOB_DB_KEY, dbFile, {
       access: 'public',
       addRandomSuffix: false,
+      allowOverwrite: true,
     });
 
     console.log('✅ [DB Blob] DB 파일 업로드 완료:', {
       size: dbFile.length,
-      path: dbPath
+      path: dbPath,
+      url: url
     });
 
     // WAL 파일도 확인 (있는 경우)
     const walPath = `${dbPath}-wal`;
     if (existsSync(walPath)) {
       const walFile = readFileSync(walPath);
-      await put(BLOB_DB_WAL_KEY, walFile, {
+      const { url: walUrl } = await put(BLOB_DB_WAL_KEY, walFile, {
         access: 'public',
         addRandomSuffix: false,
+        allowOverwrite: true,
       });
-      console.log('✅ [DB Blob] WAL 파일 업로드 완료');
+      console.log('✅ [DB Blob] WAL 파일 업로드 완료:', {
+        size: walFile.length,
+        url: walUrl
+      });
     }
   } catch (error: any) {
     console.error('❌ [DB Blob] DB 파일 업로드 실패:', error);
@@ -65,7 +71,7 @@ export async function downloadDbFromBlob(dbPath: string): Promise<boolean> {
   }
 
   try {
-    // Blob Storage에서 파일 목록 조회
+    // Blob Storage에서 파일 목록 조회 (정확한 파일명 찾기)
     const blobs = await list({ prefix: BLOB_DB_KEY });
     
     if (!blobs.blobs || blobs.blobs.length === 0) {
@@ -73,8 +79,16 @@ export async function downloadDbFromBlob(dbPath: string): Promise<boolean> {
       return false;
     }
 
-    // 첫 번째 파일 다운로드
-    const blob = blobs.blobs[0];
+    // 정확한 파일명과 일치하는 파일 찾기 (또는 가장 최근 파일)
+    const exactMatch = blobs.blobs.find(b => b.pathname === BLOB_DB_KEY);
+    const blob = exactMatch || blobs.blobs[0]; // 정확한 매치가 없으면 첫 번째 파일 사용
+    
+    console.log('📥 [DB Blob] DB 파일 다운로드 시도:', {
+      pathname: blob.pathname,
+      url: blob.url,
+      size: blob.size
+    });
+
     const response = await fetch(blob.url);
     if (!response.ok) {
       throw new Error(`Failed to download blob: ${response.statusText}`);
@@ -93,13 +107,17 @@ export async function downloadDbFromBlob(dbPath: string): Promise<boolean> {
     try {
       const walBlobs = await list({ prefix: BLOB_DB_WAL_KEY });
       if (walBlobs.blobs && walBlobs.blobs.length > 0) {
-        const walBlob = walBlobs.blobs[0];
+        const exactWalMatch = walBlobs.blobs.find(b => b.pathname === BLOB_DB_WAL_KEY);
+        const walBlob = exactWalMatch || walBlobs.blobs[0];
         const walResponse = await fetch(walBlob.url);
         if (walResponse.ok) {
           const walFile = await walResponse.arrayBuffer();
           const walPath = `${dbPath}-wal`;
           writeFileSync(walPath, Buffer.from(walFile));
-          console.log('✅ [DB Blob] WAL 파일 다운로드 완료');
+          console.log('✅ [DB Blob] WAL 파일 다운로드 완료:', {
+            size: walFile.byteLength,
+            pathname: walBlob.pathname
+          });
         }
       }
     } catch (walError) {
