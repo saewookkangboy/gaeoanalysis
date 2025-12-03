@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth, generateUserIdFromEmail } from '@/auth';
 import { getUserAnalyses, getUserByEmail, getUser, getAnalysesByEmail } from '@/lib/db-helpers';
+import { addSecurityHeaders, handleCorsPreflight } from '@/lib/headers';
 import db from '@/lib/db';
 
 export async function GET(request: NextRequest) {
+  // CORS preflight 처리
+  const corsResponse = handleCorsPreflight(request);
+  if (corsResponse) {
+    return corsResponse;
+  }
+
   try {
     const session = await auth();
 
@@ -194,8 +201,8 @@ export async function GET(request: NextRequest) {
       analyses: analyses.map(a => ({ id: a.id, url: a.url, createdAt: a.createdAt }))
     });
 
-    // 캐싱 헤더 추가 (클라이언트 사이드 캐싱 최적화)
-    return NextResponse.json(
+    // 응답 생성 및 보안 헤더 추가
+    const response = NextResponse.json(
       { analyses },
       {
         headers: {
@@ -203,12 +210,23 @@ export async function GET(request: NextRequest) {
         },
       }
     );
+    
+    return addSecurityHeaders(request, response);
   } catch (error) {
     console.error('❌ 분석 이력 조회 오류:', error);
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { error: '분석 이력 조회 중 오류가 발생했습니다.' },
       { status: 500 }
     );
+    return addSecurityHeaders(request, errorResponse);
   }
+}
+
+export async function OPTIONS(request: NextRequest) {
+  const corsResponse = handleCorsPreflight(request);
+  if (corsResponse) {
+    return corsResponse;
+  }
+  return new NextResponse(null, { status: 200 });
 }
 

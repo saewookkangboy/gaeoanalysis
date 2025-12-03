@@ -6,11 +6,15 @@ import { NextRequest, NextResponse } from 'next/server';
  * 각 route handler에서 이 함수를 사용하여 헤더를 설정합니다.
  */
 
+// 허용된 오리진 목록
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:3001',
+  process.env.AUTH_URL,
   process.env.NEXTAUTH_URL,
   process.env.NEXT_PUBLIC_APP_URL,
+  'https://gaeo.allrounder.im',
+  'https://gaeoanalysis.vercel.app',
 ].filter(Boolean) as string[];
 
 /**
@@ -22,8 +26,19 @@ export function addSecurityHeaders(
 ): NextResponse {
   // CORS 설정
   const origin = request.headers.get('origin');
-  if (origin && allowedOrigins.includes(origin)) {
+  const requestUrl = request.nextUrl;
+  const requestOrigin = requestUrl.origin;
+  
+  // 같은 origin인 경우 항상 허용
+  if (origin === requestOrigin) {
     response.headers.set('Access-Control-Allow-Origin', origin);
+    response.headers.set('Access-Control-Allow-Credentials', 'true');
+  } else if (origin && allowedOrigins.includes(origin)) {
+    response.headers.set('Access-Control-Allow-Origin', origin);
+    response.headers.set('Access-Control-Allow-Credentials', 'true');
+  } else if (!origin) {
+    // origin이 없는 경우 (같은 사이트 요청) 허용
+    response.headers.set('Access-Control-Allow-Origin', requestOrigin);
     response.headers.set('Access-Control-Allow-Credentials', 'true');
   }
 
