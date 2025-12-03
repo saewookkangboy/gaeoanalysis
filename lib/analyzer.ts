@@ -26,14 +26,63 @@ export interface Insight {
   message: string;
 }
 
+/**
+ * URL 유효성 검사 및 플랫폼별 안내 메시지 생성
+ */
+function validateAndGetPlatformMessage(url: string): { isValid: boolean; message?: string } {
+  try {
+    const urlObj = new URL(url);
+    const hostname = urlObj.hostname.toLowerCase();
+    
+    // 네이버 블로그 검증
+    if (hostname.includes('blog.naver.com')) {
+      // PostView.naver?blogId= 형식은 리스트 페이지
+      if (urlObj.pathname === '/PostView.naver' && urlObj.searchParams.has('blogId') && !urlObj.searchParams.has('logNo')) {
+        return {
+          isValid: false,
+          message: '네이버 블로그 리스트 페이지입니다. 분석하려면 특정 게시물 URL을 입력해주세요.\n\n올바른 형식: https://blog.naver.com/[블로그ID]/[게시물번호]\n예시: https://blog.naver.com/example/123456789'
+        };
+      }
+      // blogId만 있고 logNo가 없는 경우
+      if (urlObj.pathname.includes('/PostView.naver') && !urlObj.searchParams.has('logNo')) {
+        return {
+          isValid: false,
+          message: '네이버 블로그 게시물 번호(logNo)가 필요합니다.\n\n올바른 형식: https://blog.naver.com/[블로그ID]/[게시물번호]\n또는 https://blog.naver.com/PostView.naver?blogId=[블로그ID]&logNo=[게시물번호]'
+        };
+      }
+    }
+    
+    // 브런치 검증
+    if (hostname.includes('brunch.co.kr')) {
+      // 사용자 프로필 페이지 (특정 게시물이 아닌 경우)
+      if (urlObj.pathname.match(/^\/@[\w-]+\/?$/) && !urlObj.pathname.match(/\/\d+$/)) {
+        return {
+          isValid: false,
+          message: '브런치 사용자 프로필 페이지입니다. 분석하려면 특정 게시물 URL을 입력해주세요.\n\n올바른 형식: https://brunch.co.kr/@[사용자명]/[게시물번호]\n예시: https://brunch.co.kr/@example/123'
+        };
+      }
+    }
+    
+    return { isValid: true };
+  } catch {
+    return { isValid: true }; // URL 파싱 실패는 다른 곳에서 처리
+  }
+}
+
 export async function analyzeContent(url: string): Promise<AnalysisResult> {
   try {
+    // URL 유효성 검사
+    const validation = validateAndGetPlatformMessage(url);
+    if (!validation.isValid && validation.message) {
+      throw new Error(validation.message);
+    }
+
     // URL fetch (재시도 로직 포함)
     const html = await withRetry(
       async () => {
-        // 타임아웃을 위한 AbortController 생성
+        // 타임아웃을 위한 AbortController 생성 (동적 콘텐츠를 위해 15초로 증가)
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10초 타임아웃
+        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15초 타임아웃
 
         try {
           // 더 완전한 브라우저 헤더 설정
@@ -49,17 +98,36 @@ export async function analyzeContent(url: string): Promise<AnalysisResult> {
               'Sec-Fetch-Mode': 'navigate',
               'Sec-Fetch-Site': 'none',
               'Cache-Control': 'max-age=0',
+              'Referer': url, // 일부 사이트에서 Referer 필요
             },
             signal: controller.signal,
+            redirect: 'follow', // 리다이렉트 따라가기
           });
 
           clearTimeout(timeoutId);
 
           if (!response.ok) {
+            // 특정 상태 코드에 대한 더 나은 메시지
+            if (response.status === 403) {
+              throw new Error('접근이 거부되었습니다. 해당 사이트가 봇 접근을 차단하고 있을 수 있습니다.');
+            }
+            if (response.status === 404) {
+              throw new Error('페이지를 찾을 수 없습니다. URL이 올바른지 확인해주세요.');
+            }
             throw new Error(`Failed to fetch URL: ${response.status} ${response.statusText}`);
           }
 
-          return await response.text();
+          const html = await response.text();
+          
+          // HTML이 비어있거나 너무 짧은 경우 (JavaScript로 동적 로드되는 경우)
+          if (html.length < 500) {
+            const urlObj = new URL(url);
+            if (urlObj.hostname.includes('blog.naver.com') || urlObj.hostname.includes('brunch.co.kr')) {
+              throw new Error('콘텐츠를 불러올 수 없습니다. 네이버 블로그와 브런치는 JavaScript로 동적 콘텐츠를 로드하므로, 서버에서 직접 분석이 어려울 수 있습니다.\n\n해결 방법:\n1. 게시물의 전체 URL을 확인해주세요 (특정 게시물 페이지)\n2. 게시물을 공개 상태로 설정해주세요\n3. 다른 플랫폼(티스토리, 워드프레스 등)을 사용해보세요');
+            }
+          }
+
+          return html;
         } catch (error) {
           clearTimeout(timeoutId);
           throw error;
@@ -111,14 +179,37 @@ export async function analyzeContent(url: string): Promise<AnalysisResult> {
   } catch (error) {
     // 더 상세한 에러 메시지 제공
     if (error instanceof Error) {
+      // 플랫폼별 안내 메시지가 이미 포함된 경우 그대로 전달
+      if (error.message.includes('네이버 블로그') || error.message.includes('브런치') || error.message.includes('해결 방법')) {
+        throw error;
+      }
+      
       // 타임아웃 에러
       if (error.name === 'AbortError' || error.message.includes('timeout')) {
+        const urlObj = new URL(url);
+        if (urlObj.hostname.includes('blog.naver.com') || urlObj.hostname.includes('brunch.co.kr')) {
+          throw new Error('요청 시간이 초과되었습니다. 네이버 블로그와 브런치는 JavaScript로 동적 콘텐츠를 로드하므로 분석이 어려울 수 있습니다.\n\n해결 방법:\n1. 특정 게시물의 전체 URL을 사용해주세요\n2. 게시물이 공개 상태인지 확인해주세요\n3. 잠시 후 다시 시도해주세요');
+        }
         throw new Error('요청 시간이 초과되었습니다. 네트워크 연결을 확인하거나 잠시 후 다시 시도해주세요.');
       }
+      
       // 네트워크 에러
       if (error.message.includes('fetch failed') || error.message.includes('ECONNREFUSED') || error.message.includes('ENOTFOUND')) {
-        throw new Error('URL에 접근할 수 없습니다. URL이 올바른지 확인하거나, 해당 사이트가 접근을 차단하고 있을 수 있습니다.');
+        const urlObj = new URL(url);
+        let platformMessage = '';
+        if (urlObj.hostname.includes('blog.naver.com')) {
+          platformMessage = '\n\n네이버 블로그의 경우:\n- 특정 게시물 URL을 사용해주세요 (리스트 페이지가 아닌)\n- 게시물이 공개 상태인지 확인해주세요';
+        } else if (urlObj.hostname.includes('brunch.co.kr')) {
+          platformMessage = '\n\n브런치의 경우:\n- 특정 게시물 URL을 사용해주세요 (프로필 페이지가 아닌)\n- 게시물이 공개 상태인지 확인해주세요';
+        }
+        throw new Error(`URL에 접근할 수 없습니다. URL이 올바른지 확인하거나, 해당 사이트가 접근을 차단하고 있을 수 있습니다.${platformMessage}`);
       }
+      
+      // 접근 거부 에러
+      if (error.message.includes('접근이 거부') || error.message.includes('403')) {
+        throw new Error('접근이 거부되었습니다. 해당 사이트가 봇 접근을 차단하고 있을 수 있습니다.\n\n해결 방법:\n1. 게시물이 공개 상태인지 확인해주세요\n2. 다른 플랫폼을 사용해보세요');
+      }
+      
       // 기타 에러
       throw new Error(`분석 실패: ${error.message}`);
     }

@@ -486,9 +486,15 @@ export default function Home() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                   <div className="flex-1">
-                    <p className="font-semibold text-red-800">{error}</p>
+                    <div className="font-semibold text-red-800 whitespace-pre-line">
+                      {error.split('\n').map((line, index) => (
+                        <p key={index} className={index > 0 ? 'mt-2' : ''}>
+                          {line}
+                        </p>
+                      ))}
+                    </div>
                     {retryCount > 0 && (
-                      <p className="mt-1 text-xs text-red-700 opacity-75">
+                      <p className="mt-2 text-xs text-red-700 opacity-75">
                         재시도 횟수: {retryCount}/3
                       </p>
                     )}
