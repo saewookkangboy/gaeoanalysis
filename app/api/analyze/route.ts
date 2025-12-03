@@ -6,6 +6,7 @@ import { createErrorResponse, createSuccessResponse, withErrorHandling, sanitize
 import { withRateLimit } from '@/lib/rate-limiter';
 import { cache, createCacheKey } from '@/lib/cache';
 import { addSecurityHeaders, handleCorsPreflight } from '@/lib/headers';
+import db from '@/lib/db';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -172,11 +173,23 @@ async function handleAnalyze(request: NextRequest) {
 
     analysisId = uuidv4();
     try {
+      // 저장 전 사용자 확인
+      const userBeforeSave = getUser(finalUserId);
+      if (!userBeforeSave) {
+        console.error('❌ [Analyze API] 저장 전 사용자 확인 실패:', {
+          userId: finalUserId,
+          sessionId: userId,
+          email: normalizedEmail
+        });
+        throw new Error(`사용자가 존재하지 않습니다: ${finalUserId}`);
+      }
+      
       console.log('💾 [Analyze API] 분석 결과 저장 시도:', { 
         analysisId, 
         userId: finalUserId,
         sessionId: userId,
         email: normalizedEmail,
+        userEmail: userBeforeSave.email,
         url: sanitizedUrl
       });
       
@@ -194,8 +207,37 @@ async function handleAnalyze(request: NextRequest) {
       
       console.log('💾 [Analyze API] saveAnalysis 반환값:', {
         requestedId: analysisId,
-        returnedId: savedId
+        returnedId: savedId,
+        userId: finalUserId,
+        email: normalizedEmail
       });
+      
+      // 저장 직후 DB에서 직접 확인
+      try {
+        const directCheck = db.prepare('SELECT id, user_id, url, created_at FROM analyses WHERE id = ?').get(savedId) as {
+          id: string;
+          user_id: string;
+          url: string;
+          created_at: string;
+        } | undefined;
+        
+        if (directCheck) {
+          console.log('✅ [Analyze API] 저장 직후 DB 직접 확인 성공:', {
+            analysisId: directCheck.id,
+            userId: directCheck.user_id,
+            url: directCheck.url,
+            createdAt: directCheck.created_at,
+            matches: directCheck.user_id === finalUserId
+          });
+        } else {
+          console.error('❌ [Analyze API] 저장 직후 DB 직접 확인 실패 - 레코드 없음:', {
+            analysisId: savedId,
+            userId: finalUserId
+          });
+        }
+      } catch (directCheckError) {
+        console.error('❌ [Analyze API] 저장 직후 DB 직접 확인 오류:', directCheckError);
+      }
       
       // 저장 후 즉시 확인 (실제 사용자 ID로 조회, 최대 3회 재시도)
       let savedRecord = null;
