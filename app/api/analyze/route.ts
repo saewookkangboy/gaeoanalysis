@@ -100,35 +100,61 @@ async function handleAnalyze(request: NextRequest) {
   // 로그인된 사용자인 경우 분석 결과 저장 (중복 여부와 관계없이 항상 저장)
   let analysisId = null;
   if (userId) {
-    // 실제 사용자 ID 확인 (세션 ID와 DB ID가 다를 수 있음)
-    // 안정성을 위해 이메일 기반으로 먼저 확인
-    let finalUserId = userId;
-    let user = null;
-    
-    // 이메일 정규화
+    // 이메일 기반으로 일관된 사용자 ID 사용 (핵심 개선)
+    // auth.ts와 동일한 로직 사용
     const normalizedEmail = session?.user?.email ? session.user.email.toLowerCase().trim() : null;
+    let finalUserId = userId;
     
-    // 1. 이메일로 사용자 찾기 (가장 안정적인 방법)
+    // 1. 이메일이 있으면 이메일로 사용자 찾기 (가장 안정적)
     if (normalizedEmail) {
       const userByEmail = getUserByEmail(normalizedEmail);
       if (userByEmail) {
         finalUserId = userByEmail.id;
-        user = userByEmail;
         console.log('✅ [Analyze API] 이메일로 사용자 확인:', { 
           sessionId: userId, 
           actualUserId: finalUserId, 
           email: normalizedEmail 
         });
       } else {
-        console.warn('⚠️ [Analyze API] 이메일로 사용자를 찾을 수 없음:', {
-          email: normalizedEmail
-        });
+        // 이메일로 사용자가 없으면 이메일 기반 ID로 생성
+        try {
+          const provider = session.user.provider || (session as any).account?.provider || null;
+          
+          // auth.ts의 generateUserIdFromEmail과 동일한 로직 사용
+          const { createHash } = require('crypto');
+          const hash = createHash('sha256').update(normalizedEmail).digest('hex');
+          const emailBasedUserId = `${hash.substring(0, 8)}-${hash.substring(8, 12)}-${hash.substring(12, 16)}-${hash.substring(16, 20)}-${hash.substring(20, 32)}`;
+          
+          console.log('👤 [Analyze API] 이메일 기반 ID로 사용자 생성:', {
+            email: normalizedEmail,
+            emailBasedUserId: emailBasedUserId,
+            sessionId: userId
+          });
+          
+          // createUser는 이메일로 기존 사용자를 찾으면 기존 ID 반환
+          const createdUserId = createUser({
+            id: emailBasedUserId,
+            email: normalizedEmail,
+            blogUrl: null,
+            name: session.user.name || undefined,
+            image: session.user.image || undefined,
+            provider: provider,
+          });
+          
+          finalUserId = createdUserId || emailBasedUserId;
+          console.log('✅ [Analyze API] 사용자 생성 완료:', {
+            emailBasedUserId: emailBasedUserId,
+            finalUserId: finalUserId,
+            email: normalizedEmail
+          });
+        } catch (error: any) {
+          console.error('❌ [Analyze API] 사용자 생성 오류:', error);
+          // 사용자 생성 실패 시 세션 ID 사용
+        }
       }
-    }
-    
-    // 2. 이메일로 찾지 못한 경우, 세션 ID로 확인
-    if (!user) {
-      user = getUser(userId);
+    } else {
+      // 이메일이 없으면 세션 ID로 사용자 확인
+      const user = getUser(userId);
       if (user) {
         finalUserId = user.id;
         console.log('✅ [Analyze API] 세션 ID로 사용자 확인:', { 
@@ -141,163 +167,15 @@ async function handleAnalyze(request: NextRequest) {
         });
       }
     }
-    
-    // 3. 사용자가 여전히 없으면 생성 (이메일이 있는 경우에만)
-    if (!user && normalizedEmail) {
-      try {
-        // provider 정보 추출
-        const provider = session.user.provider || (session as any).account?.provider || null;
-        
-        console.log('👤 [Analyze API] 사용자 생성 시도:', {
-          sessionId: userId,
-          email: normalizedEmail,
-          provider: provider
-        });
-        
-        // createUser는 이메일로 이미 등록된 사용자를 찾으면 기존 ID를 반환
-        // 정규화된 이메일 사용
-        const createdUserId = createUser({
-          id: userId,
-          email: normalizedEmail,
-          blogUrl: null,
-          name: session.user.name || undefined,
-          image: session.user.image || undefined,
-          provider: provider,
-        });
-        
-        // createUser가 반환한 실제 사용자 ID 사용
-        finalUserId = createdUserId || userId;
-        
-        console.log('👤 [Analyze API] createUser 반환값:', {
-          requestedId: userId,
-          returnedId: createdUserId,
-          finalUserId: finalUserId
-        });
-        
-        // Vercel 환경에서 DB 동기화 대기
-        if (process.env.VERCEL && !process.env.RAILWAY_ENVIRONMENT && !process.env.RAILWAY) {
-          await new Promise(resolve => setTimeout(resolve, 300));
-        }
-        
-        // 다시 확인 (여러 방법으로)
-        user = getUser(finalUserId);
-        if (!user && normalizedEmail) {
-          // 이메일로 다시 찾기
-          const finalUserByEmail = getUserByEmail(normalizedEmail);
-          if (finalUserByEmail) {
-            finalUserId = finalUserByEmail.id;
-            user = finalUserByEmail;
-            console.log('🔄 [Analyze API] createUser 후 이메일로 재확인:', {
-              createdUserId: createdUserId,
-              finalUserId: finalUserId,
-              email: normalizedEmail
-            });
-          }
-        }
-        
-        // 여전히 사용자가 없으면 세션 ID로 확인
-        if (!user) {
-          user = getUser(userId);
-          if (user) {
-            finalUserId = user.id;
-            console.log('🔄 [Analyze API] createUser 후 세션 ID로 재확인:', {
-              createdUserId: createdUserId,
-              finalUserId: finalUserId
-            });
-          }
-        }
-        
-        console.log('👤 [Analyze API] 사용자 확인/생성 완료:', { 
-          originalSessionId: userId, 
-          finalUserId: finalUserId,
-          email: normalizedEmail,
-          provider: provider,
-          userExists: !!user
-        });
-      } catch (error: any) {
-        console.error('❌ [Analyze API] 사용자 생성 오류:', {
-          error: error.message,
-          code: error.code,
-          stack: error.stack
-        });
-        
-        // 사용자 생성 실패해도 분석은 계속 진행
-        // 이메일로 다시 시도
-        if (normalizedEmail) {
-          const retryUser = getUserByEmail(normalizedEmail);
-          if (retryUser) {
-            finalUserId = retryUser.id;
-            user = retryUser;
-            console.log('🔄 [Analyze API] 사용자 생성 실패 후 이메일로 재확인 성공:', { 
-              finalUserId: finalUserId,
-              email: normalizedEmail 
-            });
-          }
-        }
-        
-        // 세션 ID로도 시도
-        if (!user) {
-          const sessionUser = getUser(userId);
-          if (sessionUser) {
-            finalUserId = sessionUser.id;
-            user = sessionUser;
-            console.log('🔄 [Analyze API] 사용자 생성 실패 후 세션 ID로 재확인 성공:', { 
-              finalUserId: finalUserId,
-              sessionId: userId
-            });
-          }
-        }
-      }
-    }
-    
-    // 최종 사용자 ID 확인
-    if (!user && normalizedEmail) {
-      // 마지막 시도: 이메일로 확인
-      const lastTryUser = getUserByEmail(normalizedEmail);
-      if (lastTryUser) {
-        finalUserId = lastTryUser.id;
-        user = lastTryUser;
-        console.log('🔄 [Analyze API] 최종 확인: 이메일로 사용자 발견:', { 
-          finalUserId: finalUserId,
-          email: normalizedEmail 
-        });
-      }
-    }
 
     analysisId = uuidv4();
     try {
-      // 사용자가 없으면 먼저 생성
-      if (!user && normalizedEmail) {
-        try {
-          const provider = session.user.provider || (session as any).account?.provider || null;
-          const createdUserId = createUser({
-            id: userId,
-            email: normalizedEmail,
-            blogUrl: null,
-            name: session.user.name || undefined,
-            image: session.user.image || undefined,
-            provider: provider,
-          });
-          finalUserId = createdUserId || userId;
-          user = getUser(finalUserId) || getUserByEmail(normalizedEmail);
-          console.log('👤 [Analyze API] 저장 전 사용자 확인/생성:', {
-            sessionId: userId,
-            finalUserId: finalUserId,
-            userExists: !!user
-          });
-        } catch (userError: any) {
-          console.error('❌ [Analyze API] 사용자 생성 오류:', userError);
-          // 사용자 생성 실패해도 계속 진행
-        }
-      }
-      
       console.log('💾 [Analyze API] 분석 결과 저장 시도:', { 
         analysisId, 
         userId: finalUserId,
         sessionId: userId,
         email: normalizedEmail,
-        url: sanitizedUrl,
-        userExists: !!user
+        url: sanitizedUrl
       });
       
       const savedId = await saveAnalysis({

@@ -114,10 +114,10 @@ export async function GET(request: NextRequest) {
       }
     }
     
-    // 실제 사용자 ID로 분석 이력 조회 (최적화: 즉시 조회, 실패 시 1회만 재시도)
+    // 이메일 기반으로 분석 이력 조회 (핵심 개선: 이메일로 모든 관련 사용자 ID의 분석 조회)
     let analyses: any[] = [];
     
-    // 첫 번째 시도: 이메일로 조회 (여러 사용자 ID에 걸쳐 조회)
+    // 1. 이메일로 조회 (가장 안정적 - 여러 사용자 ID에 걸쳐 조회)
     if (normalizedEmail) {
       analyses = getAnalysesByEmail(normalizedEmail, { limit: 50 });
       console.log('🔍 [History API] 이메일로 조회 결과:', {
@@ -126,7 +126,7 @@ export async function GET(request: NextRequest) {
       });
     }
     
-    // 이메일로 조회 결과가 없으면 사용자 ID로 조회
+    // 2. 이메일로 조회 결과가 없으면 실제 사용자 ID로 조회
     if (analyses.length === 0) {
       analyses = getUserAnalyses(actualUserId, { limit: 50 });
       console.log('🔍 [History API] 실제 사용자 ID로 조회 결과:', {
@@ -135,9 +135,21 @@ export async function GET(request: NextRequest) {
       });
     }
     
-    // Vercel 환경에서 결과가 없고, Blob Storage 동기화가 필요한 경우에만 1회 재시도
+    // 3. 세션 ID와 실제 ID가 다르면 세션 ID로도 조회
+    if (analyses.length === 0 && actualUserId !== sessionUserId) {
+      const sessionAnalyses = getUserAnalyses(sessionUserId, { limit: 50 });
+      if (sessionAnalyses.length > 0) {
+        console.log('🔍 [History API] 세션 ID로 조회 결과 (ID 불일치):', {
+          sessionUserId: sessionUserId,
+          actualUserId: actualUserId,
+          count: sessionAnalyses.length
+        });
+        analyses = sessionAnalyses;
+      }
+    }
+    
+    // 4. Vercel 환경에서 결과가 없고, Blob Storage 동기화가 필요한 경우에만 1회 재시도
     if (analyses.length === 0 && process.env.VERCEL) {
-      // 최소 대기 시간만 적용 (500ms)
       await new Promise(resolve => setTimeout(resolve, 500));
       
       // 이메일로 다시 조회

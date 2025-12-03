@@ -21,8 +21,8 @@ export function middleware(request: NextRequest) {
     response.headers.set('X-XSS-Protection', '1; mode=block');
     response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
     
-    // 디버깅 도구 방지
-    response.headers.set('Permissions-Policy', 'debugging=(), devtools=()');
+    // 표준 Permissions-Policy만 사용 (debugging, devtools는 표준 기능이 아님)
+    response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
   }
 
   return response;

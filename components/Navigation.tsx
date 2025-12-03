@@ -66,13 +66,31 @@ export default function Navigation() {
                 <button
                   onClick={async () => {
                     try {
+                      // 로그아웃 시도
                       await signOut({ 
                         callbackUrl: '/',
-                        redirect: true 
+                        redirect: false // redirect를 false로 설정하고 수동 처리
                       });
+                      // 로그아웃 성공 시 홈으로 이동
+                      window.location.href = '/';
                     } catch (error) {
                       console.error('로그아웃 오류:', error);
                       // 로그아웃 실패 시에도 페이지 새로고침으로 세션 초기화 시도
+                      // 쿠키 삭제 시도
+                      try {
+                        document.cookie.split(";").forEach((c) => {
+                          const eqPos = c.indexOf("=");
+                          const name = eqPos > -1 ? c.substr(0, eqPos).trim() : c.trim();
+                          // NextAuth 관련 쿠키 삭제
+                          if (name.startsWith('authjs.') || name.startsWith('__Secure-authjs.')) {
+                            document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
+                            document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;domain=${window.location.hostname}`;
+                          }
+                        });
+                      } catch (cookieError) {
+                        console.error('쿠키 삭제 오류:', cookieError);
+                      }
+                      // 페이지 새로고침
                       window.location.href = '/';
                     }
                   }}
