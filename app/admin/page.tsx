@@ -1,5 +1,8 @@
 'use client';
 
+// 동적 렌더링 강제 (정적 생성 방지)
+export const dynamic = 'force-dynamic';
+
 import Link from 'next/link';
 
 /**
