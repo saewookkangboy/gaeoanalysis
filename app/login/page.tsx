@@ -16,9 +16,16 @@ function LoginForm() {
     if (status === 'authenticated' && session?.user) {
       // 로그인 성공 시 즉시 메인 페이지로 리디렉션 (대기 시간 없음)
       // router.push 대신 window.location.href 사용하여 더 빠른 전환
-      window.location.href = '/';
+      try {
+        window.location.href = '/';
+      } catch (error) {
+        // 브라우저 확장 프로그램 관련 오류 무시
+        console.warn('리디렉션 중 오류 발생 (무시됨):', error);
+        // 대체 방법으로 리디렉션 시도
+        router.push('/');
+      }
     }
-  }, [status, session]);
+  }, [status, session, router]);
 
   // 에러 메시지 표시
   useEffect(() => {
@@ -62,6 +69,13 @@ function LoginForm() {
       // 하지만 TypeScript 타입 체크를 위해 유지
     } catch (err: any) {
       // 리디렉션 전에 에러가 발생한 경우에만 실행됨
+      // 브라우저 확장 프로그램 관련 오류는 무시
+      if (err?.message?.includes('message channel closed')) {
+        // 브라우저 확장 프로그램 관련 오류는 무시하고 계속 진행
+        console.warn('브라우저 확장 프로그램 관련 오류 (무시됨):', err);
+        return;
+      }
+      
       console.error(`${provider} 로그인 예외:`, err);
       const providerName = provider === 'google' ? 'Google' : 'GitHub';
       setError(`${providerName} 로그인 중 오류가 발생했습니다.`);
