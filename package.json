@@ -8,7 +8,6 @@
     "cleanup": "bash scripts/cleanup-dev.sh",
     "cleanup:all": "bash scripts/cleanup-dev.sh --clean",
     "build": "next build --webpack",
-    "postinstall": "npm install --include=optional --no-save || true",
     "start": "next start -p ${PORT:-3000}",
     "lint": "eslint",
     "db:migrate": "npx tsx scripts/migrate-db.ts",
