@@ -14,7 +14,7 @@ let pool: Pool | null = null;
 /**
  * 연결 풀 설정 (재연결 시 사용)
  */
-export function setPool(newPool: Pool) {
+export function setPool(newPool: Pool | null) {
   pool = newPool;
 }
 
