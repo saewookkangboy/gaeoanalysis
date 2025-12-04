@@ -37,12 +37,12 @@ railway login
 # 프로젝트 연결
 railway link
 
-# DB 파일 업로드
-# 옵션 A: backup/gaeo.db 사용 (Vercel에서 다운로드한 경우)
-railway run bash -c "mkdir -p /app/data && cat > /app/data/gaeo.db" < backup/gaeo.db
+# DB 파일 업로드 (자동 스크립트 사용 권장)
+npm run db:upload-to-railway
 
-# 옵션 B: 로컬 data/gaeo.db 사용 (개발 환경의 DB)
-railway run bash -c "mkdir -p /app/data && cat > /app/data/gaeo.db" < data/gaeo.db
+# 또는 수동 업로드
+# Railway에서는 프로젝트 루트의 data 디렉토리를 사용 (process.cwd()/data)
+railway run bash -c "mkdir -p data && cat > data/gaeo.db" < data/gaeo.db
 ```
 
 ---

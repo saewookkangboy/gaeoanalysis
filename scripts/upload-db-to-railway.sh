@@ -42,7 +42,14 @@ echo "📊 파일 크기: $FILE_SIZE"
 echo "📤 업로드 중..."
 
 # Railway에 업로드
-railway run bash -c "mkdir -p /app/data && cat > /app/data/gaeo.db" < "$DB_FILE"
+# Railway에서는 프로젝트 루트의 data 디렉토리를 사용 (process.cwd()/data)
+# /app은 읽기 전용이므로 사용하지 않음
+echo "💡 Railway 경로 확인 중..."
+railway run bash -c "pwd && ls -la" | head -10
+
+echo "📤 DB 파일 업로드 중..."
+# 프로젝트 루트의 data 디렉토리에 업로드
+railway run bash -c "mkdir -p data && cat > data/gaeo.db" < "$DB_FILE"
 
 if [ $? -eq 0 ]; then
     echo "✅ DB 파일 업로드 완료!"
