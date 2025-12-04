@@ -31,18 +31,40 @@ export function resetPool() {
  * @returns hostname 또는 null
  */
 function extractHostname(connectionString: string): string | null {
-  if (!connectionString) {
+  if (!connectionString || typeof connectionString !== 'string') {
     return null;
   }
   
   try {
+    // PostgreSQL 연결 문자열 형식: postgresql://user:pass@hostname:port/database
+    // 또는 postgres://user:pass@hostname:port/database
     const url = new URL(connectionString);
-    return url.hostname;
+    const hostname = url.hostname;
+    
+    // hostname이 비어있거나 유효하지 않은 경우
+    if (!hostname || hostname === '') {
+      return null;
+    }
+    
+    return hostname;
   } catch (error) {
     // URL 파싱 실패 시 정규식으로 추출 시도
     // postgresql://user:pass@hostname:port/db 형식
-    const match = connectionString.match(/@([^:/\s]+)/);
-    return match ? match[1] : null;
+    // 또는 postgres://user:pass@hostname:port/db 형식
+    const patterns = [
+      /@([^:/\s@]+):/,  // @hostname: 형식
+      /@([^:/\s@]+)\//, // @hostname/ 형식
+      /@([^:/\s@]+)$/,  // @hostname (끝)
+    ];
+    
+    for (const pattern of patterns) {
+      const match = connectionString.match(pattern);
+      if (match && match[1] && match[1] !== '') {
+        return match[1];
+      }
+    }
+    
+    return null;
   }
 }
 
@@ -308,6 +330,14 @@ export async function query<T extends Record<string, any> = any>(
     if (shouldRetry) {
       // Public URL의 hostname 확인
       const publicHostname = publicUrl ? extractHostname(publicUrl) : null;
+      
+      // hostname 추출 실패 시 로깅
+      if (!publicHostname && publicUrl) {
+        console.error('❌ [PostgreSQL] Public URL에서 hostname을 추출할 수 없습니다:', {
+          publicUrlPreview: publicUrl.replace(/:[^:@]+@/, ':****@').substring(0, 100),
+          message: '연결 문자열 형식이 올바르지 않을 수 있습니다.'
+        });
+      }
       
       if (publicHostname?.includes('railway.internal')) {
         console.error('❌ [PostgreSQL] DATABASE_PUBLIC_URL이 Private URL을 가리키고 있습니다!', {
