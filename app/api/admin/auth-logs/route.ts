@@ -64,8 +64,8 @@ export async function GET(request: NextRequest) {
         page,
         limit,
       },
-      ipAddress,
-      userAgent,
+      ipAddress: ipAddress || undefined,
+      userAgent: userAgent || undefined,
     }).catch(() => {
       // 로그 저장 실패는 조용히 무시
     });
