@@ -18,7 +18,25 @@ const postgresUrl = process.env.DATABASE_URL;
 
 if (!postgresUrl) {
   console.error('❌ DATABASE_URL 환경 변수가 설정되지 않았습니다.');
-  console.error('💡 Railway PostgreSQL 연결 정보를 DATABASE_URL에 설정하세요.');
+  console.error('');
+  console.error('💡 Railway PostgreSQL 연결 정보 설정 방법:');
+  console.error('   1. Railway 대시보드 → PostgreSQL 서비스 → Variables 탭');
+  console.error('   2. DATABASE_URL 값을 복사');
+  console.error('   3. 다음 명령어로 설정:');
+  console.error('      export DATABASE_URL="postgresql://user:password@host:port/database"');
+  console.error('   4. 또는 .env.local 파일에 추가:');
+  console.error('      DATABASE_URL=postgresql://user:password@host:port/database');
+  console.error('');
+  console.error('📝 예시:');
+  console.error('   export DATABASE_URL="postgresql://postgres:password@containers-us-west-xxx.railway.app:5432/railway"');
+  process.exit(1);
+}
+
+// DATABASE_URL 형식 검증
+if (!postgresUrl.startsWith('postgresql://') && !postgresUrl.startsWith('postgres://')) {
+  console.error('❌ DATABASE_URL 형식이 올바르지 않습니다.');
+  console.error('   올바른 형식: postgresql://user:password@host:port/database');
+  console.error(`   현재 값: ${postgresUrl.substring(0, 20)}...`);
   process.exit(1);
 }
 
@@ -36,7 +54,44 @@ try {
 const postgresPool = new Pool({
   connectionString: postgresUrl,
   ssl: { rejectUnauthorized: false },
+  // 연결 타임아웃 설정
+  connectionTimeoutMillis: 10000, // 10초
 });
+
+// PostgreSQL 연결 테스트
+async function testPostgresConnection(): Promise<boolean> {
+  console.log('🔍 [PostgreSQL] 연결 테스트 중...');
+  
+  try {
+    const result = await postgresPool.query('SELECT NOW() as now');
+    if (result.rows.length > 0) {
+      console.log('✅ [PostgreSQL] 연결 성공');
+      return true;
+    }
+    return false;
+  } catch (error: any) {
+    console.error('❌ [PostgreSQL] 연결 실패:', error.message);
+    
+    if (error.code === 'ENOTFOUND') {
+      console.error('');
+      console.error('💡 호스트명을 찾을 수 없습니다. 다음을 확인하세요:');
+      console.error('   1. DATABASE_URL의 호스트명이 올바른지 확인');
+      console.error('   2. Railway PostgreSQL 서비스가 실행 중인지 확인');
+      console.error('   3. 네트워크 연결 상태 확인');
+    } else if (error.code === 'ECONNREFUSED') {
+      console.error('');
+      console.error('💡 연결이 거부되었습니다. 다음을 확인하세요:');
+      console.error('   1. DATABASE_URL의 포트 번호가 올바른지 확인');
+      console.error('   2. Railway PostgreSQL 서비스가 실행 중인지 확인');
+    } else if (error.code === '28P01') {
+      console.error('');
+      console.error('💡 인증 실패. 다음을 확인하세요:');
+      console.error('   1. DATABASE_URL의 사용자명과 비밀번호가 올바른지 확인');
+    }
+    
+    return false;
+  }
+}
 
 // PostgreSQL 스키마 생성
 async function createPostgresSchema() {
@@ -133,6 +188,13 @@ async function migrateTable(
 async function migrate() {
   try {
     console.log('🚀 [Migration] SQLite → PostgreSQL 마이그레이션 시작\n');
+    
+    // 0. PostgreSQL 연결 테스트
+    const connected = await testPostgresConnection();
+    if (!connected) {
+      throw new Error('PostgreSQL 연결 실패');
+    }
+    console.log('');
     
     // 1. PostgreSQL 스키마 생성
     await createPostgresSchema();
