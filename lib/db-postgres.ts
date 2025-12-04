@@ -114,7 +114,20 @@ function initializePostgresPool(): Pool {
     
     // Public URL의 hostname 확인
     const publicHostname = extractHostname(publicUrl);
-    if (publicHostname?.includes('railway.internal')) {
+    
+    if (!publicHostname) {
+      // 연결 문자열의 일부를 안전하게 로깅
+      const safeUrl = publicUrl.replace(/:[^:@]+@/, ':****@');
+      console.error('❌ [PostgreSQL] Vercel 환경에서 Public URL의 hostname을 추출할 수 없습니다:', {
+        urlPreview: safeUrl.substring(0, 100),
+        urlLength: publicUrl.length,
+        urlHasAt: publicUrl.includes('@'),
+        message: '연결 문자열 형식이 올바르지 않습니다. 형식: postgresql://user:pass@hostname:port/database'
+      });
+      throw new Error('DATABASE_PUBLIC_URL의 형식이 올바르지 않습니다. PostgreSQL 연결 문자열 형식을 확인하세요.');
+    }
+    
+    if (publicHostname.includes('railway.internal')) {
       console.error('❌ [PostgreSQL] DATABASE_PUBLIC_URL이 Private URL을 가리키고 있습니다!', {
         hostname: publicHostname,
         message: 'Vercel에서는 Railway의 Private URL(postgres.railway.internal)에 접근할 수 없습니다. Railway 대시보드에서 Public URL을 확인하고 DATABASE_PUBLIC_URL 환경 변수를 업데이트하세요.'
@@ -124,7 +137,8 @@ function initializePostgresPool(): Pool {
     
     connectionString = publicUrl;
     console.log('✅ [PostgreSQL] Vercel 환경: Public URL 사용', {
-      hostname: publicHostname
+      hostname: publicHostname,
+      urlPreview: publicUrl.replace(/:[^:@]+@/, ':****@').substring(0, 80)
     });
   } else if (privateUrl && isRailway) {
     // Railway 환경이고 Private URL이 있으면 Private URL 사용 시도
@@ -331,12 +345,26 @@ export async function query<T extends Record<string, any> = any>(
       // Public URL의 hostname 확인
       const publicHostname = publicUrl ? extractHostname(publicUrl) : null;
       
-      // hostname 추출 실패 시 로깅
+      // hostname 추출 실패 시 상세 로깅
       if (!publicHostname && publicUrl) {
+        // 연결 문자열의 일부를 안전하게 로깅 (비밀번호 마스킹)
+        const safeUrl = publicUrl.replace(/:[^:@]+@/, ':****@');
+        const urlLength = publicUrl.length;
+        const urlStart = safeUrl.substring(0, 50);
+        const urlEnd = safeUrl.length > 50 ? safeUrl.substring(safeUrl.length - 20) : '';
+        
         console.error('❌ [PostgreSQL] Public URL에서 hostname을 추출할 수 없습니다:', {
-          publicUrlPreview: publicUrl.replace(/:[^:@]+@/, ':****@').substring(0, 100),
-          message: '연결 문자열 형식이 올바르지 않을 수 있습니다.'
+          urlLength,
+          urlStart,
+          urlEnd,
+          urlHasAt: publicUrl.includes('@'),
+          urlHasPostgres: publicUrl.includes('postgres'),
+          urlHasPostgresql: publicUrl.includes('postgresql'),
+          message: '연결 문자열 형식이 올바르지 않을 수 있습니다. 전체 연결 문자열 형식: postgresql://user:pass@hostname:port/database'
         });
+        
+        // 재시도 불가능하므로 원래 오류를 throw
+        throw new Error(`Public URL에서 hostname을 추출할 수 없습니다. 연결 문자열 형식을 확인하세요. (길이: ${urlLength})`);
       }
       
       if (publicHostname?.includes('railway.internal')) {
