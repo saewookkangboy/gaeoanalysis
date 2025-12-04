@@ -627,7 +627,7 @@ export async function saveAnalysis(data: {
   }
   
   // 통계 및 강화 학습 업데이트 (비동기로 처리하여 응답 속도에 영향 없도록)
-  setImmediate(() => {
+  setImmediate(async () => {
     try {
       const { updateAnalysisItemStatistics, updateUserActivityStatistics, updateAnalysisDetailStatistics } = getStatisticsHelpers();
       
@@ -1306,7 +1306,22 @@ export function createUser(data: {
     }
     
     // Provider별 사용자 ID로 존재 여부 확인 (provider별 계정 독립성)
-    const existingUser = getUser(data.id);
+    // 트랜잭션 내부에서는 직접 쿼리 사용 (비동기 함수 호출 불가)
+    const existingUserStmt = db.prepare('SELECT id, email, blog_url, name, image, provider, role, is_active, last_login_at, created_at, updated_at FROM users WHERE id = ?');
+    const existingUserRow = existingUserStmt.get(data.id) as any;
+    const existingUser = existingUserRow ? {
+      id: existingUserRow.id,
+      email: existingUserRow.email,
+      blogUrl: existingUserRow.blog_url,
+      name: existingUserRow.name,
+      image: existingUserRow.image,
+      provider: existingUserRow.provider,
+      role: existingUserRow.role,
+      isActive: existingUserRow.is_active,
+      lastLoginAt: existingUserRow.last_login_at,
+      createdAt: existingUserRow.created_at,
+      updatedAt: existingUserRow.updated_at || existingUserRow.created_at,
+    } : null;
     if (existingUser) {
       console.log('✅ [createUser] Provider별 사용자 이미 존재:', { 
         id: data.id, 
@@ -1655,10 +1670,12 @@ export function createUser(data: {
       return data.id;
     } catch (error: any) {
       // UNIQUE 제약 조건 오류인 경우 (동시성 문제 또는 email UNIQUE 제약)
-      if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+      if (error.code === 'SQLITE_CONSTRAINT_UNIQUE' || error.code === '23505') {
         // 다시 확인 (Provider별 사용자 ID로만 확인)
-        const retryUser = await getUser(data.id);
-        if (retryUser) {
+        // 트랜잭션 내부에서는 직접 쿼리 사용
+        const retryUserStmt = db.prepare('SELECT id FROM users WHERE id = ?');
+        const retryUserRow = retryUserStmt.get(data.id) as { id: string } | undefined;
+        if (retryUserRow) {
           return data.id;
         }
         
