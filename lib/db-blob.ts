@@ -25,9 +25,17 @@ export async function uploadDbToBlob(dbPath: string): Promise<void> {
     return;
   }
 
+  // PostgreSQL 환경에서는 Blob Storage를 사용하지 않음
+  const isPostgreSQL = !!(process.env.DATABASE_URL || process.env.DATABASE_PUBLIC_URL);
+  if (isPostgreSQL) {
+    // PostgreSQL 환경에서는 Blob Storage 불필요 (조용히 반환)
+    return;
+  }
+
   // Blob Storage 토큰 확인
   if (!process.env.BLOB_READ_WRITE_TOKEN && !process.env.VERCEL_BLOB_READ_WRITE_TOKEN) {
-    console.warn('⚠️ [DB Blob] Blob Storage 토큰이 없습니다. Railway로 마이그레이션 중이거나 토큰이 설정되지 않았습니다.');
+    // PostgreSQL 환경이 아닐 때만 경고 출력
+    console.warn('⚠️ [DB Blob] Blob Storage 토큰이 없습니다. Railway PostgreSQL로 마이그레이션 중이거나 토큰이 설정되지 않았습니다.');
     return;
   }
 
@@ -101,9 +109,17 @@ export async function downloadDbFromBlob(dbPath: string): Promise<boolean> {
     return false;
   }
 
+  // PostgreSQL 환경에서는 Blob Storage를 사용하지 않음
+  const isPostgreSQL = !!(process.env.DATABASE_URL || process.env.DATABASE_PUBLIC_URL);
+  if (isPostgreSQL) {
+    // PostgreSQL 환경에서는 Blob Storage 불필요 (조용히 반환)
+    return false;
+  }
+
   // Blob Storage 토큰 확인
   if (!process.env.BLOB_READ_WRITE_TOKEN && !process.env.VERCEL_BLOB_READ_WRITE_TOKEN) {
-    console.warn('⚠️ [DB Blob] Blob Storage 토큰이 없습니다. Railway로 마이그레이션 중이거나 토큰이 설정되지 않았습니다.');
+    // PostgreSQL 환경이 아닐 때만 경고 출력
+    console.warn('⚠️ [DB Blob] Blob Storage 토큰이 없습니다. Railway PostgreSQL로 마이그레이션 중이거나 토큰이 설정되지 않았습니다.');
     return false;
   }
 

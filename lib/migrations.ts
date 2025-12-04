@@ -1,4 +1,5 @@
 import db from './db';
+import { isPostgreSQL } from './db-adapter';
 
 /**
  * 알고리즘 학습 시스템 스키마 존재 여부 확인
@@ -928,8 +929,8 @@ function applyMigration(migration: Migration) {
     // 트랜잭션 시작 전에 다시 확인 (동시 실행 방지)
     const alreadyApplied = db.prepare('SELECT version FROM schema_migrations WHERE version = ?').get(migration.version);
     if (alreadyApplied) {
-      // v12나 v13처럼 중요한 스키마가 누락된 경우 재적용
-      if ((migration.version === 12 || migration.version === 13) && !algorithmSchemaExists()) {
+      // v12나 v13처럼 중요한 스키마가 누락된 경우 재적용 (SQLite만)
+      if ((migration.version === 12 || migration.version === 13) && !isPostgreSQL() && !algorithmSchemaExists()) {
         console.warn(`⚠️ [Migration] algorithm_versions 테이블이 없어 v${migration.version} 스키마를 재적용합니다.`);
         
         // 최대 3회 시도
@@ -975,8 +976,8 @@ function applyMigration(migration: Migration) {
       );
     })();
     
-    // v12나 v13의 경우 테이블이 확실히 생성되었는지 확인
-    if ((migration.version === 12 || migration.version === 13) && !algorithmSchemaExists()) {
+    // v12나 v13의 경우 테이블이 확실히 생성되었는지 확인 (SQLite만)
+    if ((migration.version === 12 || migration.version === 13) && !isPostgreSQL() && !algorithmSchemaExists()) {
       console.warn(`⚠️ [Migration] v${migration.version} 적용 후에도 algorithm_versions 테이블이 없습니다. 재생성 시도...`);
       const tableCreated = ensureAlgorithmSchema();
       if (tableCreated) {
@@ -992,8 +993,8 @@ function applyMigration(migration: Migration) {
     if (error?.code === 'SQLITE_CONSTRAINT_PRIMARYKEY' || error?.code === 'SQLITE_CONSTRAINT_UNIQUE') {
       console.log(`⏭️  마이그레이션 이미 적용됨 (제약 조건 오류 무시): ${migration.name} (v${migration.version})`);
       
-      // v12나 v13의 경우 테이블이 확실히 생성되었는지 확인
-      if ((migration.version === 12 || migration.version === 13) && !algorithmSchemaExists()) {
+      // v12나 v13의 경우 테이블이 확실히 생성되었는지 확인 (SQLite만)
+      if ((migration.version === 12 || migration.version === 13) && !isPostgreSQL() && !algorithmSchemaExists()) {
         console.warn(`⚠️ [Migration] v${migration.version} 적용 후에도 algorithm_versions 테이블이 없습니다. 재생성 시도...`);
         const tableCreated = ensureAlgorithmSchema();
         if (tableCreated) {
