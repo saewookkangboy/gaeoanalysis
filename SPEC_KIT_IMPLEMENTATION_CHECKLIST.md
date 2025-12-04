@@ -621,9 +621,9 @@ gaeo-analysis/
 - [ ] 문서화 원칙 정의
 
 #### Step 2: 기존 기능 명세서 작성 (1주)
-- [ ] 콘텐츠 분석 기능 명세서 작성
-- [ ] AI Agent 기능 명세서 작성
-- [ ] Freemium 모델 명세서 작성
+- [x] 콘텐츠 분석 기능 명세서 작성
+- [x] AI Agent 기능 명세서 작성
+- [x] Freemium 모델 명세서 작성
 - [ ] 알고리즘 자동 학습 명세서 작성
 
 #### Step 3: 템플릿 파일 생성 (1일)
@@ -679,12 +679,12 @@ Spec-Kit의 `/speckit.plan`, `/speckit.tasks`, `/speckit.implement` 명령어와
 ## 체크리스트 요약
 
 ### 필수 작업
-- [ ] Constitution 작성 (`memory/constitution.md`)
-- [ ] 템플릿 파일 생성 (`templates/`)
+- [x] Constitution 작성 (`memory/constitution.md`)
+- [x] 템플릿 파일 생성 (`templates/`)
 - [ ] 새 기능 개발 시 워크플로우 적용
 
 ### 권장 작업
-- [ ] 기존 주요 기능 명세서 작성
+- [x] 기존 주요 기능 명세서 작성 (3/4 완료)
 - [ ] 검증 체크리스트 작성
 - [ ] 커스텀 스크립트 생성
 
