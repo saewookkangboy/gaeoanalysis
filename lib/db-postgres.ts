@@ -319,6 +319,21 @@ function initializePostgresPool(): Pool {
       connectionString = privateUrl;
       console.log('✅ [PostgreSQL] Railway 환경: Private URL 사용 시도');
     }
+  } else if (privateUrl && !isRailway && !isVercel) {
+    // 로컬 환경에서 DATABASE_URL이 있으면 사용 (스크립트 실행 등)
+    if (privateUrl.includes('://')) {
+      connectionString = privateUrl;
+      console.log('✅ [PostgreSQL] 로컬 환경: DATABASE_URL 사용');
+    } else {
+      // hostname만 있는 경우 정규화 시도
+      const normalizedUrl = normalizeConnectionString(privateUrl, false);
+      if (normalizedUrl) {
+        connectionString = normalizedUrl;
+        console.log('✅ [PostgreSQL] 로컬 환경: 정규화된 DATABASE_URL 사용');
+      } else {
+        throw new Error('DATABASE_URL을 정규화할 수 없습니다. 완전한 연결 문자열 형식으로 설정하세요: postgresql://user:pass@host:port/database');
+      }
+    }
   } else if (publicUrl) {
     // 그 외 환경에서는 Public URL 사용
     // 연결 문자열이 hostname:port 형식인 경우 정규화 시도
@@ -334,6 +349,22 @@ function initializePostgresPool(): Pool {
     } else {
       connectionString = publicUrl;
       console.log('✅ [PostgreSQL] Public URL 사용');
+    }
+  } else if (privateUrl) {
+    // 로컬 환경 등에서 DATABASE_URL만 있는 경우 사용
+    if (privateUrl.includes('://')) {
+      connectionString = privateUrl;
+      console.log('✅ [PostgreSQL] 로컬 환경: DATABASE_URL 사용');
+    } else {
+      // hostname만 있는 경우 정규화 시도
+      console.log('⚠️ [PostgreSQL] DATABASE_URL이 hostname만 포함하고 있습니다. 연결 문자열 구성 시도...');
+      const normalizedUrl = normalizeConnectionString(privateUrl, false);
+      if (normalizedUrl) {
+        connectionString = normalizedUrl;
+        console.log('✅ [PostgreSQL] 로컬 환경: 정규화된 DATABASE_URL 사용');
+      } else {
+        throw new Error('DATABASE_URL을 정규화할 수 없습니다. 완전한 연결 문자열 형식으로 설정하세요: postgresql://user:pass@host:port/database');
+      }
     }
   } else {
     console.error('❌ [PostgreSQL] 사용 가능한 데이터베이스 연결 URL이 없습니다.');

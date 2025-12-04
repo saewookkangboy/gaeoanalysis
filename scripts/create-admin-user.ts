@@ -11,8 +11,8 @@
  * 하지만 실제 로그인을 위해서는 Firebase 인증이 필요합니다.
  */
 
-import { query } from '../lib/db-adapter';
-import { getUserByEmail } from '../lib/db-helpers';
+import { query, prepare } from '../lib/db-adapter';
+import { getUserByEmail, createUser } from '../lib/db-helpers';
 import { v4 as uuidv4 } from 'uuid';
 
 async function createOrUpdateAdminUser(email: string, userId?: string) {
@@ -42,8 +42,8 @@ async function createOrUpdateAdminUser(email: string, userId?: string) {
       // role을 admin으로 업데이트
       console.log(`\n🔄 사용자 role을 'admin'으로 업데이트 중...`);
       
-      const updateQuery = 'UPDATE users SET role = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2';
-      await query(updateQuery, ['admin', user.id]);
+      const updateStmt = prepare('UPDATE users SET role = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2');
+      await updateStmt.run(['admin', user.id]);
       
       console.log(`✅ 사용자 role이 'admin'으로 업데이트되었습니다.`);
       
@@ -66,33 +66,26 @@ async function createOrUpdateAdminUser(email: string, userId?: string) {
       
       console.log(`\n🔄 임시 사용자 생성 중...`);
       
-      // SQLite와 PostgreSQL 모두 지원하는 방식으로 사용자 생성
-      const { isPostgreSQL, isSQLite } = await import('../lib/db-adapter');
+      // 먼저 사용자가 이미 있는지 확인
+      const existingUser = await getUserByEmail(normalizedEmail);
       
-      if (isPostgreSQL()) {
-        // PostgreSQL: 먼저 확인 후 INSERT 또는 UPDATE
-        const checkQuery = 'SELECT id FROM users WHERE email = $1 LIMIT 1';
-        const existing = await query(checkQuery, [normalizedEmail]);
-        
-        if (existing.rows.length > 0) {
-          const updateQuery = 'UPDATE users SET role = $1, updated_at = CURRENT_TIMESTAMP WHERE email = $2';
-          await query(updateQuery, ['admin', normalizedEmail]);
-        } else {
-          const insertQuery = 'INSERT INTO users (id, email, role, created_at, updated_at) VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)';
-          await query(insertQuery, [tempUserId, normalizedEmail, 'admin']);
-        }
+      if (existingUser) {
+        // 이미 사용자가 있으면 role만 업데이트
+        console.log(`⚠️  사용자가 이미 존재합니다. role만 업데이트합니다.`);
+        const updateStmt = prepare('UPDATE users SET role = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2');
+        await updateStmt.run(['admin', existingUser.id]);
       } else {
-        // SQLite: 먼저 확인 후 INSERT 또는 UPDATE
-        const checkQuery = 'SELECT id FROM users WHERE email = ? LIMIT 1';
-        const existing = await query(checkQuery, [normalizedEmail]);
+        // 사용자가 없으면 createUser 함수를 사용하여 생성
+        console.log(`\n🔄 새 사용자 생성 중 (role: admin)...`);
+        await createUser({
+          id: tempUserId,
+          email: normalizedEmail,
+          blogUrl: null,
+        });
         
-        if (existing.rows.length > 0) {
-          const updateQuery = 'UPDATE users SET role = ?, updated_at = CURRENT_TIMESTAMP WHERE email = ?';
-          await query(updateQuery, ['admin', normalizedEmail]);
-        } else {
-          const insertQuery = 'INSERT INTO users (id, email, role, created_at, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)';
-          await query(insertQuery, [tempUserId, normalizedEmail, 'admin']);
-        }
+        // role을 admin으로 설정
+        const updateStmt = prepare('UPDATE users SET role = $1 WHERE id = $2');
+        await updateStmt.run(['admin', tempUserId]);
       }
       
       console.log(`✅ 임시 사용자 생성 완료:`, {

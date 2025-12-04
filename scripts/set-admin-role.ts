@@ -11,6 +11,28 @@
 import { query } from '../lib/db-adapter';
 import { getUserByEmail } from '../lib/db-helpers';
 
+/**
+ * Provider별로 사용자 검색 (같은 이메일이라도 provider가 다르면 다른 사용자)
+ */
+async function findUserByEmailAndProvider(email: string, provider?: string) {
+  const normalizedEmail = email.toLowerCase().trim();
+  
+  // Provider가 지정된 경우 Provider별로 검색
+  if (provider) {
+    const result = await query(
+      'SELECT id, email, role, provider FROM users WHERE LOWER(TRIM(email)) = $1 AND provider = $2 LIMIT 1',
+      [normalizedEmail, provider]
+    );
+    
+    if (result.rows.length > 0) {
+      return result.rows[0];
+    }
+  }
+  
+  // Provider 없이 검색 (기존 방식)
+  return await getUserByEmail(email);
+}
+
 async function setAdminRole(email: string) {
   try {
     // 이메일 정규화
@@ -18,8 +40,18 @@ async function setAdminRole(email: string) {
     
     console.log(`\n🔍 사용자 검색 중: ${normalizedEmail}`);
     
-    // 사용자 확인
-    const user = await getUserByEmail(normalizedEmail);
+    // 사용자 확인 (Provider별로도 검색)
+    let user = await getUserByEmail(normalizedEmail);
+    
+    // Provider별 사용자가 여러 개일 수 있으므로, Google provider 우선 검색
+    if (!user) {
+      console.log('   → Provider별 검색 시도...');
+      user = await findUserByEmailAndProvider(normalizedEmail, 'google');
+    }
+    
+    if (!user) {
+      user = await findUserByEmailAndProvider(normalizedEmail, 'github');
+    }
     
     if (!user) {
       console.error(`❌ 사용자를 찾을 수 없습니다: ${normalizedEmail}`);
