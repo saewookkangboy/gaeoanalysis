@@ -736,6 +736,14 @@ export async function getAnalyses(
       pagination.offset,
     ]);
 
+    console.log('🔍 [getAnalyses] 조회 결과:', {
+      total: total,
+      fetched: analysesResult.rows.length,
+      params,
+      startDate: start.toISOString(),
+      endDate: end.toISOString(),
+    });
+
     const analyses: AnalysisInfo[] = analysesResult.rows.map((row: any) => {
       // insights 파싱 (JSON 문자열인 경우)
       let insights: any[] = [];
@@ -744,6 +752,9 @@ export async function getAnalyses(
           insights = JSON.parse(row.insights);
         } else if (Array.isArray(row.insights)) {
           insights = row.insights;
+        } else if (row.insights) {
+          // 객체인 경우 배열로 변환 시도
+          insights = [row.insights];
         }
       } catch (error) {
         console.warn('⚠️ [getAnalyses] insights 파싱 오류:', error);
@@ -751,19 +762,19 @@ export async function getAnalyses(
 
       return {
         id: row.id,
-        userId: row.user_id,
-        userEmail: row.user_email,
-        url: row.url,
-        aeoScore: row.aeo_score || 0,
-        geoScore: row.geo_score || 0,
-        seoScore: row.seo_score || 0,
-        overallScore: row.overall_score || 0,
-        chatgptScore: row.chatgpt_score,
-        perplexityScore: row.perplexity_score,
-        geminiScore: row.gemini_score,
-        claudeScore: row.claude_score,
+        userId: row.user_id || null,
+        userEmail: row.user_email || null,
+        url: row.url || '',
+        aeoScore: Number(row.aeo_score) || 0,
+        geoScore: Number(row.geo_score) || 0,
+        seoScore: Number(row.seo_score) || 0,
+        overallScore: Number(row.overall_score) || 0,
+        chatgptScore: row.chatgpt_score !== null && row.chatgpt_score !== undefined ? Number(row.chatgpt_score) : null,
+        perplexityScore: row.perplexity_score !== null && row.perplexity_score !== undefined ? Number(row.perplexity_score) : null,
+        geminiScore: row.gemini_score !== null && row.gemini_score !== undefined ? Number(row.gemini_score) : null,
+        claudeScore: row.claude_score !== null && row.claude_score !== undefined ? Number(row.claude_score) : null,
         insights,
-        createdAt: row.created_at,
+        createdAt: row.created_at || new Date().toISOString(),
       };
     });
 

@@ -93,6 +93,17 @@ export default function AnalysesPage() {
     }
   }, [startDate, endDate, currentPage]);
 
+  // 페이지 로드 시 자동으로 데이터 새로고침 (5분마다)
+  useEffect(() => {
+    if (startDate && endDate) {
+      const interval = setInterval(() => {
+        fetchAnalyses();
+      }, 5 * 60 * 1000); // 5분마다 자동 갱신
+
+      return () => clearInterval(interval);
+    }
+  }, [startDate, endDate]);
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     setCurrentPage(1);
