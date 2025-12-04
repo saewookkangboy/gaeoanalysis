@@ -154,7 +154,16 @@ function initializePostgresPool(): Pool {
   const publicUrl = process.env.DATABASE_PUBLIC_URL; // Public URL
   
   if (!privateUrl && !publicUrl) {
-    throw new Error('DATABASE_URL 또는 DATABASE_PUBLIC_URL 환경 변수가 설정되지 않았습니다.');
+    const errorMsg = 'DATABASE_URL 또는 DATABASE_PUBLIC_URL 환경 변수가 설정되지 않았습니다.';
+    console.error('❌ [PostgreSQL] 연결 설정 오류:', {
+      message: errorMsg,
+      hasPrivateUrl: !!privateUrl,
+      hasPublicUrl: !!publicUrl,
+      isRailway: isRailway,
+      isVercel: isVercel,
+      note: 'Railway PostgreSQL 서비스가 제대로 설정되었는지 확인하세요.'
+    });
+    throw new Error(errorMsg);
   }
   
   // Vercel 환경에서는 Private URL을 무시하고 Public URL만 사용
@@ -259,7 +268,9 @@ function initializePostgresPool(): Pool {
     console.error('❌ [PostgreSQL] 예상치 못한 클라이언트 오류:', {
       error: err.message,
       code: err.code,
-      hostname: err.hostname
+      hostname: err.hostname,
+      syscall: err.syscall,
+      note: 'Railway PostgreSQL 서비스가 실행 중인지 확인하세요. Railway 대시보드에서 서비스 상태를 확인하고 필요시 재시작하세요.'
     });
     
     // Private URL 연결 실패 시 Public URL로 재시도
@@ -564,7 +575,15 @@ export async function query<T extends Record<string, any> = any>(
           query: text.substring(0, 100),
           error: retryError.message,
           errorCode: retryError.code,
-          hostname: retryError.hostname
+          hostname: retryError.hostname,
+          syscall: retryError.syscall,
+          troubleshooting: {
+            step1: 'Railway 대시보드에서 PostgreSQL 서비스 상태 확인',
+            step2: '서비스가 "Running" 상태인지 확인',
+            step3: '서비스가 다운된 경우 Railway 대시보드에서 재시작',
+            step4: '여전히 문제가 있으면 Railway 지원팀에 문의',
+            guide: 'RAILWAY_POSTGRESQL_TROUBLESHOOTING.md 파일 참조'
+          }
         });
         throw retryError;
       }
