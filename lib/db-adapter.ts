@@ -14,7 +14,8 @@ export type DatabaseType = 'sqlite' | 'postgresql';
  */
 export function getDatabaseType(): DatabaseType {
   // Railway PostgreSQL 연결 정보가 있으면 PostgreSQL 사용
-  if (process.env.DATABASE_URL) {
+  // Private URL 우선, 없으면 Public URL 사용
+  if (process.env.DATABASE_URL || process.env.DATABASE_PUBLIC_URL) {
     return 'postgresql';
   }
   return 'sqlite';

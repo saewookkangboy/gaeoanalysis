@@ -20,10 +20,32 @@ function initializePostgresPool(): Pool {
   }
 
   // Railway PostgreSQL 연결 정보
-  const connectionString = process.env.DATABASE_URL;
+  // Railway 환경에서는 Private URL 우선 사용 (egress fees 방지)
+  // 로컬 환경에서는 Public URL 사용 가능
+  const isRailway = !!process.env.RAILWAY_ENVIRONMENT || !!process.env.RAILWAY;
+  
+  let connectionString = process.env.DATABASE_URL; // Private URL (Railway 내부)
+  
+  // Railway 환경에서 Private URL이 없으면 Public URL 사용 (fallback)
+  if (!connectionString && isRailway) {
+    connectionString = process.env.DATABASE_PUBLIC_URL;
+  }
+  
+  // 로컬 환경에서는 Public URL도 허용
+  if (!connectionString) {
+    connectionString = process.env.DATABASE_PUBLIC_URL;
+  }
   
   if (!connectionString) {
-    throw new Error('DATABASE_URL 환경 변수가 설정되지 않았습니다.');
+    throw new Error('DATABASE_URL 또는 DATABASE_PUBLIC_URL 환경 변수가 설정되지 않았습니다.');
+  }
+  
+  // 사용 중인 URL 타입 로깅 (비용 최적화 안내)
+  if (isRailway && connectionString.includes('railway.internal')) {
+    console.log('✅ [PostgreSQL] Private URL 사용 중 (egress fees 없음)');
+  } else if (isRailway && connectionString.includes('containers-')) {
+    console.warn('⚠️ [PostgreSQL] Public URL 사용 중 (egress fees 발생 가능)');
+    console.warn('💡 Railway 환경에서는 Private URL(DATABASE_URL) 사용을 권장합니다.');
   }
 
   pool = new Pool({
