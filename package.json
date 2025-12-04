@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --turbopack",
     "dev:clean": "bash scripts/cleanup-dev.sh && next dev",
     "cleanup": "bash scripts/cleanup-dev.sh",
     "cleanup:all": "bash scripts/cleanup-dev.sh --clean",
