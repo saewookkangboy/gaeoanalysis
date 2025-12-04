@@ -134,7 +134,7 @@ async function handleAnalyze(request: NextRequest) {
           });
           
           // createUser는 Provider + 이메일 조합으로 기존 사용자를 찾으면 기존 ID 반환
-          const createdUserId = createUser({
+          const createdUserId = await createUser({
             id: providerBasedUserId,
             email: normalizedEmail,
             blogUrl: null,
@@ -331,7 +331,7 @@ async function handleAnalyze(request: NextRequest) {
             });
           } else {
             // Provider별 사용자 생성
-            const createdUserId = createUser({
+            const createdUserId = await createUser({
               id: providerBasedUserId,
               email: normalizedEmail,
               blogUrl: null,

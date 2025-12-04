@@ -243,28 +243,46 @@ export async function saveAnalysis(data: {
   // 저장 전 DB 상태 확인 (디버깅용)
   if (process.env.NODE_ENV === 'development' || process.env.DEBUG_DB || process.env.VERCEL) {
     try {
-      const totalAnalysesBefore = db.prepare('SELECT COUNT(*) as count FROM analyses').get() as { count: number };
-      const userAnalysesBefore = db.prepare('SELECT COUNT(*) as count FROM analyses WHERE user_id = ?').get(data.userId) as { count: number };
-      console.log('📊 [saveAnalysis] 저장 전 DB 상태:', {
-        totalAnalyses: totalAnalysesBefore.count,
-        userAnalyses: userAnalysesBefore.count,
-        userId: data.userId,
-        analysisId: data.id
-      });
+      if (isPostgreSQL()) {
+        const totalResult = await query('SELECT COUNT(*) as count FROM analyses');
+        const userResult = await query('SELECT COUNT(*) as count FROM analyses WHERE user_id = $1', [data.userId]);
+        console.log('📊 [saveAnalysis] 저장 전 DB 상태:', {
+          totalAnalyses: parseInt(totalResult.rows[0]?.count as string, 10) || 0,
+          userAnalyses: parseInt(userResult.rows[0]?.count as string, 10) || 0,
+          userId: data.userId,
+          analysisId: data.id
+        });
+      } else {
+        const totalAnalysesBefore = db.prepare('SELECT COUNT(*) as count FROM analyses').get() as { count: number };
+        const userAnalysesBefore = db.prepare('SELECT COUNT(*) as count FROM analyses WHERE user_id = ?').get(data.userId) as { count: number };
+        console.log('📊 [saveAnalysis] 저장 전 DB 상태:', {
+          totalAnalyses: totalAnalysesBefore.count,
+          userAnalyses: userAnalysesBefore.count,
+          userId: data.userId,
+          analysisId: data.id
+        });
+      }
     } catch (error) {
       console.warn('⚠️ [saveAnalysis] 저장 전 상태 확인 실패:', error);
     }
   }
 
-  let result: string | { id: string; verified: boolean; savedUserId: string };
+  let result: string;
   let transactionVerified = false;
   let savedUserIdInTransaction = '';
   
   try {
-    result = dbHelpers.transaction(() => {
-      // 사용자 존재 확인 (트랜잭션 내부에서는 직접 쿼리 사용)
-      const userExistsStmt = db.prepare('SELECT id, email FROM users WHERE id = ?');
-      const userExistsRow = userExistsStmt.get(data.userId) as { id: string; email: string } | undefined;
+    result = await transaction(async (client) => {
+      // 사용자 존재 확인
+      let userExistsRow: { id: string; email: string } | null = null;
+      
+      if (isPostgreSQL()) {
+        const userResult = await query('SELECT id, email FROM users WHERE id = $1', [data.userId]);
+        userExistsRow = userResult.rows[0] as { id: string; email: string } | null;
+      } else {
+        const userExistsStmt = db.prepare('SELECT id, email FROM users WHERE id = ?');
+        userExistsRow = userExistsStmt.get(data.userId) as { id: string; email: string } | undefined || null;
+      }
       
       if (!userExistsRow) {
         console.error('❌ [saveAnalysis] 사용자가 존재하지 않음:', {
@@ -275,9 +293,14 @@ export async function saveAnalysis(data: {
         
         // 디버깅: 모든 사용자 확인
         try {
-          const allUsersStmt = db.prepare('SELECT id, email FROM users LIMIT 10');
-          const allUsers = allUsersStmt.all() as Array<{ id: string; email: string }>;
-          console.warn('🔍 [saveAnalysis] DB에 존재하는 사용자 목록:', allUsers);
+          if (isPostgreSQL()) {
+            const allUsersResult = await query('SELECT id, email FROM users LIMIT 10');
+            console.warn('🔍 [saveAnalysis] DB에 존재하는 사용자 목록:', allUsersResult.rows);
+          } else {
+            const allUsersStmt = db.prepare('SELECT id, email FROM users LIMIT 10');
+            const allUsers = allUsersStmt.all() as Array<{ id: string; email: string }>;
+            console.warn('🔍 [saveAnalysis] DB에 존재하는 사용자 목록:', allUsers);
+          }
         } catch (debugError) {
           console.error('❌ [saveAnalysis] 디버깅 쿼리 오류:', debugError);
         }
@@ -291,30 +314,57 @@ export async function saveAnalysis(data: {
         analysisId: data.id
       });
 
-      const stmt = db.prepare(`
-        INSERT INTO analyses (
-          id, user_id, url, aeo_score, geo_score, seo_score, 
-          overall_score, insights, chatgpt_score, perplexity_score, 
-          gemini_score, claude_score
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `);
-
       // INSERT 실행
-      const insertResult = stmt.run(
-        data.id,
-        data.userId,
-        data.url,
-        data.aeoScore,
-        data.geoScore,
-        data.seoScore,
-        data.overallScore,
-        JSON.stringify(data.insights),
-        data.aioScores?.chatgpt || null,
-        data.aioScores?.perplexity || null,
-        data.aioScores?.gemini || null,
-        data.aioScores?.claude || null
-      );
+      let insertResult: { changes: number; lastInsertRowid?: number } | null = null;
+      
+      if (isPostgreSQL()) {
+        const insertQuery = `
+          INSERT INTO analyses (
+            id, user_id, url, aeo_score, geo_score, seo_score, 
+            overall_score, insights, chatgpt_score, perplexity_score, 
+            gemini_score, claude_score
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        `;
+        const insertQueryResult = await query(insertQuery, [
+          data.id,
+          data.userId,
+          data.url,
+          data.aeoScore,
+          data.geoScore,
+          data.seoScore,
+          data.overallScore,
+          JSON.stringify(data.insights),
+          data.aioScores?.chatgpt || null,
+          data.aioScores?.perplexity || null,
+          data.aioScores?.gemini || null,
+          data.aioScores?.claude || null
+        ]);
+        insertResult = { changes: insertQueryResult.rowCount || 0 };
+      } else {
+        const stmt = db.prepare(`
+          INSERT INTO analyses (
+            id, user_id, url, aeo_score, geo_score, seo_score, 
+            overall_score, insights, chatgpt_score, perplexity_score, 
+            gemini_score, claude_score
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `);
+        insertResult = stmt.run(
+          data.id,
+          data.userId,
+          data.url,
+          data.aeoScore,
+          data.geoScore,
+          data.seoScore,
+          data.overallScore,
+          JSON.stringify(data.insights),
+          data.aioScores?.chatgpt || null,
+          data.aioScores?.perplexity || null,
+          data.aioScores?.gemini || null,
+          data.aioScores?.claude || null
+        ) as { changes: number; lastInsertRowid?: number };
+      }
 
       // INSERT 결과 확인
       if (!insertResult || insertResult.changes === 0) {
@@ -333,8 +383,15 @@ export async function saveAnalysis(data: {
       });
 
       // 저장 후 즉시 확인 (트랜잭션 내부에서)
-      const verifyStmt = db.prepare('SELECT id, user_id, url FROM analyses WHERE id = ?');
-      const saved = verifyStmt.get(data.id) as { id: string; user_id: string; url: string } | undefined;
+      let saved: { id: string; user_id: string; url: string } | null = null;
+      
+      if (isPostgreSQL()) {
+        const verifyResult = await query('SELECT id, user_id, url FROM analyses WHERE id = $1', [data.id]);
+        saved = verifyResult.rows[0] as { id: string; user_id: string; url: string } | null;
+      } else {
+        const verifyStmt = db.prepare('SELECT id, user_id, url FROM analyses WHERE id = ?');
+        saved = verifyStmt.get(data.id) as { id: string; user_id: string; url: string } | undefined || null;
+      }
       
       if (!saved) {
         console.error('❌ [saveAnalysis] 저장 후 확인 실패 (트랜잭션 내부):', {
@@ -357,15 +414,27 @@ export async function saveAnalysis(data: {
       // 저장 후 즉시 DB 상태 확인 (디버깅용)
       if (process.env.NODE_ENV === 'development' || process.env.DEBUG_DB || process.env.VERCEL) {
         try {
-          const totalAnalysesAfter = db.prepare('SELECT COUNT(*) as count FROM analyses').get() as { count: number };
-          const userAnalysesAfter = db.prepare('SELECT COUNT(*) as count FROM analyses WHERE user_id = ?').get(data.userId) as { count: number };
-          console.log('📊 [saveAnalysis] 저장 후 DB 상태 (트랜잭션 내부):', {
-            totalAnalyses: totalAnalysesAfter.count,
-            userAnalyses: userAnalysesAfter.count,
-            userId: data.userId,
-            analysisId: data.id,
-            savedUserId: saved.user_id
-          });
+          if (isPostgreSQL()) {
+            const totalResult = await query('SELECT COUNT(*) as count FROM analyses');
+            const userResult = await query('SELECT COUNT(*) as count FROM analyses WHERE user_id = $1', [data.userId]);
+            console.log('📊 [saveAnalysis] 저장 후 DB 상태 (트랜잭션 내부):', {
+              totalAnalyses: parseInt(totalResult.rows[0]?.count as string, 10) || 0,
+              userAnalyses: parseInt(userResult.rows[0]?.count as string, 10) || 0,
+              userId: data.userId,
+              analysisId: data.id,
+              savedUserId: saved.user_id
+            });
+          } else {
+            const totalAnalysesAfter = db.prepare('SELECT COUNT(*) as count FROM analyses').get() as { count: number };
+            const userAnalysesAfter = db.prepare('SELECT COUNT(*) as count FROM analyses WHERE user_id = ?').get(data.userId) as { count: number };
+            console.log('📊 [saveAnalysis] 저장 후 DB 상태 (트랜잭션 내부):', {
+              totalAnalyses: totalAnalysesAfter.count,
+              userAnalyses: userAnalysesAfter.count,
+              userId: data.userId,
+              analysisId: data.id,
+              savedUserId: saved.user_id
+            });
+          }
         } catch (error) {
           console.warn('⚠️ [saveAnalysis] 저장 후 상태 확인 실패:', error);
         }
@@ -379,18 +448,10 @@ export async function saveAnalysis(data: {
       });
 
       // 트랜잭션 내부에서 저장 확인이 성공했으므로, 저장된 ID와 함께 성공 플래그 반환
-      // Vercel 환경에서는 트랜잭션 외부 확인이 실패할 수 있지만, 내부 확인이 성공하면 저장은 완료된 것으로 간주
       transactionVerified = true;
       savedUserIdInTransaction = saved.user_id;
-      return { id: data.id, verified: true, savedUserId: saved.user_id };
+      return data.id;
     });
-    
-    // 트랜잭션 결과 처리
-    if (typeof result === 'object' && result.verified) {
-      transactionVerified = true;
-      savedUserIdInTransaction = result.savedUserId;
-      result = result.id; // ID만 추출
-    }
   } catch (error: any) {
     console.error('❌ [saveAnalysis] 트랜잭션 오류:', {
       error: error.message,
@@ -418,7 +479,8 @@ export async function saveAnalysis(data: {
     }
     
     // 테이블이 없는 경우
-    if (error?.code === 'SQLITE_ERROR' && error.message.includes('no such table')) {
+    if ((error?.code === 'SQLITE_ERROR' && error.message.includes('no such table')) || 
+        (error?.code === '42P01')) {
       console.error('❌ [saveAnalysis] 테이블이 존재하지 않음:', {
         error: error.message,
         userId: data.userId,
@@ -433,51 +495,64 @@ export async function saveAnalysis(data: {
   // 저장 후 최종 확인 (트랜잭션 외부에서)
   // 트랜잭션 내부에서 확인이 성공했으면, 외부 확인 실패해도 저장은 완료된 것으로 간주
   if (transactionVerified) {
-    console.log('✅ [saveAnalysis] 트랜잭션 내부 확인 성공, 외부 확인 스킵 (Vercel 환경 대응):', {
+    console.log('✅ [saveAnalysis] 트랜잭션 내부 확인 성공, 외부 확인 스킵:', {
       analysisId: result,
       userId: data.userId,
       savedUserId: savedUserIdInTransaction
     });
   } else {
     try {
-      const finalCheck = db.prepare('SELECT id, user_id, url FROM analyses WHERE id = ?').get(result) as { id: string; user_id: string; url: string } | undefined;
-      if (!finalCheck) {
-        console.error('❌ [saveAnalysis] 트랜잭션 후 최종 확인 실패:', {
-          analysisId: result,
-          userId: data.userId
-        });
+      if (isPostgreSQL()) {
+        const finalCheckResult = await query('SELECT id, user_id, url FROM analyses WHERE id = $1', [result]);
+        const finalCheck = finalCheckResult.rows[0] as { id: string; user_id: string; url: string } | undefined;
+        if (!finalCheck) {
+          console.error('❌ [saveAnalysis] 트랜잭션 후 최종 확인 실패:', {
+            analysisId: result,
+            userId: data.userId
+          });
+        } else {
+          console.log('✅ [saveAnalysis] 트랜잭션 후 최종 확인 성공:', {
+            analysisId: result,
+            userId: data.userId,
+            savedUserId: finalCheck.user_id,
+            url: finalCheck.url
+          });
+        }
       } else {
-        console.log('✅ [saveAnalysis] 트랜잭션 후 최종 확인 성공:', {
-          analysisId: result,
-          userId: data.userId,
-          savedUserId: finalCheck.user_id,
-          url: finalCheck.url
-        });
+        const finalCheck = db.prepare('SELECT id, user_id, url FROM analyses WHERE id = ?').get(result) as { id: string; user_id: string; url: string } | undefined;
+        if (!finalCheck) {
+          console.error('❌ [saveAnalysis] 트랜잭션 후 최종 확인 실패:', {
+            analysisId: result,
+            userId: data.userId
+          });
+        } else {
+          console.log('✅ [saveAnalysis] 트랜잭션 후 최종 확인 성공:', {
+            analysisId: result,
+            userId: data.userId,
+            savedUserId: finalCheck.user_id,
+            url: finalCheck.url
+          });
+        }
       }
     } catch (error) {
       console.warn('⚠️ [saveAnalysis] 최종 확인 오류:', error);
     }
   }
 
-  // Vercel 환경에서는 DELETE 모드를 사용하므로 체크포인트 불필요
-  // 하지만 서버리스 환경에서 동기화를 보장하기 위해 강제 동기화 실행
-  try {
-    if (process.env.VERCEL) {
-      // Vercel 환경에서는 DELETE 모드이지만, 동기화를 보장하기 위해 명시적으로 동기화 실행
-      db.pragma('synchronous = FULL');
-      // 트랜잭션이 완료된 후 즉시 확인 가능하도록 대기
-      // 실제로는 DELETE 모드에서는 자동으로 동기화되지만, 명시적으로 확인
-    } else {
-      // 로컬 환경에서 WAL 모드인 경우에만 체크포인트 실행
-      const journalMode = db.prepare('PRAGMA journal_mode').get() as { journal_mode: string };
-      if (journalMode.journal_mode === 'wal') {
-        // WAL 체크포인트 실행 (WAL 파일을 메인 DB에 병합)
-        db.pragma('wal_checkpoint(TRUNCATE)');
+  // SQLite 전용: 동기화 (PostgreSQL은 불필요)
+  if (isSQLite()) {
+    try {
+      if (process.env.VERCEL) {
+        db.pragma('synchronous = FULL');
+      } else {
+        const journalMode = db.prepare('PRAGMA journal_mode').get() as { journal_mode: string };
+        if (journalMode.journal_mode === 'wal') {
+          db.pragma('wal_checkpoint(TRUNCATE)');
+        }
       }
+    } catch (error) {
+      console.warn('⚠️ [saveAnalysis] 동기화 경고:', error);
     }
-  } catch (error) {
-    // 체크포인트 실패는 무시 (이미 커밋되었을 수 있음)
-    console.warn('⚠️ [saveAnalysis] 동기화 경고:', error);
   }
 
   // Vercel 환경에서만 Blob Storage에 업로드 (동기화하여 저장 보장)
@@ -1199,8 +1274,9 @@ export async function getUserByEmail(email: string) {
 /**
  * 사용자 생성 (트랜잭션 사용)
  * 이미 존재하는 경우 무시하고 기존 사용자 ID 반환
+ * PostgreSQL 및 SQLite 모두 지원
  */
-export function createUser(data: { 
+export async function createUser(data: { 
   id: string; 
   email: string; 
   blogUrl?: string | null;
@@ -1208,14 +1284,15 @@ export function createUser(data: {
   image?: string;
   provider?: string;
 }) {
-  return dbHelpers.transaction(() => {
+  return await transaction(async (client) => {
     // 이메일 정규화 (소문자, 트림) - 일관된 사용자 식별을 위해 중요
     const normalizedEmail = data.email.toLowerCase().trim();
     
-    // 필수 컬럼 존재 여부 확인 및 추가 (Vercel 환경 대응)
-    try {
-      const tableInfo = db.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
-      const columnNames = tableInfo.map(col => col.name);
+    // 필수 컬럼 존재 여부 확인 및 추가 (SQLite 전용, PostgreSQL은 스키마가 이미 있음)
+    if (isSQLite()) {
+      try {
+        const tableInfo = db.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
+        const columnNames = tableInfo.map(col => col.name);
       
       // provider 컬럼 확인 및 추가
       if (!columnNames.includes('provider')) {
@@ -1302,27 +1379,50 @@ export function createUser(data: {
           }
         }
       }
-    } catch (error) {
-      console.warn('⚠️ [createUser] 테이블 정보 확인 실패:', error);
+      } catch (error) {
+        console.warn('⚠️ [createUser] 테이블 정보 확인 실패:', error);
+      }
     }
     
     // Provider별 사용자 ID로 존재 여부 확인 (provider별 계정 독립성)
-    // 트랜잭션 내부에서는 직접 쿼리 사용 (비동기 함수 호출 불가)
-    const existingUserStmt = db.prepare('SELECT id, email, blog_url, name, image, provider, role, is_active, last_login_at, created_at, updated_at FROM users WHERE id = ?');
-    const existingUserRow = existingUserStmt.get(data.id) as any;
-    const existingUser = existingUserRow ? {
-      id: existingUserRow.id,
-      email: existingUserRow.email,
-      blogUrl: existingUserRow.blog_url,
-      name: existingUserRow.name,
-      image: existingUserRow.image,
-      provider: existingUserRow.provider,
-      role: existingUserRow.role,
-      isActive: existingUserRow.is_active,
-      lastLoginAt: existingUserRow.last_login_at,
-      createdAt: existingUserRow.created_at,
-      updatedAt: existingUserRow.updated_at || existingUserRow.created_at,
-    } : null;
+    let existingUser: { id: string; email: string; blogUrl?: string; name?: string; image?: string; provider?: string; role?: string; isActive?: boolean; lastLoginAt?: string; createdAt: string; updatedAt: string } | null = null;
+    
+    if (isPostgreSQL()) {
+      const existingResult = await query('SELECT id, email, blog_url, name, image, provider, role, is_active, last_login_at, created_at, updated_at FROM users WHERE id = $1', [data.id]);
+      if (existingResult.rows.length > 0) {
+        const row = existingResult.rows[0];
+        existingUser = {
+          id: row.id,
+          email: row.email,
+          blogUrl: row.blog_url,
+          name: row.name,
+          image: row.image,
+          provider: row.provider,
+          role: row.role,
+          isActive: row.is_active,
+          lastLoginAt: row.last_login_at,
+          createdAt: row.created_at,
+          updatedAt: row.updated_at || row.created_at,
+        };
+      }
+    } else {
+      const existingUserStmt = db.prepare('SELECT id, email, blog_url, name, image, provider, role, is_active, last_login_at, created_at, updated_at FROM users WHERE id = ?');
+      const existingUserRow = existingUserStmt.get(data.id) as any;
+      existingUser = existingUserRow ? {
+        id: existingUserRow.id,
+        email: existingUserRow.email,
+        blogUrl: existingUserRow.blog_url,
+        name: existingUserRow.name,
+        image: existingUserRow.image,
+        provider: existingUserRow.provider,
+        role: existingUserRow.role,
+        isActive: existingUserRow.is_active,
+        lastLoginAt: existingUserRow.last_login_at,
+        createdAt: existingUserRow.created_at,
+        updatedAt: existingUserRow.updated_at || existingUserRow.created_at,
+      } : null;
+    }
+    
     if (existingUser) {
       console.log('✅ [createUser] Provider별 사용자 이미 존재:', { 
         id: data.id, 
@@ -1332,15 +1432,20 @@ export function createUser(data: {
       
       // last_login_at 컬럼 존재 여부에 따라 다른 업데이트 쿼리 사용
       try {
-        const tableInfo = db.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
-        const hasLastLoginAt = tableInfo.some(col => col.name === 'last_login_at');
-        
-        if (hasLastLoginAt) {
-          const updateStmt = db.prepare('UPDATE users SET last_login_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
-          updateStmt.run(data.id);
+        if (isPostgreSQL()) {
+          // PostgreSQL은 last_login_at 컬럼이 항상 있음
+          await query('UPDATE users SET last_login_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = $1', [data.id]);
         } else {
-          const updateStmt = db.prepare('UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = ?');
-          updateStmt.run(data.id);
+          const tableInfo = db.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
+          const hasLastLoginAt = tableInfo.some(col => col.name === 'last_login_at');
+          
+          if (hasLastLoginAt) {
+            const updateStmt = db.prepare('UPDATE users SET last_login_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
+            updateStmt.run(data.id);
+          } else {
+            const updateStmt = db.prepare('UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = ?');
+            updateStmt.run(data.id);
+          }
         }
       } catch (updateError) {
         console.warn('⚠️ [createUser] last_login_at 업데이트 실패:', updateError);
