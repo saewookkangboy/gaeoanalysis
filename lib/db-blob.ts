@@ -41,10 +41,12 @@ export async function uploadDbToBlob(dbPath: string): Promise<void> {
     const dbFile = readFileSync(dbPath);
     
     // Blob Storage에 업로드 (덮어쓰기 허용)
+    // 토큰이 없으면 @vercel/blob이 오류를 던지므로 try-catch로 처리
     const { url } = await put(BLOB_DB_KEY, dbFile, {
       access: 'public',
       addRandomSuffix: false,
       allowOverwrite: true,
+      token: process.env.BLOB_READ_WRITE_TOKEN || process.env.VERCEL_BLOB_READ_WRITE_TOKEN,
     });
 
     console.log('✅ [DB Blob] DB 파일 업로드 완료:', {
@@ -61,6 +63,7 @@ export async function uploadDbToBlob(dbPath: string): Promise<void> {
         access: 'public',
         addRandomSuffix: false,
         allowOverwrite: true,
+        token: process.env.BLOB_READ_WRITE_TOKEN || process.env.VERCEL_BLOB_READ_WRITE_TOKEN,
       });
       console.log('✅ [DB Blob] WAL 파일 업로드 완료:', {
         size: walFile.length,
@@ -68,12 +71,17 @@ export async function uploadDbToBlob(dbPath: string): Promise<void> {
       });
     }
   } catch (error: any) {
-    // Blob Storage 토큰 오류는 경고로 처리 (Railway 마이그레이션 중일 수 있음)
-    if (error.message && error.message.includes('No token found')) {
-      console.warn('⚠️ [DB Blob] Blob Storage 토큰이 없습니다. Railway로 마이그레이션 중이거나 토큰이 설정되지 않았습니다.');
-    } else {
-      console.error('❌ [DB Blob] DB 파일 업로드 실패:', error);
+    // Blob Storage 토큰 오류는 조용히 무시 (Railway 마이그레이션 중이거나 토큰이 없을 수 있음)
+    if (error.message && (
+      error.message.includes('No token found') ||
+      error.message.includes('BLOB_READ_WRITE_TOKEN') ||
+      error.message.includes('token')
+    )) {
+      // 토큰 오류는 조용히 무시 (경고 메시지도 출력하지 않음)
+      return;
     }
+    // 다른 오류는 경고로만 출력 (오류로 처리하지 않음)
+    console.warn('⚠️ [DB Blob] DB 파일 업로드 실패 (무시됨):', error.message || error);
     // 업로드 실패해도 계속 진행 (로컬 DB 사용)
   }
 }
@@ -101,7 +109,11 @@ export async function downloadDbFromBlob(dbPath: string): Promise<boolean> {
 
   try {
     // Blob Storage에서 파일 목록 조회 (정확한 파일명 찾기)
-    const blobs = await list({ prefix: BLOB_DB_KEY });
+    // 토큰이 없으면 @vercel/blob이 오류를 던지므로 try-catch로 처리
+    const blobs = await list({ 
+      prefix: BLOB_DB_KEY,
+      token: process.env.BLOB_READ_WRITE_TOKEN || process.env.VERCEL_BLOB_READ_WRITE_TOKEN,
+    });
     
     if (!blobs.blobs || blobs.blobs.length === 0) {
       console.log('ℹ️ [DB Blob] Blob Storage에 DB 파일이 없음 (새 DB 생성)');
@@ -134,7 +146,10 @@ export async function downloadDbFromBlob(dbPath: string): Promise<boolean> {
 
     // WAL 파일도 확인 (있는 경우)
     try {
-      const walBlobs = await list({ prefix: BLOB_DB_WAL_KEY });
+      const walBlobs = await list({ 
+        prefix: BLOB_DB_WAL_KEY,
+        token: process.env.BLOB_READ_WRITE_TOKEN || process.env.VERCEL_BLOB_READ_WRITE_TOKEN,
+      });
       if (walBlobs.blobs && walBlobs.blobs.length > 0) {
         const exactWalMatch = walBlobs.blobs.find(b => b.pathname === BLOB_DB_WAL_KEY);
         const walBlob = exactWalMatch || walBlobs.blobs[0];
@@ -160,12 +175,17 @@ export async function downloadDbFromBlob(dbPath: string): Promise<boolean> {
       console.log('ℹ️ [DB Blob] Blob Storage에 DB 파일이 없음 (새 DB 생성)');
       return false;
     }
-    // Blob Storage 토큰 오류는 경고로 처리 (Railway 마이그레이션 중일 수 있음)
-    if (error.message && error.message.includes('No token found')) {
-      console.warn('⚠️ [DB Blob] Blob Storage 토큰이 없습니다. Railway로 마이그레이션 중이거나 토큰이 설정되지 않았습니다.');
+    // Blob Storage 토큰 오류는 조용히 무시 (Railway 마이그레이션 중이거나 토큰이 없을 수 있음)
+    if (error.message && (
+      error.message.includes('No token found') ||
+      error.message.includes('BLOB_READ_WRITE_TOKEN') ||
+      error.message.includes('token')
+    )) {
+      // 토큰 오류는 조용히 무시 (경고 메시지도 출력하지 않음)
       return false;
     }
-    console.error('❌ [DB Blob] DB 파일 다운로드 실패:', error);
+    // 다른 오류는 경고로만 출력
+    console.warn('⚠️ [DB Blob] DB 파일 다운로드 실패 (무시됨):', error.message || error);
     return false;
   }
 }
@@ -190,15 +210,23 @@ export async function checkDbExistsInBlob(): Promise<boolean> {
   }
 
   try {
-    const blobs = await list({ prefix: BLOB_DB_KEY });
+    const blobs = await list({ 
+      prefix: BLOB_DB_KEY,
+      token: process.env.BLOB_READ_WRITE_TOKEN || process.env.VERCEL_BLOB_READ_WRITE_TOKEN,
+    });
     return blobs.blobs && blobs.blobs.length > 0;
   } catch (error: any) {
-    // Blob Storage 토큰 오류는 경고로 처리
-    if (error.message && error.message.includes('No token found')) {
-      console.warn('⚠️ [DB Blob] Blob Storage 토큰이 없습니다.');
-    } else {
-      console.error('❌ [DB Blob] Blob Storage 확인 실패:', error);
+    // Blob Storage 토큰 오류는 조용히 무시
+    if (error.message && (
+      error.message.includes('No token found') ||
+      error.message.includes('BLOB_READ_WRITE_TOKEN') ||
+      error.message.includes('token')
+    )) {
+      // 토큰 오류는 조용히 무시
+      return false;
     }
+    // 다른 오류는 경고로만 출력
+    console.warn('⚠️ [DB Blob] Blob Storage 확인 실패 (무시됨):', error.message || error);
     return false;
   }
 }
