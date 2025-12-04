@@ -405,3 +405,135 @@ export async function getAuthLogsSummary(
   }
 }
 
+/**
+ * 사용자 정보 타입
+ */
+export interface UserInfo {
+  id: string;
+  email: string;
+  name: string | null;
+  provider: 'google' | 'github' | null;
+  role: 'user' | 'admin';
+  isActive: boolean;
+  lastLoginAt: string | null;
+  createdAt: string;
+  totalAnalyses: number;
+  totalChats: number;
+  totalLogins: number;
+}
+
+/**
+ * 사용자 목록 조회 필터 파라미터
+ */
+export interface UserFilterParams extends PaginationParams {
+  provider?: 'google' | 'github' | 'all';
+  role?: 'user' | 'admin' | 'all';
+  search?: string; // 이메일 검색
+}
+
+/**
+ * 사용자 목록 조회
+ */
+export async function getUsers(
+  params: UserFilterParams = {}
+): Promise<{
+  users: UserInfo[];
+  pagination: PaginationResult;
+}> {
+  try {
+    const { provider = 'all', role = 'all', search } = params;
+
+    const conditions: string[] = [];
+    const values: any[] = [];
+    let paramIndex = 1;
+
+    if (provider !== 'all') {
+      conditions.push(`u.provider = $${paramIndex++}`);
+      values.push(provider);
+    }
+
+    if (role !== 'all') {
+      conditions.push(`u.role = $${paramIndex++}`);
+      values.push(role);
+    }
+
+    if (search) {
+      const searchNormalized = search.toLowerCase().trim();
+      conditions.push(`LOWER(TRIM(u.email)) LIKE $${paramIndex++}`);
+      values.push(`%${searchNormalized}%`);
+    }
+
+    const whereClause =
+      conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    const countQuery = `
+      SELECT COUNT(DISTINCT u.id) as total
+      FROM users u
+      ${whereClause}
+    `;
+    const countResult = await query(countQuery, values);
+    const total = parseInt(countResult.rows[0]?.total as string, 10) || 0;
+
+    const pagination = calculatePagination(params, total);
+
+    const usersQuery = `
+      SELECT 
+        u.id,
+        u.email,
+        u.name,
+        u.provider,
+        u.role,
+        u.is_active,
+        u.last_login_at,
+        u.created_at,
+        COUNT(DISTINCT a.id) as total_analyses,
+        COUNT(DISTINCT c.id) as total_chats,
+        COUNT(DISTINCT al.id) as total_logins
+      FROM users u
+      LEFT JOIN analyses a ON u.id = a.user_id
+      LEFT JOIN chat_conversations c ON u.id = c.user_id
+      LEFT JOIN auth_logs al ON u.id = al.user_id AND al.action = 'login' AND al.success = 1
+      ${whereClause}
+      GROUP BY u.id, u.email, u.name, u.provider, u.role, u.is_active, u.last_login_at, u.created_at
+      ORDER BY u.created_at DESC
+      LIMIT $${paramIndex++} OFFSET $${paramIndex++}
+    `;
+
+    const usersResult = await query(usersQuery, [
+      ...values,
+      pagination.limit,
+      pagination.offset,
+    ]);
+
+    const users: UserInfo[] = usersResult.rows.map((row: any) => ({
+      id: row.id,
+      email: row.email,
+      name: row.name,
+      provider: row.provider,
+      role: row.role || 'user',
+      isActive: row.is_active === 1 || row.is_active === true,
+      lastLoginAt: row.last_login_at,
+      createdAt: row.created_at,
+      totalAnalyses: parseInt(row.total_analyses as string, 10) || 0,
+      totalChats: parseInt(row.total_chats as string, 10) || 0,
+      totalLogins: parseInt(row.total_logins as string, 10) || 0,
+    }));
+
+    return {
+      users,
+      pagination,
+    };
+  } catch (error: any) {
+    console.error('❌ [getUsers] 사용자 목록 조회 오류:', error);
+    return {
+      users: [],
+      pagination: {
+        page: 1,
+        limit: 50,
+        offset: 0,
+        total: 0,
+        totalPages: 0,
+      },
+    };
+  }
+}

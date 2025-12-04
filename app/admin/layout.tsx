@@ -2,7 +2,19 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { checkAdminAccess } from '@/lib/admin-auth';
+
+/**
+ * 관리자 권한 확인 결과 타입
+ */
+interface AdminCheckResult {
+  isAdmin: boolean;
+  user: {
+    id: string;
+    email: string;
+    role: string;
+  } | null;
+  error?: string;
+}
 
 /**
  * 관리자 레이아웃
@@ -24,7 +36,9 @@ export default function AdminLayout({
   useEffect(() => {
     async function verifyAdmin() {
       try {
-        const checkResult = await checkAdminAccess();
+        // API 라우트를 통해 권한 확인 (서버 전용 코드와 분리)
+        const response = await fetch('/api/admin/check');
+        const checkResult: AdminCheckResult = await response.json();
         
         if (checkResult.isAdmin) {
           setIsAuthorized(true);

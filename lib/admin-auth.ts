@@ -116,9 +116,12 @@ export async function requireAdmin(
 
 /**
  * 페이지 레벨 권한 확인 헬퍼
- * 클라이언트 컴포넌트에서 사용할 수 있는 권한 확인 함수
+ * 
+ * ⚠️ 주의: 이 함수는 서버 전용입니다.
+ * 클라이언트 컴포넌트에서는 `/api/admin/check` API 라우트를 사용하세요.
  * 
  * @returns 관리자 권한 확인 결과
+ * @deprecated 클라이언트 컴포넌트에서는 사용하지 마세요. `/api/admin/check` API를 사용하세요.
  */
 export async function checkAdminAccess(): Promise<AdminCheckResult> {
   return await isAdmin();
