@@ -38,52 +38,56 @@ export default function AnnouncementBanner() {
 
   return (
     <div className="relative w-full overflow-hidden bg-gradient-to-r from-sky-500 to-indigo-500 dark:from-sky-600 dark:to-indigo-600 py-2.5">
-      <div className="marquee-wrapper">
-        <div className="marquee-track">
-          <div className="marquee-item">
-            <span className="text-sm sm:text-base font-medium text-white whitespace-nowrap px-4">
-              {announcement.message}
-            </span>
-          </div>
-          <div className="marquee-item" aria-hidden="true">
-            <span className="text-sm sm:text-base font-medium text-white whitespace-nowrap px-4">
-              {announcement.message}
-            </span>
-          </div>
+      <div className="announcement-container">
+        <div className="announcement-text">
+          <span className="text-sm sm:text-base font-medium text-white whitespace-nowrap px-4">
+            {announcement.message}
+          </span>
         </div>
       </div>
       <style jsx>{`
-        .marquee-wrapper {
+        .announcement-container {
           width: 100%;
+          height: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
           overflow: hidden;
           position: relative;
         }
         
-        .marquee-track {
-          display: flex;
-          width: fit-content;
-          animation: marquee 20s linear infinite;
-          will-change: transform;
-        }
-        
-        .marquee-item {
+        .announcement-text {
           display: inline-flex;
-          flex-shrink: 0;
-          padding-right: 8rem;
+          align-items: center;
+          justify-content: center;
+          animation: slideUp 3s ease-in-out infinite;
+          will-change: transform, opacity;
         }
         
-        @keyframes marquee {
+        @keyframes slideUp {
           0% {
-            transform: translateX(0);
+            transform: translateY(100%);
+            opacity: 0;
+          }
+          15% {
+            transform: translateY(0);
+            opacity: 1;
+          }
+          85% {
+            transform: translateY(0);
+            opacity: 1;
           }
           100% {
-            transform: translateX(-50%);
+            transform: translateY(-100%);
+            opacity: 0;
           }
         }
         
         @media (prefers-reduced-motion: reduce) {
-          .marquee-track {
+          .announcement-text {
             animation: none;
+            transform: translateY(0);
+            opacity: 1;
           }
         }
       `}</style>
