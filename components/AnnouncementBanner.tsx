@@ -38,40 +38,42 @@ export default function AnnouncementBanner() {
 
   return (
     <div className="relative w-full overflow-hidden bg-gradient-to-r from-sky-500 to-indigo-500 dark:from-sky-600 dark:to-indigo-600 py-2.5">
-      <div className="marquee-container">
-        <div className="marquee-content">
-          <span className="text-sm sm:text-base font-medium text-white whitespace-nowrap px-4">
-            {announcement.message}
-          </span>
-        </div>
-        {/* 무한 스크롤을 위한 복제 */}
-        <div className="marquee-content" aria-hidden="true">
-          <span className="text-sm sm:text-base font-medium text-white whitespace-nowrap px-4">
-            {announcement.message}
-          </span>
+      <div className="marquee-wrapper">
+        <div className="marquee-track">
+          <div className="marquee-item">
+            <span className="text-sm sm:text-base font-medium text-white whitespace-nowrap px-4">
+              {announcement.message}
+            </span>
+          </div>
+          <div className="marquee-item" aria-hidden="true">
+            <span className="text-sm sm:text-base font-medium text-white whitespace-nowrap px-4">
+              {announcement.message}
+            </span>
+          </div>
         </div>
       </div>
       <style jsx>{`
-        .marquee-container {
-          display: flex;
+        .marquee-wrapper {
           width: 100%;
           overflow: hidden;
           position: relative;
         }
         
-        .marquee-content {
+        .marquee-track {
           display: flex;
-          animation: marquee 40s linear infinite;
-          white-space: nowrap;
+          width: max-content;
+          animation: marquee 25s linear infinite;
+          will-change: transform;
+        }
+        
+        .marquee-item {
+          display: inline-flex;
           flex-shrink: 0;
+          min-width: 100%;
         }
         
-        .marquee-content:first-child {
-          animation-delay: 0s;
-        }
-        
-        .marquee-content:last-child {
-          animation-delay: 20s;
+        .marquee-item:first-child {
+          padding-right: 4rem;
         }
         
         @keyframes marquee {
@@ -79,12 +81,12 @@ export default function AnnouncementBanner() {
             transform: translateX(0);
           }
           100% {
-            transform: translateX(-100%);
+            transform: translateX(-50%);
           }
         }
         
         @media (prefers-reduced-motion: reduce) {
-          .marquee-content {
+          .marquee-track {
             animation: none;
           }
         }
