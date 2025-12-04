@@ -193,11 +193,58 @@ export async function GET(request: NextRequest) {
         const userCountStmt = db.prepare('SELECT COUNT(*) as count FROM analyses WHERE user_id = ?');
         const userCount = (userCountStmt.get(actualUserId) as { count: number })?.count || 0;
         
+        // 같은 이메일의 다른 사용자 ID로 저장된 분석 확인
+        let allUserCounts: Array<{ user_id: string; count: number }> = [];
+        if (normalizedEmail) {
+          const allUsersStmt = db.prepare('SELECT id FROM users WHERE LOWER(TRIM(email)) = ?');
+          const allUsers = allUsersStmt.all(normalizedEmail) as Array<{ id: string }>;
+          
+          if (allUsers.length > 0) {
+            const userIds = allUsers.map(u => u.id);
+            const placeholders = userIds.map(() => '?').join(',');
+            const allUserCountsStmt = db.prepare(`
+              SELECT user_id, COUNT(*) as count 
+              FROM analyses 
+              WHERE user_id IN (${placeholders})
+              GROUP BY user_id
+            `);
+            allUserCounts = allUserCountsStmt.all(...userIds) as Array<{ user_id: string; count: number }>;
+          }
+        }
+        
         console.warn('🔍 [History API] 디버깅 정보:', {
           totalAnalysesInDB: totalCount,
           analysesForThisUser: userCount,
           userId: actualUserId
         });
+        
+        console.warn('🔍 [History API] 모든 사용자별 분석 이력:', {
+          requestedUserId: actualUserId,
+          requestedEmail: normalizedEmail,
+          allUserCounts: allUserCounts
+        });
+        
+        // 같은 이메일의 다른 사용자 ID로 저장된 분석이 있으면 해당 사용자 ID로도 조회 시도
+        if (allUserCounts.length > 0 && allUserCounts.some(uc => uc.user_id !== actualUserId && uc.count > 0)) {
+          const otherUserId = allUserCounts.find(uc => uc.user_id !== actualUserId && uc.count > 0)?.user_id;
+          if (otherUserId) {
+            console.log('🔄 [History API] 다른 사용자 ID로 저장된 분석 발견, 해당 ID로 조회 시도:', {
+              requestedUserId: actualUserId,
+              foundUserId: otherUserId,
+              count: allUserCounts.find(uc => uc.user_id === otherUserId)?.count || 0
+            });
+            
+            const otherAnalyses = getUserAnalyses(otherUserId, { limit: 50 });
+            if (otherAnalyses.length > 0) {
+              analyses = otherAnalyses;
+              actualUserId = otherUserId;
+              console.log('✅ [History API] 다른 사용자 ID로 분석 이력 조회 성공:', {
+                userId: otherUserId,
+                count: otherAnalyses.length
+              });
+            }
+          }
+        }
         
         // user_id가 NULL인 분석 이력 확인
         const nullUserIdStmt = db.prepare('SELECT COUNT(*) as count FROM analyses WHERE user_id IS NULL');
@@ -206,14 +253,33 @@ export async function GET(request: NextRequest) {
           console.warn('⚠️ [History API] user_id가 NULL인 분석 이력 발견:', { count: nullCount });
         }
         
+        // 같은 이메일의 다른 사용자 ID로 저장된 분석 확인
+        let emailUserCounts: Array<{ user_id: string; count: number }> = [];
+        if (normalizedEmail) {
+          const allUsersStmt = db.prepare('SELECT id FROM users WHERE LOWER(TRIM(email)) = ?');
+          const allUsers = allUsersStmt.all(normalizedEmail) as Array<{ id: string }>;
+          
+          if (allUsers.length > 0) {
+            const userIds = allUsers.map(u => u.id);
+            const placeholders = userIds.map(() => '?').join(',');
+            const emailUserCountsStmt = db.prepare(`
+              SELECT user_id, COUNT(*) as count 
+              FROM analyses 
+              WHERE user_id IN (${placeholders})
+              GROUP BY user_id
+            `);
+            emailUserCounts = emailUserCountsStmt.all(...userIds) as Array<{ user_id: string; count: number }>;
+          }
+        }
+        
         // 다른 사용자 ID로 저장된 분석 이력 확인
         const allUserStmt = db.prepare('SELECT user_id, COUNT(*) as count FROM analyses GROUP BY user_id LIMIT 10');
-        const allUserCounts = allUserStmt.all() as Array<{ user_id: string; count: number }>;
-        if (allUserCounts.length > 0) {
+        const allUserCountsFromDB = allUserStmt.all() as Array<{ user_id: string; count: number }>;
+        if (allUserCountsFromDB.length > 0) {
           console.warn('🔍 [History API] 모든 사용자별 분석 이력:', {
             requestedUserId: actualUserId,
             requestedEmail: normalizedEmail,
-            allUserCounts: allUserCounts
+            allUserCounts: allUserCountsFromDB
           });
           
           // 이메일로 등록된 다른 사용자 ID가 있는지 확인
@@ -223,8 +289,30 @@ export async function GET(request: NextRequest) {
             console.warn('🔍 [History API] 이메일로 등록된 모든 사용자:', {
               email: normalizedEmail,
               users: emailUsers,
-              analysisCounts: allUserCounts.filter(uc => emailUsers.some(u => u.id === uc.user_id))
+              analysisCounts: emailUserCounts
             });
+            
+            // 같은 이메일의 다른 사용자 ID로 저장된 분석이 있으면 해당 사용자 ID로도 조회 시도
+            if (emailUserCounts.length > 0 && emailUserCounts.some(uc => uc.user_id !== actualUserId && uc.count > 0)) {
+              const otherUserId = emailUserCounts.find(uc => uc.user_id !== actualUserId && uc.count > 0)?.user_id;
+              if (otherUserId) {
+                console.log('🔄 [History API] 다른 사용자 ID로 저장된 분석 발견, 해당 ID로 조회 시도:', {
+                  requestedUserId: actualUserId,
+                  foundUserId: otherUserId,
+                  count: emailUserCounts.find(uc => uc.user_id === otherUserId)?.count || 0
+                });
+                
+                const otherAnalyses = getUserAnalyses(otherUserId, { limit: 50 });
+                if (otherAnalyses.length > 0) {
+                  analyses = otherAnalyses;
+                  actualUserId = otherUserId;
+                  console.log('✅ [History API] 다른 사용자 ID로 분석 이력 조회 성공:', {
+                    userId: otherUserId,
+                    count: otherAnalyses.length
+                  });
+                }
+              }
+            }
           }
         }
       } catch (error) {

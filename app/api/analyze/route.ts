@@ -145,12 +145,30 @@ async function handleAnalyze(request: NextRequest) {
           
           // createUser가 반환한 실제 사용자 ID 사용
           finalUserId = createdUserId || providerBasedUserId;
-          console.log('✅ [Analyze API] Provider별 사용자 생성 완료:', {
-            providerBasedUserId: providerBasedUserId,
-            finalUserId: finalUserId,
-            email: normalizedEmail,
-            provider: provider
-          });
+          
+          // createUser가 반환한 ID로 실제 사용자 확인 (중요: DB에 실제로 존재하는 ID 확인)
+          const actualUser = getUser(finalUserId);
+          if (actualUser) {
+            finalUserId = actualUser.id; // 실제 DB에 존재하는 ID 사용
+            console.log('✅ [Analyze API] Provider별 사용자 생성 완료:', {
+              providerBasedUserId: providerBasedUserId,
+              createdUserId: createdUserId,
+              finalUserId: finalUserId,
+              email: normalizedEmail,
+              provider: provider,
+              userEmail: actualUser.email
+            });
+          } else {
+            console.error('❌ [Analyze API] createUser가 반환한 ID로 사용자를 찾을 수 없음:', {
+              providerBasedUserId: providerBasedUserId,
+              createdUserId: createdUserId,
+              finalUserId: finalUserId,
+              email: normalizedEmail,
+              provider: provider
+            });
+            // 사용자를 찾을 수 없으면 Provider 기반 ID 사용
+            finalUserId = providerBasedUserId;
+          }
         } catch (error: any) {
           console.error('❌ [Analyze API] 사용자 생성 오류:', error);
           // 사용자 생성 실패 시 Provider 기반 ID 사용
