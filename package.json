@@ -11,6 +11,7 @@
     "start": "next start -p ${PORT:-3000}",
     "lint": "eslint",
     "db:migrate": "npx tsx scripts/migrate-db.ts",
+    "db:migrate-to-postgres": "npx tsx scripts/migrate-sqlite-to-postgres.ts",
     "db:backup": "bash scripts/backup-db.sh",
     "db:restore": "bash scripts/restore-db.sh",
     "db:optimize": "npx tsx scripts/optimize-db.ts",
@@ -25,6 +26,7 @@
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
+    "@types/pg": "^8.15.6",
     "@vercel/analytics": "^1.5.0",
     "@vercel/blob": "^2.0.0",
     "better-sqlite3": "^12.5.0",
@@ -34,6 +36,7 @@
     "highlight.js": "^11.11.1",
     "next": "16.0.6",
     "next-auth": "^5.0.0-beta.30",
+    "pg": "^8.16.3",
     "react": "19.2.0",
     "react-chartjs-2": "^5.3.1",
     "react-dom": "19.2.0",
