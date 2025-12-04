@@ -10,12 +10,14 @@ const isBuildTime = process.env.NEXT_PHASE === 'phase-production-build' ||
                     process.env.NEXT_PHASE === 'phase-development-build';
 
 let pool: Pool | null = null;
+let poolEnding = false; // 연결 풀 종료 중 플래그
 
 /**
  * 연결 풀 설정 (재연결 시 사용)
  */
 export function setPool(newPool: Pool | null) {
   pool = newPool;
+  poolEnding = false; // 새 풀 설정 시 플래그 리셋
 }
 
 /**
@@ -23,6 +25,29 @@ export function setPool(newPool: Pool | null) {
  */
 export function resetPool() {
   pool = null;
+  poolEnding = false; // 풀 리셋 시 플래그 리셋
+}
+
+/**
+ * 연결 풀 안전하게 종료
+ */
+async function safeEndPool(poolToEnd: Pool): Promise<void> {
+  if (poolEnding) {
+    // 이미 종료 중이면 무시
+    return;
+  }
+  
+  poolEnding = true;
+  try {
+    await poolToEnd.end();
+  } catch (error: any) {
+    // "Called end on pool more than once" 오류는 무시
+    if (!error.message?.includes('more than once')) {
+      console.warn('⚠️ [PostgreSQL] 연결 풀 종료 중 오류:', error.message);
+    }
+  } finally {
+    poolEnding = false;
+  }
 }
 
 /**
@@ -239,18 +264,20 @@ function initializePostgresPool(): Pool {
       console.warn('⚠️ [PostgreSQL] Private URL 연결 실패, Public URL로 재시도...');
       try {
         if (pool) {
-          await pool.end();
+          await safeEndPool(pool);
         }
-        pool = null;
+        resetPool();
         
         // Public URL로 재연결
+        const isVercelEnv = !!process.env.VERCEL;
         pool = new Pool({
           connectionString: publicUrl,
-          max: isVercel ? 10 : 20,
-          idleTimeoutMillis: 30000,
-          connectionTimeoutMillis: 15000,
+          max: isVercelEnv ? 5 : 20,
+          idleTimeoutMillis: isVercelEnv ? 10000 : 30000,
+          connectionTimeoutMillis: 20000,
           ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-          allowExitOnIdle: isVercel,
+          allowExitOnIdle: isVercelEnv,
+          statement_timeout: isVercelEnv ? 20000 : undefined,
         });
         
         console.log('✅ [PostgreSQL] Public URL로 재연결 완료');
@@ -395,22 +422,32 @@ export async function query<T extends Record<string, any> = any>(
     }
     
     if (shouldRetry) {
+      // 재시도 로그는 한 번만 출력 (중복 방지)
+      const retryLogKey = `retry_${text.substring(0, 50)}_${Date.now()}`;
+      const lastRetryLog = (global as any).__lastRetryLog;
+      
       // Vercel 환경에서 타임아웃 발생 시 연결 풀 재생성만 시도 (이미 Public URL 사용 중)
       if (isVercel && isTimeout) {
-        console.warn('⚠️ [PostgreSQL] Vercel 환경에서 연결 타임아웃 발생, 연결 풀 재생성 시도...', {
-          errorMessage: error.message,
-          publicUrlHostname: publicUrl ? extractHostname(publicUrl) : null
-        });
+        if (lastRetryLog !== retryLogKey) {
+          console.warn('⚠️ [PostgreSQL] Vercel 환경에서 연결 타임아웃 발생, 연결 풀 재생성 시도...', {
+            errorMessage: error.message,
+            publicUrlHostname: publicUrl ? extractHostname(publicUrl) : null
+          });
+          (global as any).__lastRetryLog = retryLogKey;
+        }
       } else {
-        console.warn('⚠️ [PostgreSQL] Private URL 쿼리 실패, Public URL로 재시도...', {
-          environment: isVercel ? 'Vercel' : isRailway ? 'Railway' : 'Other',
-          errorCode: error.code,
-          errorMessage: error.message,
-          hostname: error.hostname,
-          publicUrlExists: hasPublicUrl,
-          publicUrlHostname: publicUrl ? extractHostname(publicUrl) : null,
-          publicUrlPreview: publicUrl ? publicUrl.replace(/:[^:@]+@/, ':****@').substring(0, 80) + '...' : 'N/A'
-        });
+        if (lastRetryLog !== retryLogKey) {
+          console.warn('⚠️ [PostgreSQL] Private URL 쿼리 실패, Public URL로 재시도...', {
+            environment: isVercel ? 'Vercel' : isRailway ? 'Railway' : 'Other',
+            errorCode: error.code,
+            errorMessage: error.message,
+            hostname: error.hostname,
+            publicUrlExists: hasPublicUrl,
+            publicUrlHostname: publicUrl ? extractHostname(publicUrl) : null,
+            publicUrlPreview: publicUrl ? publicUrl.replace(/:[^:@]+@/, ':****@').substring(0, 80) + '...' : 'N/A'
+          });
+          (global as any).__lastRetryLog = retryLogKey;
+        }
       }
       
       // Public URL의 hostname 확인
@@ -468,11 +505,10 @@ export async function query<T extends Record<string, any> = any>(
       
       try {
         // 기존 풀 종료 및 전역 풀 초기화
-        if (currentPool) {
+        if (currentPool && currentPool !== pool) {
+          // 현재 사용 중인 풀과 다른 경우에만 종료
           console.log('🔄 [PostgreSQL] 기존 연결 풀 종료 중...');
-          await currentPool.end().catch((endError) => {
-            console.warn('⚠️ [PostgreSQL] 기존 풀 종료 중 오류 (무시):', endError.message);
-          });
+          await safeEndPool(currentPool);
         }
         
         // 전역 풀 변수 초기화 (강제 재초기화)
