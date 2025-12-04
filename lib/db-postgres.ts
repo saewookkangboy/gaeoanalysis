@@ -29,8 +29,9 @@ function initializePostgresPool(): Pool {
 
   // Railway PostgreSQL 연결 정보
   // Railway 환경에서는 Private URL 우선 사용 (egress fees 방지)
-  // 로컬 환경에서는 Public URL 사용 가능
+  // Vercel 환경에서는 Private URL에 접근할 수 없으므로 Public URL만 사용
   const isRailway = !!process.env.RAILWAY_ENVIRONMENT || !!process.env.RAILWAY;
+  const isVercel = !!process.env.VERCEL;
   
   const privateUrl = process.env.DATABASE_URL; // Private URL (Railway 내부)
   const publicUrl = process.env.DATABASE_PUBLIC_URL; // Public URL
@@ -39,19 +40,29 @@ function initializePostgresPool(): Pool {
     throw new Error('DATABASE_URL 또는 DATABASE_PUBLIC_URL 환경 변수가 설정되지 않았습니다.');
   }
   
-  // Private URL 우선 시도
-  let connectionString = privateUrl;
+  // Vercel 환경에서는 Private URL을 무시하고 Public URL만 사용
+  // Railway 환경에서는 Private URL 우선 시도
+  let connectionString: string;
   let usePrivateUrl = false;
   
-  if (privateUrl && isRailway) {
-    // Private URL이 있고 Railway 환경이면 Private URL 사용 시도
+  if (isVercel) {
+    // Vercel 환경에서는 Public URL만 사용 (Private URL에 접근 불가)
+    if (!publicUrl) {
+      throw new Error('Vercel 환경에서는 DATABASE_PUBLIC_URL이 필요합니다.');
+    }
+    connectionString = publicUrl;
+    console.log('🔗 [PostgreSQL] Vercel 환경: Public URL 사용:', publicUrl.replace(/:[^:@]+@/, ':****@')); // 비밀번호 마스킹
+  } else if (privateUrl && isRailway) {
+    // Railway 환경이고 Private URL이 있으면 Private URL 사용 시도
     usePrivateUrl = true;
     connectionString = privateUrl;
-    console.log('🔗 [PostgreSQL] Private URL 사용 시도:', privateUrl.replace(/:[^:@]+@/, ':****@')); // 비밀번호 마스킹
+    console.log('🔗 [PostgreSQL] Railway 환경: Private URL 사용 시도:', privateUrl.replace(/:[^:@]+@/, ':****@')); // 비밀번호 마스킹
   } else if (publicUrl) {
-    // Private URL이 없거나 Railway 환경이 아니면 Public URL 사용
+    // 그 외 환경에서는 Public URL 사용
     connectionString = publicUrl;
     console.log('🔗 [PostgreSQL] Public URL 사용:', publicUrl.replace(/:[^:@]+@/, ':****@')); // 비밀번호 마스킹
+  } else {
+    throw new Error('사용 가능한 데이터베이스 연결 URL이 없습니다.');
   }
 
   pool = new Pool({
