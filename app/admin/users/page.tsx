@@ -236,7 +236,7 @@ export default function UsersPage() {
                       <tr key={user.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap">
                           <Link
-                            href={`/admin/users/${user.id}`}
+                            href={`/admin/users/${encodeURIComponent(user.email)}`}
                             className="text-sm font-medium text-blue-600 hover:text-blue-900"
                           >
                             {user.email}

@@ -15,6 +15,22 @@ export default function AdminDashboardPage() {
         </p>
       </div>
 
+      {/* 빠른 사용자 검색 */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <h3 className="text-sm font-semibold text-blue-900 mb-3">빠른 사용자 검색</h3>
+        <div className="flex flex-wrap gap-2">
+          {['chunghyo@troe.kr', 'chunghyo@kakao.com', 'pakseri@gmail.com'].map((email) => (
+            <Link
+              key={email}
+              href={`/admin/users/${encodeURIComponent(email)}`}
+              className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors"
+            >
+              {email}
+            </Link>
+          ))}
+        </div>
+      </div>
+
       {/* 빠른 링크 */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Link
