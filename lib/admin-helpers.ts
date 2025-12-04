@@ -399,12 +399,17 @@ export async function getAuthLogsSummary(
     const whereClause =
       conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
+    // PostgreSQL과 SQLite 모두 지원하기 위해 boolean 비교 처리
+    const { isPostgreSQL } = await import('./db-adapter');
+    const successTrueCondition = isPostgreSQL() ? 'success = true' : 'success = 1';
+    const successFalseCondition = isPostgreSQL() ? 'success = false' : 'success = 0';
+
     // 전체 통계 조회
     const summaryQuery = `
       SELECT 
         COUNT(*) as total_logs,
-        SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) as success_count,
-        SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) as failure_count,
+        SUM(CASE WHEN ${successTrueCondition} THEN 1 ELSE 0 END) as success_count,
+        SUM(CASE WHEN ${successFalseCondition} THEN 1 ELSE 0 END) as failure_count,
         SUM(CASE WHEN provider = 'google' THEN 1 ELSE 0 END) as google_count,
         SUM(CASE WHEN provider = 'github' THEN 1 ELSE 0 END) as github_count
       FROM auth_logs
@@ -518,6 +523,10 @@ export async function getUsers(
 
     const pagination = calculatePagination(params, total);
 
+    // PostgreSQL과 SQLite 모두 지원하기 위해 boolean 비교 처리
+    const { isPostgreSQL } = await import('./db-adapter');
+    const successCondition = isPostgreSQL() ? 'al.success = true' : 'al.success = 1';
+
     const usersQuery = `
       SELECT 
         u.id,
@@ -534,7 +543,7 @@ export async function getUsers(
       FROM users u
       LEFT JOIN analyses a ON u.id = a.user_id
       LEFT JOIN chat_conversations c ON u.id = c.user_id
-      LEFT JOIN auth_logs al ON u.id = al.user_id AND al.action = 'login' AND al.success = 1
+      LEFT JOIN auth_logs al ON u.id = al.user_id AND al.action = 'login' AND ${successCondition}
       ${whereClause}
       GROUP BY u.id, u.email, u.name, u.provider, u.role, u.is_active, u.last_login_at, u.created_at
       ORDER BY u.created_at DESC
@@ -569,6 +578,201 @@ export async function getUsers(
     console.error('❌ [getUsers] 사용자 목록 조회 오류:', error);
     return {
       users: [],
+      pagination: {
+        page: 1,
+        limit: 50,
+        offset: 0,
+        total: 0,
+        totalPages: 0,
+      },
+    };
+  }
+}
+
+/**
+ * 분석 결과 정보 타입
+ */
+export interface AnalysisInfo {
+  id: string;
+  userId: string | null;
+  userEmail: string | null;
+  url: string;
+  aeoScore: number;
+  geoScore: number;
+  seoScore: number;
+  overallScore: number;
+  chatgptScore: number | null;
+  perplexityScore: number | null;
+  geminiScore: number | null;
+  claudeScore: number | null;
+  insights: any[];
+  createdAt: string;
+}
+
+/**
+ * 분석 결과 조회 필터 파라미터
+ */
+export interface AnalysisFilterParams extends PaginationParams, DateRangeParams {
+  userId?: string;
+  search?: string; // URL 검색
+}
+
+/**
+ * 분석 결과 조회
+ * 
+ * @param params 필터 파라미터
+ * @returns 분석 결과 목록과 페이지네이션 정보
+ */
+export async function getAnalyses(
+  params: AnalysisFilterParams = {}
+): Promise<{
+  analyses: AnalysisInfo[];
+  pagination: PaginationResult;
+}> {
+  try {
+    const { userId, search, startDate, endDate } = params;
+
+    // 날짜 범위 정규화 (기본값: 2025-12-04 06:00 이후)
+    let start: Date;
+    if (startDate) {
+      start = new Date(startDate);
+    } else {
+      // 기본값: 2025-12-04 06:00
+      start = new Date('2025-12-04T06:00:00.000Z');
+    }
+
+    const now = new Date();
+    const end = endDate ? new Date(endDate) : now;
+
+    // 날짜 유효성 검사
+    if (isNaN(start.getTime())) {
+      start = new Date('2025-12-04T06:00:00.000Z');
+    }
+    if (isNaN(end.getTime())) {
+      return {
+        analyses: [],
+        pagination: {
+          page: 1,
+          limit: 50,
+          offset: 0,
+          total: 0,
+          totalPages: 0,
+        },
+      };
+    }
+
+    // WHERE 조건 빌드
+    const conditions: string[] = [];
+    const values: any[] = [];
+    let paramIndex = 1;
+
+    // 날짜 범위 필터 (2025-12-04 06:00 이후)
+    conditions.push(`created_at >= $${paramIndex++}`);
+    values.push(start.toISOString());
+    conditions.push(`created_at <= $${paramIndex++}`);
+    values.push(end.toISOString());
+
+    // 사용자 필터
+    if (userId) {
+      conditions.push(`a.user_id = $${paramIndex++}`);
+      values.push(userId);
+    }
+
+    // URL 검색
+    if (search) {
+      conditions.push(`LOWER(a.url) LIKE $${paramIndex++}`);
+      values.push(`%${search.toLowerCase()}%`);
+    }
+
+    const whereClause =
+      conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    // 총 개수 조회
+    const countQuery = `
+      SELECT COUNT(*) as total
+      FROM analyses a
+      ${whereClause}
+    `;
+    const countResult = await query(countQuery, values);
+    const total = parseInt(countResult.rows[0]?.total as string, 10) || 0;
+
+    // 페이지네이션 계산
+    const pagination = calculatePagination(params, total);
+
+    // 분석 결과 조회 (사용자 이메일 포함)
+    const analysesQuery = `
+      SELECT 
+        a.id,
+        a.user_id,
+        u.email as user_email,
+        a.url,
+        a.aeo_score,
+        a.geo_score,
+        a.seo_score,
+        a.overall_score,
+        a.chatgpt_score,
+        a.perplexity_score,
+        a.gemini_score,
+        a.claude_score,
+        a.insights,
+        a.created_at
+      FROM analyses a
+      LEFT JOIN users u ON a.user_id = u.id
+      ${whereClause}
+      ORDER BY a.created_at DESC
+      LIMIT $${paramIndex++} OFFSET $${paramIndex++}
+    `;
+
+    const analysesResult = await query(analysesQuery, [
+      ...values,
+      pagination.limit,
+      pagination.offset,
+    ]);
+
+    const analyses: AnalysisInfo[] = analysesResult.rows.map((row: any) => {
+      // insights 파싱 (JSON 문자열인 경우)
+      let insights: any[] = [];
+      try {
+        if (typeof row.insights === 'string') {
+          insights = JSON.parse(row.insights);
+        } else if (Array.isArray(row.insights)) {
+          insights = row.insights;
+        }
+      } catch (error) {
+        console.warn('⚠️ [getAnalyses] insights 파싱 오류:', error);
+      }
+
+      return {
+        id: row.id,
+        userId: row.user_id,
+        userEmail: row.user_email,
+        url: row.url,
+        aeoScore: row.aeo_score || 0,
+        geoScore: row.geo_score || 0,
+        seoScore: row.seo_score || 0,
+        overallScore: row.overall_score || 0,
+        chatgptScore: row.chatgpt_score,
+        perplexityScore: row.perplexity_score,
+        geminiScore: row.gemini_score,
+        claudeScore: row.claude_score,
+        insights,
+        createdAt: row.created_at,
+      };
+    });
+
+    return {
+      analyses,
+      pagination,
+    };
+  } catch (error: any) {
+    console.error('❌ [getAnalyses] 분석 결과 조회 오류:', {
+      error: error.message,
+      code: error.code,
+      params,
+    });
+
+    return {
+      analyses: [],
       pagination: {
         page: 1,
         limit: 50,
