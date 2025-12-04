@@ -219,10 +219,10 @@ export async function query<T extends Record<string, any> = any>(
       
       try {
         // 기존 풀 종료
-        if (pool) {
-          await pool.end().catch(() => {});
+        const currentPool = pool;
+        if (currentPool) {
+          await currentPool.end().catch(() => {});
         }
-        pool = null;
         
         // Public URL로 새 풀 생성
         const newPool = new Pool({
@@ -233,10 +233,9 @@ export async function query<T extends Record<string, any> = any>(
           ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
         });
         
-        pool = newPool;
-        
         // 전역 풀 업데이트 (다음 호출을 위해)
         setPool(newPool);
+        pool = newPool;
         
         console.log('✅ [PostgreSQL] Public URL로 재연결 완료, 쿼리 재시도...');
         
