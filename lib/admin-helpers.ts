@@ -627,20 +627,25 @@ export async function getAnalyses(
   pagination: PaginationResult;
 }> {
   try {
+    // PostgreSQL 스키마 초기화 보장
+    if (isPostgreSQL()) {
+      try {
+        const { ensurePostgresSchema } = await import('./db-postgres-schema');
+        await ensurePostgresSchema();
+      } catch (schemaError) {
+        console.warn('⚠️ [getAnalyses] 스키마 초기화 스킵:', schemaError);
+      }
+    }
+
     const { userId, search, startDate, endDate } = params;
 
-    // 날짜 범위 정규화 (기본값: 2025-12-04 06:00 이후, 또는 오늘 00:00)
+    // 날짜 범위 정규화 (기본값: 2025-12-04 06:00 이후)
     let start: Date;
     if (startDate) {
       start = new Date(startDate);
     } else {
-      // 기본값: 2025-12-04 06:00 (UTC) = 2025-12-04 15:00 (KST)
-      // 또는 오늘 00:00 중 더 최근 것으로 설정
-      const defaultDate = new Date('2025-12-04T06:00:00.000Z');
-      const todayStart = new Date();
-      todayStart.setHours(0, 0, 0, 0);
-      // 더 최근 날짜 사용
-      start = defaultDate > todayStart ? defaultDate : todayStart;
+      // 기본값: 2025-12-04 06:00 (KST 기준)
+      start = new Date('2025-12-04T06:00:00.000+09:00');
     }
 
     const now = new Date();
@@ -771,7 +776,13 @@ export async function getAnalyses(
       error: error.message,
       code: error.code,
       params,
+      stack: error.stack,
     });
+
+    // 테이블이 없는 경우 명시적으로 알림
+    if (error.code === '42P01' || error.message?.includes('does not exist') || error.message?.includes('no such table')) {
+      console.error('❌ [getAnalyses] analyses 테이블이 존재하지 않습니다. 스키마를 초기화해주세요.');
+    }
 
     return {
       analyses: [],
