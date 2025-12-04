@@ -27,14 +27,21 @@ export function resetPool() {
 
 /**
  * PostgreSQL 연결 문자열에서 hostname 추출
+ * @param connectionString PostgreSQL 연결 문자열
+ * @returns hostname 또는 null
  */
 function extractHostname(connectionString: string): string | null {
+  if (!connectionString) {
+    return null;
+  }
+  
   try {
     const url = new URL(connectionString);
     return url.hostname;
   } catch (error) {
     // URL 파싱 실패 시 정규식으로 추출 시도
-    const match = connectionString.match(/@([^:]+):/);
+    // postgresql://user:pass@hostname:port/db 형식
+    const match = connectionString.match(/@([^:/\s]+)/);
     return match ? match[1] : null;
   }
 }
