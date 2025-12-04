@@ -284,8 +284,8 @@ export async function query<T extends Record<string, any> = any>(
         }
         
         // 전역 풀 변수 초기화 (강제 재초기화)
+        // setPool은 null을 받을 수 없으므로 직접 pool 변수만 초기화
         pool = null;
-        setPool(null);
         
         // Public URL로 새 풀 생성
         console.log('🔄 [PostgreSQL] Public URL로 새 연결 풀 생성 중...');
