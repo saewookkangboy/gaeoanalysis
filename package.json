@@ -21,6 +21,7 @@
     "firebase:delete-user": "npx tsx scripts/delete-firebase-user.ts",
     "check:auth": "bash scripts/check-auth-secret.sh",
     "check:env": "npx tsx scripts/check-env.ts",
+    "test:github-oauth": "npx tsx scripts/test-github-oauth.ts",
     "stats:aggregate": "npx tsx scripts/daily-statistics-aggregator.ts",
     "push": "bash scripts/auto-push.sh"
   },
