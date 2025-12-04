@@ -1543,7 +1543,8 @@ export async function createUser(data: {
     let existingUser: { id: string; email: string; blogUrl?: string; name?: string; image?: string; provider?: string; role?: string; isActive?: boolean; lastLoginAt?: string; createdAt: string; updatedAt: string } | null = null;
     
     if (isPostgreSQL()) {
-      const existingResult = await query('SELECT id, email, blog_url, name, image, provider, role, is_active, last_login_at, created_at, updated_at FROM users WHERE id = $1', [data.id]);
+      // PostgreSQL 트랜잭션 내부에서는 클라이언트를 직접 사용
+      const existingResult = await client.query('SELECT id, email, blog_url, name, image, provider, role, is_active, last_login_at, created_at, updated_at FROM users WHERE id = $1', [data.id]);
       if (existingResult.rows.length > 0) {
         const row = existingResult.rows[0];
         existingUser = {
@@ -1585,16 +1586,31 @@ export async function createUser(data: {
         provider: data.provider 
       });
       
-      // last_login_at 컬럼 존재 여부에 따라 다른 업데이트 쿼리 사용
+      // 로그인 시간 및 사용자 정보 업데이트 (트랜잭션 내부에서 보장)
       try {
         if (isPostgreSQL()) {
-          // PostgreSQL은 last_login_at 컬럼이 항상 있음
-          await query('UPDATE users SET last_login_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = $1', [data.id]);
+          // PostgreSQL 트랜잭션 내부에서는 클라이언트를 직접 사용
+          await client.query(
+            `UPDATE users 
+             SET last_login_at = CURRENT_TIMESTAMP, 
+                 updated_at = CURRENT_TIMESTAMP,
+                 name = COALESCE($1, name),
+                 image = COALESCE($2, image)
+             WHERE id = $3`,
+            [data.name || null, data.image || null, data.id]
+          );
         } else {
           const tableInfo = db.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
           const hasLastLoginAt = tableInfo.some(col => col.name === 'last_login_at');
+          const hasName = tableInfo.some(col => col.name === 'name');
+          const hasImage = tableInfo.some(col => col.name === 'image');
           
-          if (hasLastLoginAt) {
+          if (hasLastLoginAt && hasName && hasImage) {
+            const updateStmt = db.prepare(
+              'UPDATE users SET last_login_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP, name = COALESCE(?, name), image = COALESCE(?, image) WHERE id = ?'
+            );
+            updateStmt.run(data.name || null, data.image || null, data.id);
+          } else if (hasLastLoginAt) {
             const updateStmt = db.prepare('UPDATE users SET last_login_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
             updateStmt.run(data.id);
           } else {
@@ -1602,9 +1618,15 @@ export async function createUser(data: {
             updateStmt.run(data.id);
           }
         }
+        
+        console.log('✅ [createUser] 사용자 로그인 시간 업데이트 완료:', {
+          userId: data.id,
+          email: normalizedEmail,
+          provider: data.provider
+        });
       } catch (updateError) {
-        console.warn('⚠️ [createUser] last_login_at 업데이트 실패:', updateError);
-        // 업데이트 실패해도 사용자 ID는 반환
+        console.error('❌ [createUser] last_login_at 업데이트 실패:', updateError);
+        // 업데이트 실패해도 사용자 ID는 반환 (로그인은 성공)
       }
       return data.id;
     }
@@ -1879,55 +1901,84 @@ export async function createUser(data: {
 
     // 새 사용자 생성 (정규화된 이메일 사용)
     try {
-      const tableInfo = db.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
-      const columnNames = tableInfo.map(col => col.name);
-      
-      // provider, name, image, last_login_at 컬럼이 있는지 확인
-      const hasProvider = columnNames.includes('provider');
-      const hasName = columnNames.includes('name');
-      const hasImage = columnNames.includes('image');
-      const hasLastLoginAt = columnNames.includes('last_login_at');
-      
-      // last_login_at 컬럼이 없으면 추가
-      if (!hasLastLoginAt) {
-        try {
-          db.exec('ALTER TABLE users ADD COLUMN last_login_at DATETIME');
-          console.log('✅ [createUser] last_login_at 컬럼 추가 완료');
-        } catch (alterError: any) {
-          if (alterError?.code !== 'SQLITE_ERROR' || !alterError?.message.includes('duplicate column')) {
-            console.warn('⚠️ [createUser] last_login_at 컬럼 추가 실패:', alterError);
+      if (isPostgreSQL()) {
+        // PostgreSQL 트랜잭션 내부에서는 클라이언트를 직접 사용
+        await client.query(
+          `INSERT INTO users (id, email, blog_url, name, image, provider, last_login_at, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+          [
+            data.id,
+            normalizedEmail, // 정규화된 이메일 저장
+            data.blogUrl || null,
+            data.name || null,
+            data.image || null,
+            data.provider || null
+          ]
+        );
+        
+        console.log('✅ [createUser] PostgreSQL 새 사용자 생성 완료:', {
+          userId: data.id,
+          email: normalizedEmail,
+          provider: data.provider
+        });
+      } else {
+        const tableInfo = db.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
+        const columnNames = tableInfo.map(col => col.name);
+        
+        // provider, name, image, last_login_at 컬럼이 있는지 확인
+        const hasProvider = columnNames.includes('provider');
+        const hasName = columnNames.includes('name');
+        const hasImage = columnNames.includes('image');
+        const hasLastLoginAt = columnNames.includes('last_login_at');
+        
+        // last_login_at 컬럼이 없으면 추가
+        if (!hasLastLoginAt) {
+          try {
+            db.exec('ALTER TABLE users ADD COLUMN last_login_at DATETIME');
+            console.log('✅ [createUser] last_login_at 컬럼 추가 완료');
+          } catch (alterError: any) {
+            if (alterError?.code !== 'SQLITE_ERROR' || !alterError?.message.includes('duplicate column')) {
+              console.warn('⚠️ [createUser] last_login_at 컬럼 추가 실패:', alterError);
+            }
           }
         }
+        
+        if (hasProvider && hasName && hasImage) {
+          // last_login_at 컬럼 포함 여부에 따라 다른 쿼리 사용
+          if (hasLastLoginAt || columnNames.includes('last_login_at')) {
+            const stmt = db.prepare('INSERT INTO users (id, email, blog_url, name, image, provider, last_login_at) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)');
+            stmt.run(
+              data.id, 
+              normalizedEmail, // 정규화된 이메일 저장
+              data.blogUrl || null,
+              data.name || null,
+              data.image || null,
+              data.provider || null
+            );
+          } else {
+            // last_login_at이 없으면 제외하고 삽입
+            const stmt = db.prepare('INSERT INTO users (id, email, blog_url, name, image, provider) VALUES (?, ?, ?, ?, ?, ?)');
+            stmt.run(
+              data.id, 
+              normalizedEmail, // 정규화된 이메일 저장
+              data.blogUrl || null,
+              data.name || null,
+              data.image || null,
+              data.provider || null
+            );
+          }
+        } else {
+          const stmt = db.prepare('INSERT INTO users (id, email, blog_url) VALUES (?, ?, ?)');
+          stmt.run(data.id, normalizedEmail, data.blogUrl || null); // 정규화된 이메일 저장
+        }
       }
       
-      if (hasProvider && hasName && hasImage) {
-        // last_login_at 컬럼 포함 여부에 따라 다른 쿼리 사용
-        if (hasLastLoginAt || columnNames.includes('last_login_at')) {
-          const stmt = db.prepare('INSERT INTO users (id, email, blog_url, name, image, provider, last_login_at) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)');
-          stmt.run(
-            data.id, 
-            normalizedEmail, // 정규화된 이메일 저장
-            data.blogUrl || null,
-            data.name || null,
-            data.image || null,
-            data.provider || null
-          );
-        } else {
-          // last_login_at이 없으면 제외하고 삽입
-          const stmt = db.prepare('INSERT INTO users (id, email, blog_url, name, image, provider) VALUES (?, ?, ?, ?, ?, ?)');
-          stmt.run(
-            data.id, 
-            normalizedEmail, // 정규화된 이메일 저장
-            data.blogUrl || null,
-            data.name || null,
-            data.image || null,
-            data.provider || null
-          );
-        }
-      } else {
-        const stmt = db.prepare('INSERT INTO users (id, email, blog_url) VALUES (?, ?, ?)');
-        stmt.run(data.id, normalizedEmail, data.blogUrl || null); // 정규화된 이메일 저장
-      }
+      console.log('✅ [createUser] 새 사용자 생성 완료:', {
+        userId: data.id,
+        email: normalizedEmail,
+        provider: data.provider
+      });
+      
       return data.id;
     } catch (error: any) {
       // UNIQUE 제약 조건 오류인 경우 (동시성 문제 또는 email UNIQUE 제약)
@@ -2364,8 +2415,9 @@ export function getUserAuthLogs(userId: string, limit = 50) {
 
 /**
  * AI Agent 사용 이력 저장
+ * PostgreSQL 및 SQLite 모두 지원
  */
-export function saveAIAgentUsage(data: {
+export async function saveAIAgentUsage(data: {
   id: string;
   userId: string;
   analysisId?: string | null;
@@ -2378,46 +2430,156 @@ export function saveAIAgentUsage(data: {
   responseTimeMs?: number;
   success?: boolean;
   errorMessage?: string | null;
-}) {
-  return dbHelpers.transaction(() => {
+}): Promise<string | null> {
+  return await transaction(async (client) => {
     try {
-      const tableInfo = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='ai_agent_usage'").get();
-      if (!tableInfo) {
-        console.warn('ai_agent_usage 테이블이 존재하지 않습니다. 마이그레이션을 실행하세요.');
+      // 테이블 존재 확인
+      if (isPostgreSQL()) {
+        const tableCheck = await client.query(`
+          SELECT EXISTS (
+            SELECT FROM information_schema.tables 
+            WHERE table_schema = 'public' 
+            AND table_name = 'ai_agent_usage'
+          ) as exists
+        `);
+        
+        if (!tableCheck.rows[0]?.exists) {
+          console.warn('⚠️ [saveAIAgentUsage] ai_agent_usage 테이블이 존재하지 않음, 자동 생성 시도');
+          try {
+            await client.query(`
+              CREATE TABLE IF NOT EXISTS ai_agent_usage (
+                id VARCHAR(255) PRIMARY KEY,
+                user_id VARCHAR(255),
+                analysis_id VARCHAR(255),
+                conversation_id VARCHAR(255),
+                agent_type VARCHAR(50) NOT NULL,
+                action VARCHAR(50) NOT NULL,
+                input_tokens INTEGER DEFAULT 0,
+                output_tokens INTEGER DEFAULT 0,
+                cost REAL DEFAULT 0.0,
+                response_time_ms INTEGER,
+                success BOOLEAN DEFAULT TRUE,
+                error_message TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY (analysis_id) REFERENCES analyses(id) ON DELETE SET NULL,
+                FOREIGN KEY (conversation_id) REFERENCES chat_conversations(id) ON DELETE SET NULL
+              )
+            `);
+            
+            await client.query(`CREATE INDEX IF NOT EXISTS idx_ai_agent_user_id ON ai_agent_usage(user_id)`);
+            await client.query(`CREATE INDEX IF NOT EXISTS idx_ai_agent_analysis_id ON ai_agent_usage(analysis_id)`);
+            await client.query(`CREATE INDEX IF NOT EXISTS idx_ai_agent_conversation_id ON ai_agent_usage(conversation_id)`);
+            await client.query(`CREATE INDEX IF NOT EXISTS idx_ai_agent_type ON ai_agent_usage(agent_type)`);
+            await client.query(`CREATE INDEX IF NOT EXISTS idx_ai_agent_created_at ON ai_agent_usage(created_at)`);
+            await client.query(`CREATE INDEX IF NOT EXISTS idx_ai_agent_user_created ON ai_agent_usage(user_id, created_at DESC)`);
+            
+            console.log('✅ [saveAIAgentUsage] ai_agent_usage 테이블 자동 생성 완료');
+          } catch (createError: any) {
+            console.error('❌ [saveAIAgentUsage] 테이블 생성 실패:', createError);
+            return null;
+          }
+        }
+      } else {
+        const tableInfo = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='ai_agent_usage'").get();
+        if (!tableInfo) {
+          console.warn('⚠️ [saveAIAgentUsage] ai_agent_usage 테이블이 존재하지 않습니다. 마이그레이션을 실행하세요.');
+          return null;
+        }
+      }
+
+      // 사용자 존재 확인
+      const userCheck = await getUser(data.userId);
+      if (!userCheck) {
+        console.error('❌ [saveAIAgentUsage] 사용자가 존재하지 않음:', {
+          userId: data.userId,
+          agentType: data.agentType,
+          action: data.action
+        });
         return null;
       }
 
-      const stmt = db.prepare(`
-        INSERT INTO ai_agent_usage (
-          id, user_id, analysis_id, conversation_id, agent_type, action,
-          input_tokens, output_tokens, cost, response_time_ms, 
-          success, error_message
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `);
+      // INSERT 실행
+      if (isPostgreSQL()) {
+        // PostgreSQL 트랜잭션 내부에서는 클라이언트를 직접 사용
+        await client.query(
+          `INSERT INTO ai_agent_usage (
+            id, user_id, analysis_id, conversation_id, agent_type, action,
+            input_tokens, output_tokens, cost, response_time_ms, 
+            success, error_message
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+          [
+            data.id,
+            data.userId,
+            data.analysisId || null,
+            data.conversationId || null,
+            data.agentType,
+            data.action,
+            data.inputTokens || 0,
+            data.outputTokens || 0,
+            data.cost || 0.0,
+            data.responseTimeMs || null,
+            data.success !== false,
+            data.errorMessage || null
+          ]
+        );
+      } else {
+        const stmt = db.prepare(`
+          INSERT INTO ai_agent_usage (
+            id, user_id, analysis_id, conversation_id, agent_type, action,
+            input_tokens, output_tokens, cost, response_time_ms, 
+            success, error_message
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `);
 
-      stmt.run(
-        data.id,
-        data.userId,
-        data.analysisId || null,
-        data.conversationId || null,
-        data.agentType,
-        data.action,
-        data.inputTokens || 0,
-        data.outputTokens || 0,
-        data.cost || 0.0,
-        data.responseTimeMs || null,
-        data.success !== false ? 1 : 0,
-        data.errorMessage || null
-      );
+        stmt.run(
+          data.id,
+          data.userId,
+          data.analysisId || null,
+          data.conversationId || null,
+          data.agentType,
+          data.action,
+          data.inputTokens || 0,
+          data.outputTokens || 0,
+          data.cost || 0.0,
+          data.responseTimeMs || null,
+          data.success !== false ? 1 : 0,
+          data.errorMessage || null
+        );
+      }
+
+      console.log('✅ [saveAIAgentUsage] AI Agent 사용 이력 저장 완료:', {
+        id: data.id,
+        userId: data.userId,
+        agentType: data.agentType,
+        action: data.action
+      });
 
       return data.id;
     } catch (error: any) {
-      if (error.code === 'SQLITE_ERROR' && error.message.includes('no such table')) {
-        console.warn('ai_agent_usage 테이블이 존재하지 않습니다. 마이그레이션을 실행하세요.');
+      if (error.code === 'SQLITE_ERROR' && error.message?.includes('no such table')) {
+        console.warn('⚠️ [saveAIAgentUsage] ai_agent_usage 테이블이 존재하지 않습니다. 마이그레이션을 실행하세요.');
         return null;
       }
-      console.error('AI Agent 사용 이력 저장 오류:', error);
+      
+      // FOREIGN KEY 제약 조건 오류 처리
+      if (error.code === 'SQLITE_CONSTRAINT_FOREIGNKEY' || error.code === '23503') {
+        console.error('❌ [saveAIAgentUsage] FOREIGN KEY 제약 조건 오류:', {
+          userId: data.userId,
+          analysisId: data.analysisId,
+          conversationId: data.conversationId,
+          error: error.message
+        });
+        return null;
+      }
+      
+      console.error('❌ [saveAIAgentUsage] AI Agent 사용 이력 저장 오류:', {
+        error: error.message,
+        code: error.code,
+        userId: data.userId
+      });
       return null;
     }
   });

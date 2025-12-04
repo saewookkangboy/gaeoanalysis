@@ -231,7 +231,7 @@ export default function AIAgent({ analysisData, aioAnalysis }: AIAgentProps) {
     }
   }, [messages, analysisId]);
 
-  const handleSend = async (question?: string) => {
+  const handleSend = async (question?: string, isQuickQuestion: boolean = false) => {
     const messageToSend = question || input.trim();
     if (!messageToSend || isLoading) return;
 
@@ -268,6 +268,9 @@ export default function AIAgent({ analysisData, aioAnalysis }: AIAgentProps) {
           analysisData: analysisData,
           aioAnalysis: aioAnalysis,
           conversationHistory: conversationHistory,
+          analysisId: analysisId || null,
+          conversationId: null, // conversationId는 save API에서 생성됨
+          isQuickQuestion: isQuickQuestion, // 추천 질문 사용 여부
         }),
       });
 
@@ -317,7 +320,7 @@ export default function AIAgent({ analysisData, aioAnalysis }: AIAgentProps) {
   };
 
   const handleQuickQuestion = (question: string) => {
-    handleSend(question);
+    handleSend(question, true); // 추천 질문 사용 플래그 전달
   };
 
   const handleClearChat = () => {

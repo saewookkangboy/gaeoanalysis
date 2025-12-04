@@ -4,8 +4,10 @@ import { buildAIAgentPrompt } from '@/lib/ai-agent-prompt';
 import { createErrorResponse, createSuccessResponse, withErrorHandling } from '@/lib/api-utils';
 import { withRateLimit } from '@/lib/rate-limiter';
 import { auth } from '@/auth';
+import { saveAIAgentUsage } from '@/lib/db-helpers';
 import { z } from 'zod';
 import { agentLightning } from '@/lib/agent-lightning';
+import { v4 as uuidv4 } from 'uuid';
 
 // Next.js API 라우트 응답 크기 제한 해제 (긴 AI 응답을 위해)
 export const maxDuration = 60; // 60초 타임아웃
@@ -17,6 +19,9 @@ const chatSchema = z.object({
   analysisData: z.any().optional(),
   aioAnalysis: z.any().optional(),
   conversationHistory: z.array(z.any()).optional(),
+  analysisId: z.string().uuid().optional().nullable(),
+  conversationId: z.string().uuid().optional().nullable(),
+  isQuickQuestion: z.boolean().optional(), // 추천 질문 사용 여부
 });
 
 // 레이트 리미트 키 생성
@@ -32,7 +37,7 @@ const getChatRateLimitKey = (request: NextRequest, userId?: string): string => {
 
 async function handleChat(request: NextRequest) {
   const body = await request.json();
-  const { message, analysisData, aioAnalysis, conversationHistory } = chatSchema.parse(body);
+  const { message, analysisData, aioAnalysis, conversationHistory, analysisId, conversationId, isQuickQuestion } = chatSchema.parse(body);
 
   // 메시지 길이 제한 (XSS 방지를 위한 기본 검증)
   if (message.length > 2000) {
@@ -162,6 +167,46 @@ async function handleChat(request: NextRequest) {
       aioAnalysis,
     });
     agentLightning.emitReward(reward);
+
+    // AI Agent 사용 기록 저장 (비동기로 처리하여 응답 속도에 영향 없도록)
+    if (userId) {
+      Promise.resolve().then(async () => {
+        try {
+          // 토큰 사용량 추정 (Gemini API는 실제 토큰 수를 반환하지 않으므로 추정)
+          const estimatedInputTokens = Math.ceil((prompt.length + message.length) / 4); // 대략적인 토큰 추정
+          const estimatedOutputTokens = Math.ceil(fullText.length / 4);
+          
+          // 비용 추정 (Gemini 2.5 Flash 기준)
+          // Input: $0.075 per 1M tokens, Output: $0.30 per 1M tokens
+          const estimatedCost = (estimatedInputTokens / 1000000) * 0.075 + (estimatedOutputTokens / 1000000) * 0.30;
+          
+          await saveAIAgentUsage({
+            id: uuidv4(),
+            userId: userId,
+            analysisId: analysisId || null,
+            conversationId: conversationId || null,
+            agentType: 'gemini',
+            action: isQuickQuestion ? 'quick_question' : 'user_query',
+            inputTokens: estimatedInputTokens,
+            outputTokens: estimatedOutputTokens,
+            cost: estimatedCost,
+            responseTimeMs: responseTime,
+            success: true,
+            errorMessage: null,
+          });
+          
+          console.log('✅ [Chat API] AI Agent 사용 기록 저장 완료:', {
+            userId,
+            agentType: 'gemini',
+            action: isQuickQuestion ? 'quick_question' : 'user_query',
+            responseTime
+          });
+        } catch (error: any) {
+          // 사용 기록 저장 실패는 조용히 무시 (응답은 성공)
+          console.warn('⚠️ [Chat API] AI Agent 사용 기록 저장 실패:', error.message);
+        }
+      });
+    }
 
   return createSuccessResponse({ message: fullText });
 }
