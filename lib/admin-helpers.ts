@@ -381,7 +381,7 @@ export async function getAuthLogsSummary(
     const values: any[] = [];
     let paramIndex = 1;
 
-    // 날짜 범위 필터
+    // 날짜 범위 필터 (auth_logs 테이블의 created_at 사용)
     conditions.push(`created_at >= $${paramIndex++}`);
     values.push(start.toISOString());
     conditions.push(`created_at <= $${paramIndex++}`);
