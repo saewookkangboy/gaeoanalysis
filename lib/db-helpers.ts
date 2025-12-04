@@ -2182,18 +2182,28 @@ export async function createUser(data: {
     try {
       if (isPostgreSQL()) {
         // PostgreSQL 트랜잭션 내부에서는 클라이언트를 직접 사용
-        await client.query(
-          `INSERT INTO users (id, email, blog_url, name, image, provider, last_login_at, created_at, updated_at)
-           VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-          [
-            data.id,
-            normalizedEmail, // 정규화된 이메일 저장
-            data.blogUrl || null,
-            data.name || null,
-            data.image || null,
-            data.provider || null
-          ]
-        );
+        try {
+          await client.query(
+            `INSERT INTO users (id, email, blog_url, name, image, provider, last_login_at, created_at, updated_at)
+             VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+            [
+              data.id,
+              normalizedEmail, // 정규화된 이메일 저장
+              data.blogUrl || null,
+              data.name || null,
+              data.image || null,
+              data.provider || null
+            ]
+          );
+        } catch (insertError: any) {
+          // 테이블이 없는 경우 (42P01) 트랜잭션 롤백을 위해 에러 throw
+          if (insertError.code === '42P01') {
+            console.warn('⚠️ [createUser] INSERT 시 테이블이 없습니다. 트랜잭션 롤백...');
+            throw insertError; // 트랜잭션 롤백을 위해 원래 에러 throw
+          } else {
+            throw insertError;
+          }
+        }
         
         console.log('✅ [createUser] PostgreSQL 새 사용자 생성 완료:', {
           userId: data.id,
