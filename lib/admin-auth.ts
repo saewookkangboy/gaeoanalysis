@@ -31,7 +31,15 @@ export async function isAdmin(): Promise<AdminCheckResult> {
     // 세션 확인
     const session = await auth();
     
+    console.log('🔍 [isAdmin] 세션 확인:', {
+      hasSession: !!session,
+      hasUserId: !!session?.user?.id,
+      userId: session?.user?.id,
+      email: session?.user?.email,
+    });
+    
     if (!session?.user?.id) {
+      console.warn('⚠️ [isAdmin] 세션이 없거나 사용자 ID가 없음');
       return {
         isAdmin: false,
         user: null,
@@ -45,7 +53,15 @@ export async function isAdmin(): Promise<AdminCheckResult> {
     // 데이터베이스에서 사용자 정보 조회 (role 확인)
     const user = await getUser(userId);
     
+    console.log('🔍 [isAdmin] 사용자 정보 조회:', {
+      userId,
+      userEmail,
+      userFound: !!user,
+      userRole: user?.role,
+    });
+    
     if (!user) {
+      console.warn('⚠️ [isAdmin] 사용자 정보를 찾을 수 없음:', { userId, userEmail });
       return {
         isAdmin: false,
         user: {
@@ -60,6 +76,13 @@ export async function isAdmin(): Promise<AdminCheckResult> {
     // role이 'admin'인지 확인
     const isAdminUser = user.role === 'admin';
 
+    console.log('🔍 [isAdmin] 권한 확인 결과:', {
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+      isAdmin: isAdminUser,
+    });
+
     return {
       isAdmin: isAdminUser,
       user: {
@@ -67,14 +90,14 @@ export async function isAdmin(): Promise<AdminCheckResult> {
         email: user.email,
         role: user.role || 'user',
       },
-      error: isAdminUser ? undefined : '관리자 권한이 필요합니다.',
+      error: isAdminUser ? undefined : `관리자 권한이 필요합니다. (현재 role: ${user.role || 'user'})`,
     };
   } catch (error: any) {
     console.error('❌ [isAdmin] 관리자 권한 확인 오류:', error);
     return {
       isAdmin: false,
       user: null,
-      error: '권한 확인 중 오류가 발생했습니다.',
+      error: `권한 확인 중 오류가 발생했습니다: ${error.message || error}`,
     };
   }
 }

@@ -1500,7 +1500,26 @@ export async function getUser(userId: string) {
   try {
     // PostgreSQL과 SQLite 모두 updated_at 컬럼이 있으므로 항상 포함
     const queryText = 'SELECT id, email, blog_url, name, image, provider, role, is_active, last_login_at, created_at, updated_at FROM users WHERE id = $1';
-    const result = await query(queryText, [userId]);
+    
+    let result;
+    try {
+      result = await query(queryText, [userId]);
+    } catch (queryError: any) {
+      // 테이블이 없는 경우 (42P01) 스키마 초기화 후 재시도
+      if (queryError.code === '42P01' && isPostgreSQL()) {
+        console.warn('⚠️ [getUser] 테이블이 없습니다. 스키마 초기화 후 재시도...');
+        try {
+          const { ensurePostgresSchema } = await import('./db-postgres-schema');
+          await ensurePostgresSchema();
+          result = await query(queryText, [userId]);
+        } catch (schemaError) {
+          console.error('❌ [getUser] 스키마 초기화 실패:', schemaError);
+          return null; // 스키마 초기화 실패 시 null 반환
+        }
+      } else {
+        throw queryError;
+      }
+    }
     
     if (result.rows.length === 0) return null;
     
@@ -1519,8 +1538,12 @@ export async function getUser(userId: string) {
       createdAt: row.created_at,
       updatedAt: row.updated_at || row.created_at,
     };
-  } catch (error) {
-    console.error('❌ [getUser] 쿼리 실행 오류:', { userId, error });
+  } catch (error: any) {
+    console.error('❌ [getUser] 쿼리 실행 오류:', { 
+      userId, 
+      error: error.message,
+      code: error.code 
+    });
     return null;
   }
 }
@@ -1535,34 +1558,86 @@ export async function getUserByEmail(email: string) {
   const normalizedEmail = email.toLowerCase().trim();
   
   try {
+    // PostgreSQL 스키마 초기화 보장 (한 번만 실행)
+    if (isPostgreSQL()) {
+      try {
+        const { ensurePostgresSchema } = await import('./db-postgres-schema');
+        await ensurePostgresSchema();
+      } catch (schemaError) {
+        console.warn('⚠️ [getUserByEmail] 스키마 초기화 스킵:', schemaError);
+      }
+    }
+    
     // 방법 1: LOWER(TRIM(email))로 검색 (가장 안정적)
-    let result = await query(
-      'SELECT id, email, blog_url, name, image, provider, role, is_active, last_login_at, created_at, updated_at FROM users WHERE LOWER(TRIM(email)) = $1',
-      [normalizedEmail]
-    );
+    let result;
+    try {
+      result = await query(
+        'SELECT id, email, blog_url, name, image, provider, role, is_active, last_login_at, created_at, updated_at FROM users WHERE LOWER(TRIM(email)) = $1',
+        [normalizedEmail]
+      );
+    } catch (queryError: any) {
+      // 테이블이 없는 경우 (42P01) 스키마 초기화 후 재시도
+      if (queryError.code === '42P01' && isPostgreSQL()) {
+        console.warn('⚠️ [getUserByEmail] 테이블이 없습니다. 스키마 초기화 후 재시도...');
+        try {
+          const { ensurePostgresSchema } = await import('./db-postgres-schema');
+          await ensurePostgresSchema();
+          result = await query(
+            'SELECT id, email, blog_url, name, image, provider, role, is_active, last_login_at, created_at, updated_at FROM users WHERE LOWER(TRIM(email)) = $1',
+            [normalizedEmail]
+          );
+        } catch (schemaError) {
+          console.error('❌ [getUserByEmail] 스키마 초기화 실패:', schemaError);
+          return null; // 스키마 초기화 실패 시 null 반환
+        }
+      } else {
+        throw queryError;
+      }
+    }
     
     // 방법 2: 정규화된 이메일로 직접 검색 (대소문자 차이 대비)
     if (result.rows.length === 0) {
-      result = await query(
-        'SELECT id, email, blog_url, name, image, provider, role, is_active, last_login_at, created_at, updated_at FROM users WHERE email = $1',
-        [normalizedEmail]
-      );
+      try {
+        result = await query(
+          'SELECT id, email, blog_url, name, image, provider, role, is_active, last_login_at, created_at, updated_at FROM users WHERE email = $1',
+          [normalizedEmail]
+        );
+      } catch (queryError: any) {
+        // 테이블이 없는 경우는 이미 처리했으므로 무시
+        if (queryError.code !== '42P01') {
+          throw queryError;
+        }
+      }
     }
     
     // 방법 3: 원본 이메일로도 검색 (정규화되지 않은 경우 대비)
     if (result.rows.length === 0 && email !== normalizedEmail) {
-      result = await query(
-        'SELECT id, email, blog_url, name, image, provider, role, is_active, last_login_at, created_at, updated_at FROM users WHERE email = $1',
-        [email]
-      );
+      try {
+        result = await query(
+          'SELECT id, email, blog_url, name, image, provider, role, is_active, last_login_at, created_at, updated_at FROM users WHERE email = $1',
+          [email]
+        );
+      } catch (queryError: any) {
+        // 테이블이 없는 경우는 이미 처리했으므로 무시
+        if (queryError.code !== '42P01') {
+          throw queryError;
+        }
+      }
     }
     
     // 방법 4: LIKE로 검색 (공백 차이 대비)
     if (result.rows.length === 0) {
-      result = await query(
-        'SELECT id, email, blog_url, name, image, provider, role, is_active, last_login_at, created_at, updated_at FROM users WHERE LOWER(TRIM(email)) LIKE $1',
-        [`%${normalizedEmail}%`]
-      );
+      try {
+        result = await query(
+          'SELECT id, email, blog_url, name, image, provider, role, is_active, last_login_at, created_at, updated_at FROM users WHERE LOWER(TRIM(email)) LIKE $1',
+          [`%${normalizedEmail}%`]
+        );
+      } catch (queryError: any) {
+        // 테이블이 없는 경우는 이미 처리했으므로 무시
+        if (queryError.code !== '42P01') {
+          throw queryError;
+        }
+      }
     }
     
     if (result.rows.length === 0) {
@@ -1619,6 +1694,16 @@ export async function createUser(data: {
   image?: string;
   provider?: string;
 }) {
+  // PostgreSQL 스키마 초기화 보장 (트랜잭션 시작 전)
+  if (isPostgreSQL()) {
+    try {
+      const { ensurePostgresSchema } = await import('./db-postgres-schema');
+      await ensurePostgresSchema();
+    } catch (schemaError) {
+      console.warn('⚠️ [createUser] 스키마 초기화 스킵:', schemaError);
+    }
+  }
+  
   // SQLite는 트랜잭션 내부에서 비동기 함수를 사용할 수 없으므로 분기 처리
   if (isPostgreSQL()) {
     return await transaction(async (client) => {
@@ -1726,7 +1811,19 @@ export async function createUser(data: {
     
     if (isPostgreSQL()) {
       // PostgreSQL 트랜잭션 내부에서는 클라이언트를 직접 사용
-      const existingResult = await client.query('SELECT id, email, blog_url, name, image, provider, role, is_active, last_login_at, created_at, updated_at FROM users WHERE id = $1', [data.id]);
+      let existingResult;
+      try {
+        existingResult = await client.query('SELECT id, email, blog_url, name, image, provider, role, is_active, last_login_at, created_at, updated_at FROM users WHERE id = $1', [data.id]);
+      } catch (queryError: any) {
+        // 테이블이 없는 경우 (42P01) 트랜잭션 롤백을 위해 에러 throw
+        if (queryError.code === '42P01') {
+          console.warn('⚠️ [createUser] 트랜잭션 내부에서 테이블이 없습니다. 트랜잭션 롤백...');
+          throw queryError; // 트랜잭션 롤백을 위해 원래 에러 throw
+        } else {
+          throw queryError;
+        }
+      }
+      
       if (existingResult.rows.length > 0) {
         const row = existingResult.rows[0];
         existingUser = {

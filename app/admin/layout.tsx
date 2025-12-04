@@ -32,24 +32,57 @@ export default function AdminLayout({
   const router = useRouter();
   const [isChecking, setIsChecking] = useState(true);
   const [isAuthorized, setIsAuthorized] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     async function verifyAdmin() {
       try {
         // API 라우트를 통해 권한 확인 (서버 전용 코드와 분리)
         const response = await fetch('/api/admin/check');
+        
+        if (!response.ok) {
+          console.error('❌ [AdminLayout] API 응답 오류:', {
+            status: response.status,
+            statusText: response.statusText,
+          });
+          const errorText = await response.text();
+          console.error('❌ [AdminLayout] 오류 응답 본문:', errorText);
+          router.push('/');
+          return;
+        }
+        
         const checkResult: AdminCheckResult = await response.json();
+        
+        console.log('🔍 [AdminLayout] 권한 확인 결과:', {
+          isAdmin: checkResult.isAdmin,
+          userId: checkResult.user?.id,
+          email: checkResult.user?.email,
+          role: checkResult.user?.role,
+          error: checkResult.error,
+        });
         
         if (checkResult.isAdmin) {
           setIsAuthorized(true);
         } else {
-          // 권한이 없으면 메인 페이지로 리다이렉트
-          console.warn('⚠️ [AdminLayout] 관리자 권한 없음:', checkResult.error);
-          router.push('/');
+          // 권한이 없으면 에러 메시지 표시 후 리다이렉트
+          const errorMsg = checkResult.error || '관리자 권한이 필요합니다.';
+          console.warn('⚠️ [AdminLayout] 관리자 권한 없음:', {
+            error: errorMsg,
+            user: checkResult.user,
+          });
+          setErrorMessage(errorMsg);
+          // 3초 후 메인 페이지로 리다이렉트
+          setTimeout(() => {
+            router.push('/');
+          }, 3000);
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('❌ [AdminLayout] 권한 확인 오류:', error);
-        router.push('/');
+        setErrorMessage(error.message || '권한 확인 중 오류가 발생했습니다.');
+        // 3초 후 메인 페이지로 리다이렉트
+        setTimeout(() => {
+          router.push('/');
+        }, 3000);
       } finally {
         setIsChecking(false);
       }
@@ -70,9 +103,29 @@ export default function AdminLayout({
     );
   }
 
-  // 권한 없음 (리다이렉트 중)
+  // 권한 없음 (에러 메시지 표시)
   if (!isAuthorized) {
-    return null;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center max-w-md mx-auto px-4">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+            <h2 className="text-xl font-semibold text-red-900 mb-2">접근 권한 없음</h2>
+            <p className="text-red-700 mb-4">
+              {errorMessage || '관리자 권한이 필요합니다.'}
+            </p>
+            <p className="text-sm text-red-600 mb-4">
+              잠시 후 메인 페이지로 이동합니다...
+            </p>
+            <a
+              href="/"
+              className="inline-block px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+            >
+              메인 페이지로 이동
+            </a>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   // 권한 있음 - 관리자 대시보드 표시

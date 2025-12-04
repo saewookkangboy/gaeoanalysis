@@ -145,6 +145,19 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
   callbacks: {
     async signIn({ user, account, profile }) {
+      // PostgreSQL 스키마 초기화 보장
+      if (process.env.DATABASE_URL || process.env.DATABASE_PUBLIC_URL) {
+        try {
+          const { isPostgreSQL } = await import('@/lib/db-adapter');
+          if (isPostgreSQL()) {
+            const { ensurePostgresSchema } = await import('@/lib/db-postgres-schema');
+            await ensurePostgresSchema();
+          }
+        } catch (error) {
+          console.warn('⚠️ [signIn] 스키마 초기화 스킵:', error);
+        }
+      }
+      
       // OAuth 로그인 시 디버깅 정보 출력 (프로덕션에서도 출력)
       if (account) {
         const callbackUrl = `${authUrl || 'http://localhost:3000'}/api/auth/callback/${account.provider}`;
