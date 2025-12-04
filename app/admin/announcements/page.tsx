@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 interface Announcement {
   id: string;
@@ -163,50 +164,68 @@ export default function AnnouncementsPage() {
 
   if (status === 'loading' || loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-gray-600">로딩 중...</div>
+      <div className="text-center py-12">
+        <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mb-4"></div>
+        <p className="text-gray-600">공지사항을 불러오는 중...</p>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-6xl">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-          공지사항 관리
-        </h1>
-        <p className="text-gray-600 dark:text-gray-400">
-          서비스 전체에 표시될 공지사항을 관리합니다.
-        </p>
+    <div className="space-y-6">
+      {/* 헤더 */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">공지사항 관리</h2>
+          <p className="mt-1 text-sm text-gray-600">
+            서비스 전체에 표시될 공지사항을 관리합니다.
+          </p>
+        </div>
+        <Link
+          href="/admin"
+          className="text-sm text-gray-600 hover:text-gray-900"
+        >
+          ← 대시보드로
+        </Link>
       </div>
 
+      {/* 에러 메시지 */}
       {error && (
-        <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400">
-          {error}
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <p className="text-red-800">{error}</p>
         </div>
       )}
 
+      {/* 성공 메시지 */}
       {success && (
-        <div className="mb-4 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg text-green-700 dark:text-green-400">
-          {success}
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <p className="text-green-800">{success}</p>
+            <Link
+              href="/admin"
+              className="ml-4 px-3 py-1.5 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+            >
+              대시보드로 이동
+            </Link>
+          </div>
         </div>
       )}
 
       {/* 공지사항 생성/수정 폼 */}
-      <div className="mb-8 bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
+      <div className="bg-white rounded-lg shadow p-6">
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">
           {editingId ? '공지사항 수정' : '새 공지사항 생성'}
         </h2>
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               공지사항 내용
             </label>
             <textarea
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               placeholder="공지사항 내용을 입력하세요"
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100"
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               rows={3}
             />
           </div>
@@ -216,9 +235,9 @@ export default function AnnouncementsPage() {
               id="is_active"
               checked={isActive}
               onChange={(e) => setIsActive(e.target.checked)}
-              className="w-4 h-4 text-sky-600 border-gray-300 rounded focus:ring-sky-500"
+              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
             />
-            <label htmlFor="is_active" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+            <label htmlFor="is_active" className="ml-2 text-sm text-gray-700">
               활성화 (활성화된 공지사항만 표시됩니다)
             </label>
           </div>
@@ -227,31 +246,39 @@ export default function AnnouncementsPage() {
               <>
                 <button
                   onClick={() => handleUpdate(editingId)}
-                  className="px-4 py-2 bg-sky-600 text-white rounded-lg hover:bg-sky-700 transition-colors"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
                 >
                   수정
                 </button>
                 <button
                   onClick={handleCancel}
-                  className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors"
                 >
                   취소
                 </button>
               </>
             ) : (
-              <button
-                onClick={handleCreate}
-                className="px-4 py-2 bg-sky-600 text-white rounded-lg hover:bg-sky-700 transition-colors"
-              >
-                생성
-              </button>
+              <>
+                <button
+                  onClick={handleCreate}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+                >
+                  생성
+                </button>
+                <Link
+                  href="/admin"
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors inline-flex items-center"
+                >
+                  대시보드로
+                </Link>
+              </>
             )}
           </div>
         </div>
       </div>
 
       {/* 공지사항 목록 */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+      <div className="bg-white rounded-lg shadow">
         <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
             공지사항 목록
