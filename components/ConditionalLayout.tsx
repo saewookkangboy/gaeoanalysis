@@ -3,6 +3,7 @@
 import { usePathname } from 'next/navigation';
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
+import AnnouncementBanner from "@/components/AnnouncementBanner";
 
 /**
  * 조건부 레이아웃 컴포넌트
@@ -20,6 +21,7 @@ export function ConditionalLayout({ children }: { children: React.ReactNode }) {
   // 일반 경로: Navigation과 Footer 포함
   return (
     <div className="flex min-h-screen flex-col">
+      <AnnouncementBanner />
       <Navigation />
       <main className="flex-1 flex flex-col">
         {children}

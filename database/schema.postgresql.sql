@@ -132,7 +132,20 @@ CREATE TABLE IF NOT EXISTS admin_logs (
 );
 
 -- ============================================
--- 8. 스키마 마이그레이션 (Schema Migrations)
+-- 8. 공지사항 (Announcements)
+-- ============================================
+CREATE TABLE IF NOT EXISTS announcements (
+  id VARCHAR(255) PRIMARY KEY,
+  message TEXT NOT NULL,
+  is_active BOOLEAN DEFAULT TRUE,
+  created_by VARCHAR(255),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+);
+
+-- ============================================
+-- 9. 스키마 마이그레이션 (Schema Migrations)
 -- ============================================
 CREATE TABLE IF NOT EXISTS schema_migrations (
   version INTEGER PRIMARY KEY,
@@ -187,6 +200,10 @@ CREATE INDEX IF NOT EXISTS idx_admin_logs_action ON admin_logs(action);
 CREATE INDEX IF NOT EXISTS idx_admin_logs_target ON admin_logs(target_type, target_id);
 CREATE INDEX IF NOT EXISTS idx_admin_logs_created_at ON admin_logs(created_at);
 
+-- Announcements 인덱스
+CREATE INDEX IF NOT EXISTS idx_announcements_is_active ON announcements(is_active);
+CREATE INDEX IF NOT EXISTS idx_announcements_created_at ON announcements(created_at DESC);
+
 -- ============================================
 -- 트리거 생성 (updated_at 자동 업데이트)
 -- ============================================
@@ -236,6 +253,21 @@ BEFORE UPDATE ON site_statistics
 FOR EACH ROW
 EXECUTE FUNCTION update_site_statistics_updated_at();
 
+-- Announcements updated_at 자동 업데이트
+CREATE OR REPLACE FUNCTION update_announcements_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = CURRENT_TIMESTAMP;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS update_announcements_updated_at ON announcements;
+CREATE TRIGGER update_announcements_updated_at
+BEFORE UPDATE ON announcements
+FOR EACH ROW
+EXECUTE FUNCTION update_announcements_updated_at();
+
 -- ============================================
 -- 뷰 생성 (통계 및 조회 최적화)
 -- ============================================
@@ -270,7 +302,7 @@ FROM analyses
 GROUP BY DATE(created_at);
 
 -- ============================================
--- 9. Agent Lightning 학습 데이터 스키마
+-- 10. Agent Lightning 학습 데이터 스키마
 -- SEO, AIO, AEO, GEO 학습에 필요한 데이터 저장
 -- ============================================
 

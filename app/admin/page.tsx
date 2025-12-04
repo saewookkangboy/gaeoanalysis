@@ -64,6 +64,18 @@ export default function AdminDashboardPage() {
             일일 방문수 및 활동 통계를 확인합니다.
           </p>
         </Link>
+
+        <Link
+          href="/admin/announcements"
+          className="block bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow"
+        >
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            공지사항 관리
+          </h3>
+          <p className="text-sm text-gray-600">
+            서비스 전체에 표시될 공지사항을 관리합니다.
+          </p>
+        </Link>
       </div>
     </div>
   );
