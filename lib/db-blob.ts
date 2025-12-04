@@ -19,6 +19,18 @@ export async function uploadDbToBlob(dbPath: string): Promise<void> {
     return;
   }
 
+  // Railway 환경에서는 Blob Storage 사용하지 않음
+  const isRailway = !!process.env.RAILWAY_ENVIRONMENT || !!process.env.RAILWAY;
+  if (isRailway) {
+    return;
+  }
+
+  // Blob Storage 토큰 확인
+  if (!process.env.BLOB_READ_WRITE_TOKEN && !process.env.VERCEL_BLOB_READ_WRITE_TOKEN) {
+    console.warn('⚠️ [DB Blob] Blob Storage 토큰이 없습니다. Railway로 마이그레이션 중이거나 토큰이 설정되지 않았습니다.');
+    return;
+  }
+
   try {
     // DB 파일 읽기
     if (!existsSync(dbPath)) {
@@ -56,7 +68,12 @@ export async function uploadDbToBlob(dbPath: string): Promise<void> {
       });
     }
   } catch (error: any) {
-    console.error('❌ [DB Blob] DB 파일 업로드 실패:', error);
+    // Blob Storage 토큰 오류는 경고로 처리 (Railway 마이그레이션 중일 수 있음)
+    if (error.message && error.message.includes('No token found')) {
+      console.warn('⚠️ [DB Blob] Blob Storage 토큰이 없습니다. Railway로 마이그레이션 중이거나 토큰이 설정되지 않았습니다.');
+    } else {
+      console.error('❌ [DB Blob] DB 파일 업로드 실패:', error);
+    }
     // 업로드 실패해도 계속 진행 (로컬 DB 사용)
   }
 }
@@ -67,6 +84,18 @@ export async function uploadDbToBlob(dbPath: string): Promise<void> {
 export async function downloadDbFromBlob(dbPath: string): Promise<boolean> {
   if (!process.env.VERCEL) {
     // 로컬 환경에서는 다운로드하지 않음
+    return false;
+  }
+
+  // Railway 환경에서는 Blob Storage 사용하지 않음
+  const isRailway = !!process.env.RAILWAY_ENVIRONMENT || !!process.env.RAILWAY;
+  if (isRailway) {
+    return false;
+  }
+
+  // Blob Storage 토큰 확인
+  if (!process.env.BLOB_READ_WRITE_TOKEN && !process.env.VERCEL_BLOB_READ_WRITE_TOKEN) {
+    console.warn('⚠️ [DB Blob] Blob Storage 토큰이 없습니다. Railway로 마이그레이션 중이거나 토큰이 설정되지 않았습니다.');
     return false;
   }
 
@@ -131,6 +160,11 @@ export async function downloadDbFromBlob(dbPath: string): Promise<boolean> {
       console.log('ℹ️ [DB Blob] Blob Storage에 DB 파일이 없음 (새 DB 생성)');
       return false;
     }
+    // Blob Storage 토큰 오류는 경고로 처리 (Railway 마이그레이션 중일 수 있음)
+    if (error.message && error.message.includes('No token found')) {
+      console.warn('⚠️ [DB Blob] Blob Storage 토큰이 없습니다. Railway로 마이그레이션 중이거나 토큰이 설정되지 않았습니다.');
+      return false;
+    }
     console.error('❌ [DB Blob] DB 파일 다운로드 실패:', error);
     return false;
   }
@@ -144,11 +178,27 @@ export async function checkDbExistsInBlob(): Promise<boolean> {
     return false;
   }
 
+  // Railway 환경에서는 Blob Storage 사용하지 않음
+  const isRailway = !!process.env.RAILWAY_ENVIRONMENT || !!process.env.RAILWAY;
+  if (isRailway) {
+    return false;
+  }
+
+  // Blob Storage 토큰 확인
+  if (!process.env.BLOB_READ_WRITE_TOKEN && !process.env.VERCEL_BLOB_READ_WRITE_TOKEN) {
+    return false;
+  }
+
   try {
     const blobs = await list({ prefix: BLOB_DB_KEY });
     return blobs.blobs && blobs.blobs.length > 0;
   } catch (error: any) {
-    console.error('❌ [DB Blob] Blob Storage 확인 실패:', error);
+    // Blob Storage 토큰 오류는 경고로 처리
+    if (error.message && error.message.includes('No token found')) {
+      console.warn('⚠️ [DB Blob] Blob Storage 토큰이 없습니다.');
+    } else {
+      console.error('❌ [DB Blob] Blob Storage 확인 실패:', error);
+    }
     return false;
   }
 }
