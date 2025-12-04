@@ -26,6 +26,20 @@ export function resetPool() {
 }
 
 /**
+ * PostgreSQL 연결 문자열에서 hostname 추출
+ */
+function extractHostname(connectionString: string): string | null {
+  try {
+    const url = new URL(connectionString);
+    return url.hostname;
+  } catch (error) {
+    // URL 파싱 실패 시 정규식으로 추출 시도
+    const match = connectionString.match(/@([^:]+):/);
+    return match ? match[1] : null;
+  }
+}
+
+/**
  * PostgreSQL 연결 풀 초기화
  * Private URL 실패 시 Public URL로 자동 fallback
  */
