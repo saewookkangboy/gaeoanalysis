@@ -291,6 +291,12 @@ async function runTests() {
   console.log(`📌 Base URL: ${BASE_URL}`);
   console.log(`📌 데이터베이스: ${isPostgreSQL() ? 'PostgreSQL' : 'SQLite'}\n`);
   
+  // PostgreSQL 환경에서만 테스트 실행 (SQLite는 트랜잭션 제약으로 인해 제한적)
+  if (!isPostgreSQL()) {
+    console.warn('⚠️  SQLite 환경에서는 트랜잭션 제약으로 인해 일부 기능이 제한될 수 있습니다.');
+    console.warn('⚠️  PostgreSQL 환경에서 테스트를 실행하는 것을 권장합니다.\n');
+  }
+  
   // 모의 사용자 생성
   const users = generateMockUsers(100);
   console.log(`✅ 모의 사용자 100명 생성 완료\n`);
