@@ -633,9 +633,9 @@ gaeo-analysis/
 - [ ] `templates/research-template.md` 생성
 
 #### Step 4: 새 기능 개발 워크플로우 적용 (지속적)
-- [ ] 새 기능 개발 시 Spec-Kit 워크플로우 적용
-- [ ] Constitution 준수 확인
-- [ ] Spec → Plan → Tasks → Implementation 순서 준수
+- [x] 새 기능 개발 시 Spec-Kit 워크플로우 적용 (예시: 사용량 표시 컴포넌트)
+- [x] Constitution 준수 확인
+- [x] Spec → Plan → Tasks → Implementation 순서 준수 (예시 완료)
 
 ### 우선순위
 
@@ -685,7 +685,7 @@ Spec-Kit의 `/speckit.plan`, `/speckit.tasks`, `/speckit.implement` 명령어와
 
 ### 권장 작업
 - [x] 기존 주요 기능 명세서 작성 (4/4 완료)
-- [ ] 검증 체크리스트 작성
+- [x] 검증 체크리스트 작성
 - [ ] 커스텀 스크립트 생성
 
 ### 선택 작업
