@@ -20,23 +20,6 @@ export async function initializePostgresSchema(): Promise<void> {
 
     // users 테이블 생성
     await query(`
-      CREATE TABLE IF NOT EXISTS users (
-        id TEXT PRIMARY KEY,
-        email TEXT UNIQUE NOT NULL,
-        blog_url TEXT,
-        name TEXT,
-        image TEXT,
-        provider TEXT,
-        role TEXT DEFAULT 'user',
-        is_active BOOLEAN DEFAULT true,
-        last_login_at TIMESTAMP,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-
-    // analyses 테이블 생성
-    await query(`
       CREATE TABLE IF NOT EXISTS analyses (
         id TEXT PRIMARY KEY,
         user_id TEXT,
@@ -177,6 +160,8 @@ export async function initializePostgresSchema(): Promise<void> {
  * 연결 시 자동으로 호출됩니다.
  */
 let schemaInitialized = false;
+let schemaCheckPromise: Promise<void> | null = null;
+
 export async function ensurePostgresSchema(): Promise<void> {
   if (!isPostgreSQL()) {
     return; // SQLite 환경에서는 스킵
@@ -186,12 +171,48 @@ export async function ensurePostgresSchema(): Promise<void> {
     return; // 이미 초기화됨
   }
 
-  try {
-    await initializePostgresSchema();
-    schemaInitialized = true;
-  } catch (error: any) {
-    // 초기화 실패해도 계속 진행 (테이블이 이미 존재할 수 있음)
-    console.warn('⚠️ [PostgreSQL Schema] 스키마 초기화 실패 (계속 진행):', error.message);
+  // 이미 초기화 중이면 대기
+  if (schemaCheckPromise) {
+    return schemaCheckPromise;
   }
+
+  // 테이블 존재 여부를 먼저 확인하여 불필요한 CREATE TABLE 실행 방지
+  schemaCheckPromise = (async () => {
+    try {
+      const { query } = await import('./db-postgres');
+      
+      // 주요 테이블 존재 여부 확인
+      const checkQuery = `
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables 
+          WHERE table_schema = 'public' 
+          AND table_name IN ('users', 'analyses', 'auth_logs', 'admin_logs')
+        ) as tables_exist;
+      `;
+      
+      const checkResult = await query(checkQuery);
+      const tablesExist = checkResult.rows[0]?.tables_exist;
+      
+      if (tablesExist) {
+        // 테이블이 이미 존재하면 스키마 초기화 스킵
+        console.log('✅ [PostgreSQL Schema] 테이블이 이미 존재합니다. 스키마 초기화 스킵.');
+        schemaInitialized = true;
+        return;
+      }
+      
+      // 테이블이 없으면 초기화 실행
+      await initializePostgresSchema();
+      schemaInitialized = true;
+    } catch (error: any) {
+      // 초기화 실패해도 계속 진행 (테이블이 이미 존재할 수 있음)
+      console.warn('⚠️ [PostgreSQL Schema] 스키마 초기화 실패 (계속 진행):', error.message);
+      // 에러가 발생해도 스키마가 이미 존재할 수 있으므로 플래그 설정
+      schemaInitialized = true;
+    } finally {
+      schemaCheckPromise = null;
+    }
+  })();
+
+  return schemaCheckPromise;
 }
 

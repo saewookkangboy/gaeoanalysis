@@ -373,19 +373,22 @@ function initializePostgresPool(): Pool {
 
   pool = new Pool({
     connectionString,
-    // 연결 풀 설정
-    max: isVercel ? 5 : 20, // Vercel 서버리스 환경에서는 최대 연결 수 감소 (5개)
-    idleTimeoutMillis: 10000, // Vercel 환경에서는 짧은 idle timeout (10초)
-    connectionTimeoutMillis: 30000, // 30초 (연결 타임아웃 증가 - ETIMEDOUT 방지)
+    // 연결 풀 설정 (성능 최적화)
+    max: isVercel ? 5 : 10, // 연결 수 최적화 (과도한 연결 방지)
+    min: isVercel ? 0 : 2, // 최소 연결 수 (빠른 응답을 위해)
+    idleTimeoutMillis: isVercel ? 10000 : 30000, // Vercel: 10초, Railway: 30초
+    connectionTimeoutMillis: 10000, // 연결 타임아웃 감소 (10초)
     // SSL 연결 (Railway는 SSL 필수)
     ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
     // 서버리스 환경 최적화
     allowExitOnIdle: isVercel, // Vercel 환경에서는 idle 시 연결 종료 허용
-    // 쿼리 타임아웃 설정 (Vercel 환경)
-    statement_timeout: isVercel ? 30000 : undefined, // 30초
+    // 쿼리 타임아웃 설정
+    statement_timeout: 20000, // 20초 (쿼리 타임아웃)
     // 연결 유지 설정 (타임아웃 방지)
     keepAlive: true,
     keepAliveInitialDelayMillis: 10000,
+    // 쿼리 실행 최적화
+    application_name: 'gaeo-analysis',
   });
 
   // 연결 오류 처리 - Private URL 실패 시 Public URL로 재시도
