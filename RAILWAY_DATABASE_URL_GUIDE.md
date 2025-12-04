@@ -2,6 +2,20 @@
 
 Railway PostgreSQL 데이터베이스의 `DATABASE_URL`을 가져와서 마이그레이션하는 방법을 안내합니다.
 
+## ⚠️ 중요: Public URL vs Private URL
+
+Railway PostgreSQL은 두 가지 연결 URL을 제공합니다:
+
+- **Public URL** (외부 접근 가능): `containers-xxx.railway.app` 형식
+  - ✅ 로컬 환경에서 마이그레이션 시 사용
+  - ✅ 외부에서 접근 가능
+  
+- **Private URL** (내부 네트워크 전용): `postgres.railway.internal` 형식
+  - ❌ 로컬 환경에서는 접근 불가
+  - ✅ Railway 내부 서비스 간 통신용
+
+**로컬에서 마이그레이션할 때는 반드시 Public URL을 사용하세요!**
+
 ## 📋 방법 1: Railway 대시보드에서 직접 복사
 
 ### 1단계: PostgreSQL 서비스 선택
@@ -12,7 +26,10 @@ Railway PostgreSQL 데이터베이스의 `DATABASE_URL`을 가져와서 마이�
 ### 2단계: Variables 탭에서 DATABASE_URL 확인
 1. PostgreSQL 서비스의 **"Variables"** 탭 클릭
 2. `DATABASE_URL` 변수 찾기
-3. 값 복사 (마우스 오른쪽 클릭 → Copy)
+3. **⚠️ Public URL 확인**: 호스트명이 `containers-xxx.railway.app` 형식인지 확인
+4. 값 복사 (마우스 오른쪽 클릭 → Copy)
+
+**중요**: `postgres.railway.internal` 형식의 URL은 로컬에서 사용할 수 없습니다!
 
 ### 3단계: 환경 변수 설정
 
@@ -161,13 +178,31 @@ pool.query('SELECT NOW()').then(r => {
 
 ## 🚨 문제 해결
 
-### 오류 1: `ENOTFOUND` (호스트명을 찾을 수 없음)
+### 오류 1: `ENOTFOUND postgres.railway.internal` (호스트명을 찾을 수 없음)
+
+**원인**: Railway 내부 네트워크 URL(`postgres.railway.internal`)을 사용하고 있음
+- 이 URL은 Railway 내부 서비스 간 통신용으로, 로컬 환경에서는 접근 불가
+
+**해결 방법**:
+1. Railway 대시보드 → PostgreSQL 서비스 → Variables 탭
+2. **Public URL** 찾기 (호스트명이 `containers-xxx.railway.app` 형식)
+3. Public URL로 DATABASE_URL 설정
+4. 또는 Railway CLI 사용:
+   ```bash
+   railway variables --service postgres
+   ```
+
+**올바른 URL 형식**:
+- ✅ `postgresql://postgres:password@containers-us-west-xxx.railway.app:5432/railway`
+- ❌ `postgresql://postgres:password@postgres.railway.internal:5432/railway`
+
+### 오류 1-1: `ENOTFOUND` (일반적인 호스트명 오류)
 
 **원인**: DATABASE_URL의 호스트명이 잘못되었거나 네트워크 문제
 
 **해결 방법**:
 1. Railway 대시보드에서 DATABASE_URL 다시 확인
-2. 호스트명이 올바른지 확인
+2. 호스트명이 올바른지 확인 (Public URL인지 확인)
 3. 인터넷 연결 확인
 
 ### 오류 2: `ECONNREFUSED` (연결 거부)

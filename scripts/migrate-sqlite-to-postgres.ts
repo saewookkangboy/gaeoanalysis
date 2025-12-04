@@ -21,7 +21,7 @@ if (!postgresUrl) {
   console.error('');
   console.error('💡 Railway PostgreSQL 연결 정보 설정 방법:');
   console.error('   1. Railway 대시보드 → PostgreSQL 서비스 → Variables 탭');
-  console.error('   2. DATABASE_URL 값을 복사');
+  console.error('   2. DATABASE_URL 값을 복사 (⚠️ Public URL 사용 필수!)');
   console.error('   3. 다음 명령어로 설정:');
   console.error('      export DATABASE_URL="postgresql://user:password@host:port/database"');
   console.error('   4. 또는 .env.local 파일에 추가:');
@@ -37,6 +37,27 @@ if (!postgresUrl.startsWith('postgresql://') && !postgresUrl.startsWith('postgre
   console.error('❌ DATABASE_URL 형식이 올바르지 않습니다.');
   console.error('   올바른 형식: postgresql://user:password@host:port/database');
   console.error(`   현재 값: ${postgresUrl.substring(0, 20)}...`);
+  process.exit(1);
+}
+
+// Railway 내부 네트워크 URL 감지 및 경고
+if (postgresUrl.includes('railway.internal')) {
+  console.error('❌ Railway 내부 네트워크 URL을 사용하고 있습니다.');
+  console.error('');
+  console.error('⚠️  `postgres.railway.internal`은 Railway 내부 네트워크에서만 접근 가능합니다.');
+  console.error('   로컬 환경에서는 Public URL을 사용해야 합니다.');
+  console.error('');
+  console.error('💡 해결 방법:');
+  console.error('   1. Railway 대시보드 → PostgreSQL 서비스 → Variables 탭');
+  console.error('   2. "Public Network" 또는 "External" DATABASE_URL 찾기');
+  console.error('   3. 호스트명이 `containers-xxx.railway.app` 형식인 URL 사용');
+  console.error('   4. 또는 Railway CLI 사용:');
+  console.error('      railway variables --service postgres | grep DATABASE_URL');
+  console.error('');
+  console.error('📝 올바른 형식 예시:');
+  console.error('   ✅ postgresql://postgres:password@containers-us-west-xxx.railway.app:5432/railway');
+  console.error('   ❌ postgresql://postgres:password@postgres.railway.internal:5432/railway');
+  console.error('');
   process.exit(1);
 }
 
