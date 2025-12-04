@@ -279,40 +279,40 @@ export default function AnnouncementsPage() {
 
       {/* 공지사항 목록 */}
       <div className="bg-white rounded-lg shadow">
-        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h2 className="text-xl font-semibold text-gray-900">
             공지사항 목록
           </h2>
         </div>
-        <div className="divide-y divide-gray-200 dark:divide-gray-700">
+        <div className="divide-y divide-gray-200">
           {announcements.length === 0 ? (
-            <div className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+            <div className="px-6 py-8 text-center text-gray-500">
               등록된 공지사항이 없습니다.
             </div>
           ) : (
             announcements.map((announcement) => (
               <div
                 key={announcement.id}
-                className="px-6 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                className="px-6 py-4 hover:bg-gray-50 transition-colors"
               >
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
                       {announcement.is_active && (
-                        <span className="px-2 py-1 text-xs font-semibold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded">
+                        <span className="px-2 py-1 text-xs font-semibold bg-green-100 text-green-700 rounded">
                           활성
                         </span>
                       )}
                       {!announcement.is_active && (
-                        <span className="px-2 py-1 text-xs font-semibold bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-400 rounded">
+                        <span className="px-2 py-1 text-xs font-semibold bg-gray-100 text-gray-700 rounded">
                           비활성
                         </span>
                       )}
                     </div>
-                    <p className="text-gray-900 dark:text-gray-100 mb-2">
+                    <p className="text-gray-900 mb-2">
                       {announcement.message}
                     </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                    <p className="text-xs text-gray-500">
                       생성: {new Date(announcement.created_at).toLocaleString('ko-KR')}
                       {announcement.updated_at !== announcement.created_at && (
                         <> | 수정: {new Date(announcement.updated_at).toLocaleString('ko-KR')}</>
@@ -322,13 +322,13 @@ export default function AnnouncementsPage() {
                   <div className="flex gap-2 ml-4">
                     <button
                       onClick={() => handleEdit(announcement)}
-                      className="px-3 py-1.5 text-sm bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400 rounded hover:bg-sky-200 dark:hover:bg-sky-900/50 transition-colors"
+                      className="px-3 py-1.5 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
                     >
                       수정
                     </button>
                     <button
                       onClick={() => handleDelete(announcement.id)}
-                      className="px-3 py-1.5 text-sm bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors"
+                      className="px-3 py-1.5 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
                     >
                       삭제
                     </button>
