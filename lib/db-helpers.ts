@@ -1121,19 +1121,93 @@ export function createUser(data: {
     // 이메일 정규화 (소문자, 트림) - 일관된 사용자 식별을 위해 중요
     const normalizedEmail = data.email.toLowerCase().trim();
     
-    // last_login_at 컬럼 존재 여부 확인 및 추가
+    // 필수 컬럼 존재 여부 확인 및 추가 (Vercel 환경 대응)
     try {
       const tableInfo = db.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
       const columnNames = tableInfo.map(col => col.name);
-      const hasLastLoginAt = columnNames.includes('last_login_at');
       
-      if (!hasLastLoginAt) {
+      // provider 컬럼 확인 및 추가
+      if (!columnNames.includes('provider')) {
+        try {
+          db.exec('ALTER TABLE users ADD COLUMN provider TEXT');
+          console.log('✅ [createUser] provider 컬럼 추가 완료');
+        } catch (alterError: any) {
+          if (alterError?.code !== 'SQLITE_ERROR' || !alterError?.message.includes('duplicate column')) {
+            console.warn('⚠️ [createUser] provider 컬럼 추가 실패:', alterError);
+          }
+        }
+      }
+      
+      // name 컬럼 확인 및 추가
+      if (!columnNames.includes('name')) {
+        try {
+          db.exec('ALTER TABLE users ADD COLUMN name TEXT');
+          console.log('✅ [createUser] name 컬럼 추가 완료');
+        } catch (alterError: any) {
+          if (alterError?.code !== 'SQLITE_ERROR' || !alterError?.message.includes('duplicate column')) {
+            console.warn('⚠️ [createUser] name 컬럼 추가 실패:', alterError);
+          }
+        }
+      }
+      
+      // image 컬럼 확인 및 추가
+      if (!columnNames.includes('image')) {
+        try {
+          db.exec('ALTER TABLE users ADD COLUMN image TEXT');
+          console.log('✅ [createUser] image 컬럼 추가 완료');
+        } catch (alterError: any) {
+          if (alterError?.code !== 'SQLITE_ERROR' || !alterError?.message.includes('duplicate column')) {
+            console.warn('⚠️ [createUser] image 컬럼 추가 실패:', alterError);
+          }
+        }
+      }
+      
+      // role 컬럼 확인 및 추가
+      if (!columnNames.includes('role')) {
+        try {
+          db.exec("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'user'");
+          console.log('✅ [createUser] role 컬럼 추가 완료');
+        } catch (alterError: any) {
+          if (alterError?.code !== 'SQLITE_ERROR' || !alterError?.message.includes('duplicate column')) {
+            console.warn('⚠️ [createUser] role 컬럼 추가 실패:', alterError);
+          }
+        }
+      }
+      
+      // is_active 컬럼 확인 및 추가
+      if (!columnNames.includes('is_active')) {
+        try {
+          db.exec('ALTER TABLE users ADD COLUMN is_active INTEGER DEFAULT 1');
+          console.log('✅ [createUser] is_active 컬럼 추가 완료');
+        } catch (alterError: any) {
+          if (alterError?.code !== 'SQLITE_ERROR' || !alterError?.message.includes('duplicate column')) {
+            console.warn('⚠️ [createUser] is_active 컬럼 추가 실패:', alterError);
+          }
+        }
+      }
+      
+      // last_login_at 컬럼 확인 및 추가
+      if (!columnNames.includes('last_login_at')) {
         try {
           db.exec('ALTER TABLE users ADD COLUMN last_login_at DATETIME');
           console.log('✅ [createUser] last_login_at 컬럼 추가 완료');
         } catch (alterError: any) {
           if (alterError?.code !== 'SQLITE_ERROR' || !alterError?.message.includes('duplicate column')) {
             console.warn('⚠️ [createUser] last_login_at 컬럼 추가 실패:', alterError);
+          }
+        }
+      }
+      
+      // updated_at 컬럼 확인 및 추가
+      if (!columnNames.includes('updated_at')) {
+        try {
+          db.exec('ALTER TABLE users ADD COLUMN updated_at DATETIME');
+          // 기존 레코드의 updated_at을 created_at으로 설정
+          db.exec('UPDATE users SET updated_at = created_at WHERE updated_at IS NULL');
+          console.log('✅ [createUser] updated_at 컬럼 추가 완료');
+        } catch (alterError: any) {
+          if (alterError?.code !== 'SQLITE_ERROR' || !alterError?.message.includes('duplicate column')) {
+            console.warn('⚠️ [createUser] updated_at 컬럼 추가 실패:', alterError);
           }
         }
       }
@@ -1172,6 +1246,18 @@ export function createUser(data: {
     // 기존 사용자 확인: 같은 이메일 + provider 조합으로 확인
     // Provider별로 독립적인 사용자를 만들기 위해 (email, provider) 조합으로 확인
     if (data.provider) {
+      // provider 컬럼 존재 여부 재확인 (Vercel 환경 대응)
+      try {
+        const tableInfo = db.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
+        const columnNames = tableInfo.map(col => col.name);
+        if (!columnNames.includes('provider')) {
+          db.exec('ALTER TABLE users ADD COLUMN provider TEXT');
+          console.log('✅ [createUser] provider 컬럼 추가 완료 (쿼리 실행 전)');
+        }
+      } catch (error) {
+        console.warn('⚠️ [createUser] provider 컬럼 확인 실패:', error);
+      }
+      
       const providerUserStmt = db.prepare('SELECT id, email, provider FROM users WHERE LOWER(TRIM(email)) = ? AND provider = ?');
       const providerUser = providerUserStmt.get(normalizedEmail, data.provider) as { id: string; email: string; provider: string } | undefined;
       
@@ -1307,6 +1393,18 @@ export function createUser(data: {
     
     // 기존 사용자 확인: 같은 이메일이지만 provider가 null인 경우 처리
     // 기존 사용자를 Provider별 사용자로 마이그레이션
+    // provider 컬럼 존재 여부 재확인 (Vercel 환경 대응)
+    try {
+      const tableInfo = db.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
+      const columnNames = tableInfo.map(col => col.name);
+      if (!columnNames.includes('provider')) {
+        db.exec('ALTER TABLE users ADD COLUMN provider TEXT');
+        console.log('✅ [createUser] provider 컬럼 추가 완료 (기존 사용자 확인 전)');
+      }
+    } catch (error) {
+      console.warn('⚠️ [createUser] provider 컬럼 확인 실패:', error);
+    }
+    
     const emailUserStmt = db.prepare('SELECT id, email, provider FROM users WHERE LOWER(TRIM(email)) = ? AND (provider IS NULL OR provider = ?)');
     const emailUser = emailUserStmt.get(normalizedEmail, '') as { id: string; email: string; provider: string | null } | undefined;
     
@@ -1476,6 +1574,18 @@ export function createUser(data: {
         
         // email UNIQUE 제약 조건 오류인 경우: 같은 Provider로 이미 등록된 사용자 확인
         if (data.provider) {
+          // provider 컬럼 존재 여부 재확인 (Vercel 환경 대응)
+          try {
+            const tableInfo = db.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
+            const columnNames = tableInfo.map(col => col.name);
+            if (!columnNames.includes('provider')) {
+              db.exec('ALTER TABLE users ADD COLUMN provider TEXT');
+              console.log('✅ [createUser] provider 컬럼 추가 완료 (재시도 전)');
+            }
+          } catch (error) {
+            console.warn('⚠️ [createUser] provider 컬럼 확인 실패:', error);
+          }
+          
           const retryProviderUserStmt = db.prepare('SELECT id FROM users WHERE LOWER(TRIM(email)) = ? AND provider = ?');
           const retryProviderUser = retryProviderUserStmt.get(normalizedEmail, data.provider) as { id: string } | undefined;
           if (retryProviderUser) {
