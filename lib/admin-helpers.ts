@@ -255,10 +255,10 @@ export async function getAuthLogs(
     const whereClause =
       conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
-    // 총 개수 조회
+    // 총 개수 조회 (별칭 사용하여 WHERE 절과 일치)
     const countQuery = `
       SELECT COUNT(*) as total
-      FROM auth_logs
+      FROM auth_logs al
       ${whereClause}
     `;
     const countResult = await query(countQuery, values);
