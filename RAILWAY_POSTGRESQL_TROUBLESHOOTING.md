@@ -4,6 +4,8 @@
 
 이 오류는 Railway PostgreSQL 서비스 컨테이너가 제대로 시작되지 않을 때 발생합니다.
 
+**중요:** 이 오류는 Railway 인프라 레벨의 문제로, 애플리케이션 코드로는 해결할 수 없습니다. Railway 대시보드에서 직접 조치가 필요합니다.
+
 ### 원인
 
 1. **Railway PostgreSQL 서비스 이미지 문제**
@@ -18,9 +20,22 @@
    - 잘못된 서비스 설정
    - 리소스 부족
 
+### 즉시 조치 사항
+
+**⚠️ 이 오류가 발생하면 Railway PostgreSQL 서비스가 완전히 다운된 상태입니다.**
+
+1. **Railway 대시보드 즉시 확인**
+   - https://railway.app 접속
+   - 프로젝트 → PostgreSQL 서비스 선택
+   - 서비스 상태 확인
+
+2. **서비스 상태 확인**
+   - 서비스가 "Stopped" 또는 "Error" 상태인지 확인
+   - 로그에서 `catatonit` 오류 확인
+
 ### 해결 방법
 
-#### 1. Railway PostgreSQL 서비스 재시작
+#### 1. Railway PostgreSQL 서비스 재시작 (가장 빠른 해결 방법)
 
 1. **Railway 대시보드 접속**
    - https://railway.app 접속
@@ -28,11 +43,17 @@
 
 2. **PostgreSQL 서비스 선택**
    - 서비스 목록에서 PostgreSQL 서비스 선택
-   - Settings 탭 클릭
+   - **Settings** 탭 클릭
 
 3. **서비스 재시작**
-   - **Restart** 버튼 클릭
-   - 또는 **Deployments** 탭에서 최신 배포 선택 후 **Redeploy**
+   - **Settings** 탭 하단의 **Restart** 버튼 클릭
+   - 또는 **Deployments** 탭에서 최신 배포 선택 후 **Redeploy** 클릭
+   - 재시작 후 서비스 상태가 "Running"으로 변경되는지 확인
+
+4. **재시작 후 확인**
+   - 로그에서 `Starting Container` 메시지 확인
+   - `ERROR (catatonit:2)` 오류가 사라졌는지 확인
+   - 서비스가 정상적으로 시작되면 애플리케이션 연결 재시도
 
 #### 2. PostgreSQL 서비스 재생성 (데이터 백업 필수)
 

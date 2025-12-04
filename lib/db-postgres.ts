@@ -161,7 +161,13 @@ function initializePostgresPool(): Pool {
       hasPublicUrl: !!publicUrl,
       isRailway: isRailway,
       isVercel: isVercel,
-      note: 'Railway PostgreSQL 서비스가 제대로 설정되었는지 확인하세요.'
+      troubleshooting: {
+        step1: 'Railway 대시보드에서 PostgreSQL 서비스 확인',
+        step2: '서비스 Variables 탭에서 DATABASE_URL 확인',
+        step3: '서비스가 "Running" 상태인지 확인',
+        step4: '서비스가 다운된 경우 재시작 또는 재생성',
+        guide: 'RAILWAY_POSTGRESQL_TROUBLESHOOTING.md 파일 참조'
+      }
     });
     throw new Error(errorMsg);
   }
@@ -265,12 +271,28 @@ function initializePostgresPool(): Pool {
 
   // 연결 오류 처리 - Private URL 실패 시 Public URL로 재시도
   pool.on('error', async (err: any) => {
+    const isConnectionError = err.code === 'ETIMEDOUT' || 
+                              err.code === 'ENOTFOUND' || 
+                              err.message?.includes('timeout') ||
+                              err.message?.includes('Connection terminated');
+    
     console.error('❌ [PostgreSQL] 예상치 못한 클라이언트 오류:', {
       error: err.message,
       code: err.code,
       hostname: err.hostname,
       syscall: err.syscall,
-      note: 'Railway PostgreSQL 서비스가 실행 중인지 확인하세요. Railway 대시보드에서 서비스 상태를 확인하고 필요시 재시작하세요.'
+      isConnectionError,
+      troubleshooting: isConnectionError ? {
+        step1: 'Railway 대시보드에서 PostgreSQL 서비스 로그 확인',
+        step2: '"ERROR (catatonit:2): failed to exec pid1" 오류가 있는지 확인',
+        step3: '오류가 있으면 서비스를 재시작하거나 재생성',
+        step4: '서비스 상태가 "Running"인지 확인',
+        step5: '리소스 사용량 확인 (CPU, Memory)',
+        guide: 'RAILWAY_POSTGRESQL_TROUBLESHOOTING.md 파일 참조',
+        railwayDashboard: 'https://railway.app'
+      } : {
+        note: 'Railway PostgreSQL 서비스가 실행 중인지 확인하세요.'
+      }
     });
     
     // Private URL 연결 실패 시 Public URL로 재시도
