@@ -484,7 +484,18 @@ export function getPostgresPool(): Pool {
   }
 
   if (!pool) {
-    return initializePostgresPool();
+    const newPool = initializePostgresPool();
+    // 스키마 초기화 (비동기, 실패해도 계속 진행)
+    (async () => {
+      try {
+        const { ensurePostgresSchema } = await import('./db-postgres-schema');
+        await ensurePostgresSchema();
+      } catch (error) {
+        // 스키마 초기화 실패는 조용히 무시 (테이블이 이미 존재할 수 있음)
+        console.warn('⚠️ [PostgreSQL] 스키마 초기화 스킵:', error);
+      }
+    })();
+    return newPool;
   }
 
   return pool;
@@ -493,6 +504,7 @@ export function getPostgresPool(): Pool {
 /**
  * 쿼리 실행 (Promise 기반)
  * Private URL 연결 실패 시 Public URL로 자동 재시도
+ * 테이블이 없으면 자동으로 스키마 초기화
  */
 export async function query<T extends Record<string, any> = any>(
   text: string,
@@ -511,6 +523,35 @@ export async function query<T extends Record<string, any> = any>(
     
     return result;
   } catch (error: any) {
+    // 테이블이 없는 경우 (42P01) 스키마 초기화 시도
+    if (error.code === '42P01') {
+      console.warn('⚠️ [PostgreSQL] 테이블이 없습니다. 스키마 초기화 시도...', {
+        error: error.message,
+        table: error.table,
+      });
+      
+      try {
+        const { ensurePostgresSchema } = await import('./db-postgres-schema');
+        await ensurePostgresSchema();
+        
+        // 스키마 초기화 후 쿼리 재시도
+        console.log('✅ [PostgreSQL] 스키마 초기화 완료, 쿼리 재시도...');
+        const retryResult = await currentPool.query<T>(text, params);
+        const duration = Date.now() - start;
+        
+        if (duration > 1000) {
+          console.warn(`⚠️ [PostgreSQL] 느린 쿼리 (재시도, ${duration}ms):`, text.substring(0, 100));
+        }
+        
+        return retryResult;
+      } catch (schemaError: any) {
+        console.error('❌ [PostgreSQL] 스키마 초기화 실패:', {
+          error: schemaError.message,
+          code: schemaError.code,
+        });
+        // 스키마 초기화 실패해도 원래 오류를 throw
+      }
+    }
     // 오류 발생 시 즉시 로깅 (재시도 전)
     console.error('❌ [PostgreSQL] 쿼리 오류 발생 (재시도 전):', {
       errorCode: error.code,
