@@ -1169,6 +1169,86 @@ export function createUser(data: {
       return data.id;
     }
 
+    // 기존 사용자 확인: 같은 이메일 + provider 조합으로 확인
+    // Provider별로 독립적인 사용자를 만들기 위해 (email, provider) 조합으로 확인
+    if (data.provider) {
+      const providerUserStmt = db.prepare('SELECT id, email, provider FROM users WHERE LOWER(TRIM(email)) = ? AND provider = ?');
+      const providerUser = providerUserStmt.get(normalizedEmail, data.provider) as { id: string; email: string; provider: string } | undefined;
+      
+      if (providerUser) {
+        // 같은 Provider로 이미 등록된 사용자가 있으면 그 ID 사용
+        console.log('✅ [createUser] 같은 Provider로 이미 등록된 사용자 발견:', {
+          existingId: providerUser.id,
+          newId: data.id,
+          email: normalizedEmail,
+          provider: data.provider
+        });
+        
+        // last_login_at 업데이트
+        try {
+          const tableInfo = db.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
+          const hasLastLoginAt = tableInfo.some(col => col.name === 'last_login_at');
+          
+          if (hasLastLoginAt) {
+            const updateStmt = db.prepare('UPDATE users SET last_login_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
+            updateStmt.run(providerUser.id);
+          } else {
+            const updateStmt = db.prepare('UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = ?');
+            updateStmt.run(providerUser.id);
+          }
+        } catch (updateError) {
+          console.warn('⚠️ [createUser] last_login_at 업데이트 실패:', updateError);
+        }
+        
+        return providerUser.id;
+      }
+    }
+    
+    // 기존 사용자 확인: 같은 이메일이지만 provider가 null인 경우 처리
+    // 기존 사용자를 Provider별 사용자로 마이그레이션
+    const emailUserStmt = db.prepare('SELECT id, email, provider FROM users WHERE LOWER(TRIM(email)) = ? AND (provider IS NULL OR provider = "")');
+    const emailUser = emailUserStmt.get(normalizedEmail) as { id: string; email: string; provider: string | null } | undefined;
+    
+    if (emailUser && data.provider) {
+      // 기존 사용자의 provider가 null이고, 새로운 Provider로 로그인하는 경우
+      // 기존 사용자 ID를 새로운 Provider별 ID로 업데이트하거나 새로 생성
+      console.log('🔄 [createUser] 기존 사용자(provider null) 발견, Provider별 사용자로 마이그레이션:', {
+        oldId: emailUser.id,
+        newId: data.id,
+        email: normalizedEmail,
+        provider: data.provider
+      });
+      
+      // 기존 사용자의 ID를 새로운 Provider별 ID로 업데이트
+      // 하지만 외래 키 제약 조건 때문에 직접 업데이트는 위험할 수 있음
+      // 대신 기존 사용자의 provider를 업데이트하고 ID는 유지하거나
+      // 새로운 ID로 사용자를 생성하고 기존 분석 이력을 마이그레이션
+      
+      // 간단한 방법: 기존 사용자의 provider를 업데이트하고 ID는 유지
+      try {
+        const tableInfo = db.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
+        const hasLastLoginAt = tableInfo.some(col => col.name === 'last_login_at');
+        
+        if (hasLastLoginAt) {
+          const updateStmt = db.prepare('UPDATE users SET provider = ?, name = ?, image = ?, last_login_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
+          updateStmt.run(data.provider, data.name || null, data.image || null, emailUser.id);
+        } else {
+          const updateStmt = db.prepare('UPDATE users SET provider = ?, name = ?, image = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
+          updateStmt.run(data.provider, data.name || null, data.image || null, emailUser.id);
+        }
+        
+        console.log('✅ [createUser] 기존 사용자 provider 업데이트 완료:', {
+          userId: emailUser.id,
+          provider: data.provider
+        });
+        
+        return emailUser.id;
+      } catch (updateError: any) {
+        console.warn('⚠️ [createUser] 기존 사용자 provider 업데이트 실패, 새 사용자 생성 시도:', updateError);
+        // 업데이트 실패 시 새 사용자 생성 계속 진행
+      }
+    }
+
     // 새 사용자 생성 (정규화된 이메일 사용)
     try {
       const tableInfo = db.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
@@ -1222,12 +1302,54 @@ export function createUser(data: {
       }
       return data.id;
     } catch (error: any) {
-      // UNIQUE 제약 조건 오류인 경우 (동시성 문제)
+      // UNIQUE 제약 조건 오류인 경우 (동시성 문제 또는 email UNIQUE 제약)
       if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
         // 다시 확인 (Provider별 사용자 ID로만 확인)
         const retryUser = getUser(data.id);
         if (retryUser) {
           return data.id;
+        }
+        
+        // email UNIQUE 제약 조건 오류인 경우: 같은 Provider로 이미 등록된 사용자 확인
+        if (data.provider) {
+          const retryProviderUserStmt = db.prepare('SELECT id FROM users WHERE LOWER(TRIM(email)) = ? AND provider = ?');
+          const retryProviderUser = retryProviderUserStmt.get(normalizedEmail, data.provider) as { id: string } | undefined;
+          if (retryProviderUser) {
+            console.log('✅ [createUser] UNIQUE 제약 조건 오류 후 재확인: 같은 Provider 사용자 발견:', {
+              userId: retryProviderUser.id,
+              email: normalizedEmail,
+              provider: data.provider
+            });
+            return retryProviderUser.id;
+          }
+        }
+        
+        // email UNIQUE 제약 조건 오류이지만 provider가 null인 기존 사용자가 있는 경우
+        const retryEmailUserStmt = db.prepare('SELECT id FROM users WHERE LOWER(TRIM(email)) = ? AND (provider IS NULL OR provider = "")');
+        const retryEmailUser = retryEmailUserStmt.get(normalizedEmail) as { id: string } | undefined;
+        if (retryEmailUser && data.provider) {
+          // 기존 사용자의 provider 업데이트 시도
+          try {
+            const tableInfo = db.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
+            const hasLastLoginAt = tableInfo.some(col => col.name === 'last_login_at');
+            
+            if (hasLastLoginAt) {
+              const updateStmt = db.prepare('UPDATE users SET provider = ?, name = ?, image = ?, last_login_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
+              updateStmt.run(data.provider, data.name || null, data.image || null, retryEmailUser.id);
+            } else {
+              const updateStmt = db.prepare('UPDATE users SET provider = ?, name = ?, image = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
+              updateStmt.run(data.provider, data.name || null, data.image || null, retryEmailUser.id);
+            }
+            
+            console.log('✅ [createUser] UNIQUE 제약 조건 오류 후 기존 사용자 provider 업데이트 완료:', {
+              userId: retryEmailUser.id,
+              provider: data.provider
+            });
+            
+            return retryEmailUser.id;
+          } catch (updateError) {
+            console.warn('⚠️ [createUser] 기존 사용자 provider 업데이트 실패:', updateError);
+          }
         }
       }
       throw error;

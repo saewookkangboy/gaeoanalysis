@@ -8,7 +8,7 @@
 -- ============================================
 CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
-  email TEXT UNIQUE NOT NULL,
+  email TEXT NOT NULL,
   name TEXT,
   image TEXT,
   blog_url TEXT,
@@ -19,6 +19,11 @@ CREATE TABLE IF NOT EXISTS users (
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Provider별 독립적인 사용자 관리를 위한 복합 UNIQUE 인덱스
+-- 같은 이메일이라도 Provider가 다르면 다른 사용자로 취급
+-- provider가 NULL인 경우도 고려하여 COALESCE 사용
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_provider ON users(email, COALESCE(provider, ''));
 
 -- ============================================
 -- 2. 인증 로그 (Authentication Logs)

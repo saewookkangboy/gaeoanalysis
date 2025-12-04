@@ -753,6 +753,91 @@ const migrations: Migration[] = [
       ensureAlgorithmSchema();
     },
   },
+  {
+    version: 15,
+    name: 'remove_email_unique_constraint',
+    up: () => {
+      // Provider별 독립적인 사용자 관리를 위해 email UNIQUE 제약 조건 제거
+      // SQLite는 ALTER TABLE로 UNIQUE 제약 조건을 직접 제거할 수 없으므로
+      // 테이블을 재생성하는 방식으로 처리
+      try {
+        console.log('🔄 [Migration v15] email UNIQUE 제약 조건 제거 시작...');
+        
+        // 외래 키 제약 조건 일시적으로 비활성화
+        db.exec(`PRAGMA foreign_keys = OFF;`);
+        
+        // 1. 기존 테이블 백업
+        db.exec(`
+          CREATE TABLE IF NOT EXISTS users_backup AS SELECT * FROM users;
+        `);
+        
+        // 2. 기존 테이블 삭제
+        db.exec(`DROP TABLE IF EXISTS users;`);
+        
+        // 3. 새로운 테이블 생성 (email UNIQUE 제약 조건 없음)
+        db.exec(`
+          CREATE TABLE users (
+            id TEXT PRIMARY KEY,
+            email TEXT NOT NULL,
+            name TEXT,
+            image TEXT,
+            blog_url TEXT,
+            provider TEXT,
+            role TEXT DEFAULT 'user',
+            is_active INTEGER DEFAULT 1,
+            last_login_at DATETIME,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+          );
+        `);
+        
+        // 4. (email, provider) 복합 UNIQUE 인덱스 생성 (같은 이메일 + 같은 Provider는 중복 방지)
+        // provider가 NULL인 경우도 고려하여 처리
+        db.exec(`
+          CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_provider ON users(email, COALESCE(provider, ''));
+        `);
+        
+        // 5. 기존 데이터 복원
+        db.exec(`
+          INSERT INTO users SELECT * FROM users_backup;
+        `);
+        
+        // 6. 백업 테이블 삭제
+        db.exec(`DROP TABLE IF EXISTS users_backup;`);
+        
+        // 7. 기존 인덱스 재생성
+        db.exec(`
+          CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+          CREATE INDEX IF NOT EXISTS idx_users_provider ON users(provider);
+          CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
+          CREATE INDEX IF NOT EXISTS idx_users_created_at ON users(created_at);
+          CREATE INDEX IF NOT EXISTS idx_users_provider_email ON users(provider, email);
+        `);
+        
+        // 외래 키 제약 조건 재활성화
+        db.exec(`PRAGMA foreign_keys = ON;`);
+        
+        console.log('✅ [Migration v15] email UNIQUE 제약 조건 제거 완료, (email, provider) 복합 UNIQUE 인덱스 생성');
+      } catch (error: any) {
+        console.error('❌ [Migration v15] email UNIQUE 제약 조건 제거 실패:', error);
+        // 실패 시 백업에서 복원 시도
+        try {
+          db.exec(`PRAGMA foreign_keys = OFF;`);
+          const backupExists = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='users_backup'").get();
+          if (backupExists) {
+            db.exec(`DROP TABLE IF EXISTS users;`);
+            db.exec(`ALTER TABLE users_backup RENAME TO users;`);
+            console.log('✅ [Migration v15] 백업에서 복원 완료');
+          }
+          db.exec(`PRAGMA foreign_keys = ON;`);
+        } catch (restoreError) {
+          console.error('❌ [Migration v15] 백업 복원 실패:', restoreError);
+        }
+        // 마이그레이션 실패해도 계속 진행 (기존 로직으로 처리)
+        console.warn('⚠️ [Migration v15] 마이그레이션 실패했지만 계속 진행합니다. createUser 함수에서 처리합니다.');
+      }
+    },
+  },
   // 알고리즘 초기화 (마이그레이션 후 자동 실행)
   {
     version: 13,
