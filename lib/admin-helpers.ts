@@ -4,7 +4,7 @@
  * 이 모듈은 관리자 대시보드에서 사용하는 데이터 조회 및 통계 계산 함수들을 제공합니다.
  */
 
-import { query, prepare } from './db-adapter';
+import { query, prepare, isPostgreSQL } from './db-adapter';
 import { v4 as uuidv4 } from 'uuid';
 import { NextRequest } from 'next/server';
 
@@ -212,7 +212,6 @@ export async function getAuthLogs(
 }> {
   try {
     // PostgreSQL 스키마 초기화 보장
-    const { isPostgreSQL } = await import('./db-adapter');
     if (isPostgreSQL()) {
       try {
         const { ensurePostgresSchema } = await import('./db-postgres-schema');
@@ -360,7 +359,6 @@ export async function getAuthLogsSummary(
 ): Promise<AuthLogSummary> {
   try {
     // PostgreSQL 스키마 초기화 보장
-    const { isPostgreSQL } = await import('./db-adapter');
     if (isPostgreSQL()) {
       try {
         const { ensurePostgresSchema } = await import('./db-postgres-schema');
@@ -524,7 +522,6 @@ export async function getUsers(
     const pagination = calculatePagination(params, total);
 
     // PostgreSQL과 SQLite 모두 지원하기 위해 boolean 비교 처리
-    const { isPostgreSQL } = await import('./db-adapter');
     const successCondition = isPostgreSQL() ? 'al.success = true' : 'al.success = 1';
 
     const usersQuery = `
