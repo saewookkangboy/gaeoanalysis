@@ -147,22 +147,43 @@ export async function getUserAnalyses(userId: string, options: QueryOptions = {}
   try {
     // 디버깅: 사용자 ID 확인
     if (process.env.NODE_ENV === 'development' || process.env.DEBUG_DB) {
-      const userExists = await getUser(userId);
-      if (!userExists) {
-        console.warn('⚠️ [getUserAnalyses] 사용자가 존재하지 않음:', { userId });
-      }
-      
-      // 전체 분석 이력 개수 확인 (디버깅용)
-      const totalResult = await query('SELECT COUNT(*) as count FROM analyses WHERE user_id = $1', [userId]);
-      const totalCount = parseInt(totalResult.rows[0]?.count as string, 10) || 0;
-      if (totalCount === 0) {
-        // 다른 사용자 ID로 저장되었는지 확인 (디버깅용)
-        const allResult = await query('SELECT user_id, COUNT(*) as count FROM analyses GROUP BY user_id LIMIT 10');
-        if (allResult.rows.length > 0) {
-          console.warn('🔍 [getUserAnalyses] 다른 사용자 ID로 저장된 분석 이력:', {
-            requestedUserId: userId,
-            otherUserCounts: allResult.rows
-          });
+      try {
+        const userExists = await getUser(userId);
+        if (!userExists) {
+          console.warn('⚠️ [getUserAnalyses] 사용자가 존재하지 않음:', { userId });
+        }
+        
+        // 전체 분석 이력 개수 확인 (디버깅용)
+        try {
+          const totalResult = await query('SELECT COUNT(*) as count FROM analyses WHERE user_id = $1', [userId]);
+          const totalCount = parseInt(totalResult.rows[0]?.count as string, 10) || 0;
+          if (totalCount === 0) {
+            // 다른 사용자 ID로 저장되었는지 확인 (디버깅용)
+            try {
+              const allResult = await query('SELECT user_id, COUNT(*) as count FROM analyses GROUP BY user_id LIMIT 10');
+              if (allResult.rows.length > 0) {
+                console.warn('🔍 [getUserAnalyses] 다른 사용자 ID로 저장된 분석 이력:', {
+                  requestedUserId: userId,
+                  otherUserCounts: allResult.rows
+                });
+              }
+            } catch (debugError: any) {
+              // 디버깅 쿼리 실패는 무시
+              if (debugError.code !== '42P01') {
+                console.warn('⚠️ [getUserAnalyses] 디버깅 쿼리 실패:', debugError.message);
+              }
+            }
+          }
+        } catch (countError: any) {
+          // COUNT 쿼리 실패는 무시 (테이블이 없을 수 있음)
+          if (countError.code !== '42P01') {
+            console.warn('⚠️ [getUserAnalyses] COUNT 쿼리 실패:', countError.message);
+          }
+        }
+      } catch (userError: any) {
+        // 사용자 확인 실패는 무시
+        if (userError.code !== '42P01') {
+          console.warn('⚠️ [getUserAnalyses] 사용자 확인 실패:', userError.message);
         }
       }
     }
@@ -178,15 +199,40 @@ export async function getUserAnalyses(userId: string, options: QueryOptions = {}
       LIMIT $2 OFFSET $3
     `;
 
-    const results = await query(queryText, [userId, limit, offset]);
+    let results;
+    try {
+      results = await query(queryText, [userId, limit, offset]);
+    } catch (queryError: any) {
+      // 테이블이 없는 경우 (42P01) 스키마 초기화 후 재시도
+      if (queryError.code === '42P01' && isPostgreSQL()) {
+        console.warn('⚠️ [getUserAnalyses] 테이블이 없습니다. 스키마 초기화 후 재시도...');
+        try {
+          const { ensurePostgresSchema } = await import('./db-postgres-schema');
+          await ensurePostgresSchema();
+          results = await query(queryText, [userId, limit, offset]);
+        } catch (schemaError) {
+          console.error('❌ [getUserAnalyses] 스키마 초기화 실패:', schemaError);
+          return []; // 스키마 초기화 실패 시 빈 배열 반환
+        }
+      } else {
+        throw queryError;
+      }
+    }
     
     // 디버깅: 조회 결과 확인
     if ((process.env.NODE_ENV === 'development' || process.env.DEBUG_DB) && results.rows.length === 0) {
-      // user_id가 NULL인 분석 이력 확인
-      const nullResult = await query('SELECT COUNT(*) as count FROM analyses WHERE user_id IS NULL');
-      const nullCount = parseInt(nullResult.rows[0]?.count as string, 10) || 0;
-      if (nullCount > 0) {
-        console.warn('⚠️ [getUserAnalyses] user_id가 NULL인 분석 이력 발견:', { count: nullCount });
+      try {
+        // user_id가 NULL인 분석 이력 확인
+        const nullResult = await query('SELECT COUNT(*) as count FROM analyses WHERE user_id IS NULL');
+        const nullCount = parseInt(nullResult.rows[0]?.count as string, 10) || 0;
+        if (nullCount > 0) {
+          console.warn('⚠️ [getUserAnalyses] user_id가 NULL인 분석 이력 발견:', { count: nullCount });
+        }
+      } catch (nullCheckError: any) {
+        // NULL 체크 실패는 무시 (테이블이 없을 수 있음)
+        if (nullCheckError.code !== '42P01') {
+          console.warn('⚠️ [getUserAnalyses] NULL 체크 실패:', nullCheckError.message);
+        }
       }
     }
 

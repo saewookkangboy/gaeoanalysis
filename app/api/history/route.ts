@@ -5,6 +5,18 @@ import { addSecurityHeaders, handleCorsPreflight } from '@/lib/headers';
 import { query, isPostgreSQL, isSQLite } from '@/lib/db-adapter';
 import db from '@/lib/db';
 
+// PostgreSQL 스키마 초기화 보장
+async function ensureSchema() {
+  if (isPostgreSQL()) {
+    try {
+      const { ensurePostgresSchema } = await import('@/lib/db-postgres-schema');
+      await ensurePostgresSchema();
+    } catch (error) {
+      console.warn('⚠️ [History API] 스키마 초기화 스킵:', error);
+    }
+  }
+}
+
 export async function GET(request: NextRequest) {
   // CORS preflight 처리
   const corsResponse = handleCorsPreflight(request);
@@ -13,6 +25,9 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    // PostgreSQL 스키마 초기화 보장
+    await ensureSchema();
+    
     const session = await auth();
 
     if (!session?.user?.id) {
@@ -64,11 +79,26 @@ export async function GET(request: NextRequest) {
           let providerUser: { id: string; email: string; provider: string } | null = null;
           
           if (isPostgreSQL()) {
-            const providerUserResult = await query(
-              'SELECT id, email, provider FROM users WHERE LOWER(TRIM(email)) = $1 AND provider = $2',
-              [normalizedEmail, provider]
-            );
-            providerUser = providerUserResult.rows[0] as { id: string; email: string; provider: string } | null;
+            try {
+              const providerUserResult = await query(
+                'SELECT id, email, provider FROM users WHERE LOWER(TRIM(email)) = $1 AND provider = $2',
+                [normalizedEmail, provider]
+              );
+              providerUser = providerUserResult.rows[0] as { id: string; email: string; provider: string } | null;
+            } catch (queryError: any) {
+              // 테이블이 없는 경우 스키마 초기화 후 재시도
+              if (queryError.code === '42P01') {
+                console.warn('⚠️ [History API] 테이블이 없습니다. 스키마 초기화 후 재시도...');
+                await ensureSchema();
+                const retryResult = await query(
+                  'SELECT id, email, provider FROM users WHERE LOWER(TRIM(email)) = $1 AND provider = $2',
+                  [normalizedEmail, provider]
+                );
+                providerUser = retryResult.rows[0] as { id: string; email: string; provider: string } | null;
+              } else {
+                throw queryError;
+              }
+            }
           } else {
             const providerUserStmt = db.prepare('SELECT id, email, provider FROM users WHERE LOWER(TRIM(email)) = ? AND provider = ?');
             providerUser = providerUserStmt.get(normalizedEmail, provider) as { id: string; email: string; provider: string } | undefined || null;
@@ -187,10 +217,31 @@ export async function GET(request: NextRequest) {
     );
     
     return addSecurityHeaders(request, response);
-  } catch (error) {
-    console.error('❌ 분석 이력 조회 오류:', error);
+  } catch (error: any) {
+    console.error('❌ [History API] 분석 이력 조회 오류:', {
+      error: error.message,
+      code: error.code,
+      stack: error.stack,
+    });
+    
+    // 테이블이 없는 경우 스키마 초기화 후 재시도
+    if (error.code === '42P01' && isPostgreSQL()) {
+      try {
+        console.warn('⚠️ [History API] 테이블이 없습니다. 스키마 초기화 후 재시도...');
+        await ensureSchema();
+        // 재시도는 클라이언트에서 하도록 함 (500 오류 반환)
+        const errorResponse = NextResponse.json(
+          { error: '데이터베이스 스키마를 초기화했습니다. 페이지를 새로고침해주세요.' },
+          { status: 500 }
+        );
+        return addSecurityHeaders(request, errorResponse);
+      } catch (schemaError) {
+        console.error('❌ [History API] 스키마 초기화 실패:', schemaError);
+      }
+    }
+    
     const errorResponse = NextResponse.json(
-      { error: '분석 이력 조회 중 오류가 발생했습니다.' },
+      { error: '분석 이력 조회 중 오류가 발생했습니다.', details: process.env.NODE_ENV === 'development' ? error.message : undefined },
       { status: 500 }
     );
     return addSecurityHeaders(request, errorResponse);
