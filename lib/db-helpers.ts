@@ -1141,10 +1141,15 @@ export function createUser(data: {
       console.warn('⚠️ [createUser] 테이블 정보 확인 실패:', error);
     }
     
-    // 먼저 사용자가 존재하는지 확인
+    // Provider별 사용자 ID로 존재 여부 확인 (provider별 계정 독립성)
     const existingUser = getUser(data.id);
     if (existingUser) {
-      console.log('사용자 이미 존재:', { id: data.id, email: normalizedEmail });
+      console.log('✅ [createUser] Provider별 사용자 이미 존재:', { 
+        id: data.id, 
+        email: normalizedEmail,
+        provider: data.provider 
+      });
+      
       // last_login_at 컬럼 존재 여부에 따라 다른 업데이트 쿼리 사용
       try {
         const tableInfo = db.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
@@ -1162,36 +1167,6 @@ export function createUser(data: {
         // 업데이트 실패해도 사용자 ID는 반환
       }
       return data.id;
-    }
-
-    // 이메일로도 확인 (다른 ID로 이미 등록된 경우)
-    // 대소문자 구분 없이 검색
-    const emailStmt = db.prepare('SELECT id FROM users WHERE LOWER(TRIM(email)) = ?');
-    const emailUser = emailStmt.get(normalizedEmail) as { id: string } | undefined;
-    if (emailUser) {
-      console.log('이메일로 이미 등록된 사용자 발견:', { 
-        existingId: emailUser.id, 
-        newId: data.id, 
-        email: normalizedEmail 
-      });
-      // 기존 사용자 ID 반환 (FOREIGN KEY 제약 조건을 위해)
-      // last_login_at 컬럼 존재 여부에 따라 다른 업데이트 쿼리 사용
-      try {
-        const tableInfo = db.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
-        const hasLastLoginAt = tableInfo.some(col => col.name === 'last_login_at');
-        
-        if (hasLastLoginAt) {
-          const updateStmt = db.prepare('UPDATE users SET last_login_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
-          updateStmt.run(emailUser.id);
-        } else {
-          const updateStmt = db.prepare('UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = ?');
-          updateStmt.run(emailUser.id);
-        }
-      } catch (updateError) {
-        console.warn('⚠️ [createUser] last_login_at 업데이트 실패:', updateError);
-        // 업데이트 실패해도 사용자 ID는 반환
-      }
-      return emailUser.id;
     }
 
     // 새 사용자 생성 (정규화된 이메일 사용)
@@ -1249,14 +1224,10 @@ export function createUser(data: {
     } catch (error: any) {
       // UNIQUE 제약 조건 오류인 경우 (동시성 문제)
       if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
-        // 다시 확인
+        // 다시 확인 (Provider별 사용자 ID로만 확인)
         const retryUser = getUser(data.id);
         if (retryUser) {
           return data.id;
-        }
-        const retryEmailUser = emailStmt.get(normalizedEmail) as { id: string } | undefined;
-        if (retryEmailUser) {
-          return retryEmailUser.id;
         }
       }
       throw error;

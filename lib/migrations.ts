@@ -368,6 +368,18 @@ const migrations: Migration[] = [
     },
   },
   {
+    version: 14,
+    name: 'add_provider_email_composite_index',
+    up: () => {
+      // Provider별 사용자 조회 최적화를 위한 복합 인덱스 추가
+      db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_users_provider_email ON users(provider, email);
+        CREATE INDEX IF NOT EXISTS idx_analyses_user_provider ON analyses(user_id, created_at DESC);
+      `);
+      console.log('✅ [Migration v14] Provider별 사용자 조회 인덱스 추가 완료');
+    },
+  },
+  {
     version: 10,
     name: 'create_agent_lightning_tables',
     up: () => {

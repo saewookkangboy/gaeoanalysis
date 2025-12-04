@@ -34,44 +34,34 @@ export async function GET(request: NextRequest) {
       sessionUser: session.user 
     });
     
-    // 프로세스 2: 이메일 기반으로 일관된 사용자 ID 확인 (auth.ts와 동일한 로직)
+    // 프로세스 2: Provider별 독립적인 사용자 ID 확인 (auth.ts와 동일한 로직)
     let actualUserId = sessionUserId;
     let user = null;
+    const provider = session?.user?.provider || null;
     
-    if (normalizedEmail) {
-      // 2-1. 이메일 기반 ID 생성 (auth.ts와 동일)
-      const emailBasedUserId = generateUserIdFromEmail(normalizedEmail);
+    if (normalizedEmail && provider) {
+      // 2-1. Provider + 이메일 기반 ID 생성 (auth.ts와 동일)
+      const providerBasedUserId = generateUserIdFromEmail(normalizedEmail, provider);
       
-      // 2-2. 이메일로 사용자 찾기 (기존 사용자 확인)
-      const userByEmail = getUserByEmail(normalizedEmail);
-      if (userByEmail) {
+      // 2-2. Provider별 사용자 찾기 (기존 사용자 확인)
+      const existingUser = getUser(providerBasedUserId);
+      if (existingUser) {
         // 기존 사용자가 있으면 그 ID 사용 (분석 이력 유지)
-        actualUserId = userByEmail.id;
-        user = userByEmail;
-        console.log('✅ [History API] 이메일로 기존 사용자 확인:', {
+        actualUserId = existingUser.id;
+        user = existingUser;
+        console.log('✅ [History API] Provider별 기존 사용자 확인:', {
           sessionUserId: sessionUserId,
-          emailBasedId: emailBasedUserId,
+          providerBasedId: providerBasedUserId,
           actualUserId: actualUserId,
-          email: normalizedEmail
+          email: normalizedEmail,
+          provider: provider
         });
       } else {
-        // 2-3. 이메일 기반 ID로 사용자 확인
-        const emailBasedUser = getUser(emailBasedUserId);
-        if (emailBasedUser) {
-          actualUserId = emailBasedUser.id;
-          user = emailBasedUser;
-          console.log('✅ [History API] 이메일 기반 ID로 사용자 확인:', {
-            sessionUserId: sessionUserId,
-            emailBasedId: emailBasedUserId,
-            actualUserId: actualUserId,
-            email: normalizedEmail
-          });
-        } else {
-          console.warn('⚠️ [History API] 이메일로 사용자를 찾을 수 없음:', {
-            email: normalizedEmail,
-            emailBasedId: emailBasedUserId
-          });
-        }
+        console.warn('⚠️ [History API] Provider별 사용자를 찾을 수 없음:', {
+          email: normalizedEmail,
+          provider: provider,
+          providerBasedId: providerBasedUserId
+        });
       }
     }
     
@@ -91,110 +81,25 @@ export async function GET(request: NextRequest) {
       }
     }
     
-    // 프로세스 3: 이메일 기반으로 분석 이력 조회 (동일 이메일로 로그인 시 분석 이력 불러오기)
+    // 프로세스 3: Provider별 독립적인 분석 이력 조회
     let analyses: any[] = [];
     
-    // 3-1. 이메일로 조회 (가장 안정적 - 여러 사용자 ID에 걸쳐 조회, 유사한 이메일 포함)
-    if (normalizedEmail) {
-      // 이메일로 등록된 모든 사용자 ID 확인
-      try {
-        const allUsersByEmailStmt = db.prepare('SELECT id, email FROM users WHERE LOWER(TRIM(email)) = ?');
-        const allUsersByEmail = allUsersByEmailStmt.all(normalizedEmail) as Array<{ id: string; email: string }>;
-        
-        console.log('🔍 [History API] 이메일로 등록된 사용자 확인:', {
-          email: normalizedEmail,
-          userCount: allUsersByEmail.length,
-          userIds: allUsersByEmail.map(u => u.id)
-        });
-        
-        // getAnalysesByEmail은 이미 유사한 이메일도 함께 조회하도록 개선됨
-        analyses = getAnalysesByEmail(normalizedEmail, { limit: 50 });
-        console.log('🔍 [History API] 이메일로 조회 결과 (유사한 이메일 포함):', {
-          email: normalizedEmail,
-          count: analyses.length,
-          userIds: allUsersByEmail.map(u => u.id)
-        });
-        
-        // 유사한 이메일의 분석 이력도 추가로 조회 (같은 사용자명)
-        if (analyses.length === 0) {
-          try {
-            const emailPrefix = normalizedEmail.split('@')[0];
-            if (emailPrefix) {
-              const similarEmailStmt = db.prepare(`
-                SELECT DISTINCT u.id, u.email 
-                FROM users u
-                INNER JOIN analyses a ON a.user_id = u.id
-                WHERE LOWER(TRIM(u.email)) LIKE ?
-                LIMIT 10
-              `);
-              const similarUsers = similarEmailStmt.all(`%${emailPrefix}%`) as Array<{ id: string; email: string }>;
-              
-              if (similarUsers.length > 0) {
-                console.log('🔍 [History API] 유사한 이메일 사용자 발견, 분석 이력 조회:', {
-                  searchEmail: normalizedEmail,
-                  similarUsers: similarUsers.map(u => ({ id: u.id, email: u.email }))
-                });
-                
-                const similarUserIds = similarUsers.map(u => u.id);
-                const placeholders = similarUserIds.map(() => '?').join(',');
-                const similarAnalysesStmt = db.prepare(`
-                  SELECT 
-                    id, url, aeo_score, geo_score, seo_score, overall_score, 
-                    insights, chatgpt_score, perplexity_score, gemini_score, claude_score, 
-                    created_at, user_id
-                  FROM analyses
-                  WHERE user_id IN (${placeholders})
-                  ORDER BY created_at DESC
-                  LIMIT 50
-                `);
-                const similarResults = similarAnalysesStmt.all(...similarUserIds) as Array<any>;
-                
-                analyses = similarResults.map((row: any) => ({
-                  id: row.id,
-                  url: row.url,
-                  aeoScore: row.aeo_score,
-                  geoScore: row.geo_score,
-                  seoScore: row.seo_score,
-                  overallScore: row.overall_score,
-                  insights: JSON.parse(row.insights),
-                  aioScores: {
-                    chatgpt: row.chatgpt_score,
-                    perplexity: row.perplexity_score,
-                    gemini: row.gemini_score,
-                    claude: row.claude_score,
-                  },
-                  createdAt: row.created_at,
-                }));
-                
-                console.log('✅ [History API] 유사한 이메일 분석 이력 조회 완료:', {
-                  count: analyses.length,
-                  similarUserIds: similarUserIds
-                });
-              }
-            }
-          } catch (similarError) {
-            console.warn('⚠️ [History API] 유사한 이메일 조회 오류:', similarError);
-          }
-        }
-      } catch (error) {
-        console.error('❌ [History API] 이메일로 조회 오류:', error);
-      }
-    }
-    
-    // 3-2. 이메일로 조회 결과가 없으면 실제 사용자 ID로 조회
-    if (analyses.length === 0) {
+    // 3-1. Provider별 사용자 ID로 분석 이력 조회 (계정별 독립 관리)
+    if (actualUserId) {
       analyses = getUserAnalyses(actualUserId, { limit: 50 });
-      console.log('🔍 [History API] 실제 사용자 ID로 조회 결과:', {
+      console.log('✅ [History API] Provider별 분석 이력 조회:', {
         userId: actualUserId,
+        email: normalizedEmail,
+        provider: provider,
         count: analyses.length
       });
     }
     
-    // 3-3. 세션 ID와 실제 ID가 다르면 세션 ID로도 조회 (ID 불일치 대비)
+    // 3-2. 세션 ID와 실제 ID가 다르면 세션 ID로도 조회 (하위 호환성)
     if (analyses.length === 0 && actualUserId !== sessionUserId) {
       const sessionAnalyses = getUserAnalyses(sessionUserId, { limit: 50 });
       if (sessionAnalyses.length > 0) {
-        console.log('🔍 [History API] 세션 ID로 조회 결과 (ID 불일치):', {
+        console.log('🔍 [History API] 세션 ID로 조회 결과 (하위 호환성):', {
           sessionUserId: sessionUserId,
           actualUserId: actualUserId,
           count: sessionAnalyses.length
@@ -203,26 +108,30 @@ export async function GET(request: NextRequest) {
       }
     }
     
-    // 3-4. 여전히 결과가 없으면 디버깅 정보 출력 (이메일별로 분리된 분석 이력 확인)
-    if (analyses.length === 0 && normalizedEmail) {
+    // 3-3. Provider별 분석 이력이 없으면 디버깅 정보 출력
+    if (analyses.length === 0 && normalizedEmail && provider) {
       try {
-        // 이메일로 등록된 모든 사용자 ID 가져오기 (동일 이메일로 여러 사용자가 있을 수 있음)
-        const allUsersStmt = db.prepare('SELECT id, email FROM users WHERE LOWER(TRIM(email)) = ?');
-        const allUsers = allUsersStmt.all(normalizedEmail) as Array<{ id: string; email: string }>;
+        // Provider별 사용자 확인
+        const providerBasedUserId = generateUserIdFromEmail(normalizedEmail, provider);
+        const providerUser = getUser(providerBasedUserId);
         
-        console.log('🔍 [History API] 이메일별 분석 이력 확인 (이메일 단위 분리):', {
+        console.log('🔍 [History API] Provider별 분석 이력 확인:', {
           email: normalizedEmail,
-          registeredUsers: allUsers,
-          message: '각 이메일은 독립적인 사용자로 취급되며, 분석 이력은 이메일별로 분리됩니다.'
+          provider: provider,
+          providerBasedUserId: providerBasedUserId,
+          userExists: !!providerUser,
+          message: '각 Provider 계정은 독립적인 사용자로 취급되며, 분석 이력은 Provider별로 분리됩니다.'
         });
         
-        // 각 사용자 ID로 개별 조회 (이메일별 분리 확인)
-        for (const user of allUsers) {
-          const userAnalyses = getUserAnalyses(user.id, { limit: 50 });
-          console.log('📊 [History API] 사용자별 분석 이력:', {
-            userId: user.id,
-            email: user.email,
-            analysisCount: userAnalyses.length
+        // 같은 이메일의 다른 Provider 사용자 확인 (디버깅용)
+        const allProviderUsersStmt = db.prepare('SELECT id, email, provider FROM users WHERE LOWER(TRIM(email)) = ?');
+        const allProviderUsers = allProviderUsersStmt.all(normalizedEmail) as Array<{ id: string; email: string; provider: string }>;
+        
+        if (allProviderUsers.length > 0) {
+          console.log('📊 [History API] 같은 이메일의 Provider별 사용자:', {
+            email: normalizedEmail,
+            providers: allProviderUsers.map(u => ({ id: u.id, provider: u.provider })),
+            message: '같은 이메일로 여러 Provider에 로그인한 경우 각각 독립적으로 관리됩니다.'
           });
         }
       } catch (error) {
@@ -234,20 +143,12 @@ export async function GET(request: NextRequest) {
     if (analyses.length === 0 && process.env.VERCEL) {
       await new Promise(resolve => setTimeout(resolve, 500));
       
-      // 이메일로 다시 조회
-      if (normalizedEmail) {
-        analyses = getAnalysesByEmail(normalizedEmail, { limit: 50 });
-        console.log('🔄 [History API] 재시도: 이메일로 조회 결과:', {
-          email: normalizedEmail,
-          count: analyses.length
-        });
-      }
-      
-      // 여전히 없으면 사용자 ID로 조회
-      if (analyses.length === 0) {
+      // Provider별 사용자 ID로 다시 조회
+      if (actualUserId) {
         analyses = getUserAnalyses(actualUserId, { limit: 50 });
-        console.log('🔄 [History API] 재시도: 사용자 ID로 조회 결과:', {
+        console.log('🔄 [History API] 재시도: Provider별 사용자 ID로 조회 결과:', {
           userId: actualUserId,
+          provider: provider,
           count: analyses.length
         });
       }

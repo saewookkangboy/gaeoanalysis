@@ -99,42 +99,43 @@ async function handleAnalyze(request: NextRequest) {
   const result = await analyzeContent(sanitizedUrl);
 
   // 로그인된 사용자인 경우 분석 결과 저장 (중복 여부와 관계없이 항상 저장)
-  // 핵심: 이메일 기반으로 일관된 사용자 ID 사용 (auth.ts와 동일한 로직)
+  // 핵심: Provider별 독립적인 사용자 ID 사용 (auth.ts와 동일한 로직)
   let analysisId = null;
   if (userId) {
     const normalizedEmail = session?.user?.email ? session.user.email.toLowerCase().trim() : null;
+    const provider = session?.user?.provider || null;
     let finalUserId = userId;
     
-    // 프로세스 1: 이메일 기반으로 일관된 사용자 ID 확인/생성
-    if (normalizedEmail) {
-      // 1-1. 이메일 기반 ID 생성 (auth.ts와 동일)
-      const emailBasedUserId = generateUserIdFromEmail(normalizedEmail);
+    // 프로세스 1: Provider + 이메일 기반으로 독립적인 사용자 ID 확인/생성
+    if (normalizedEmail && provider) {
+      // 1-1. Provider + 이메일 기반 ID 생성 (auth.ts와 동일)
+      const providerBasedUserId = generateUserIdFromEmail(normalizedEmail, provider);
       
-      // 1-2. 이메일로 사용자 찾기 (기존 사용자 확인)
-      const userByEmail = getUserByEmail(normalizedEmail);
-      if (userByEmail) {
+      // 1-2. Provider별 사용자 찾기 (기존 사용자 확인)
+      const existingUser = getUser(providerBasedUserId);
+      if (existingUser) {
         // 기존 사용자가 있으면 그 ID 사용 (분석 이력 유지)
-        finalUserId = userByEmail.id;
-        console.log('✅ [Analyze API] 이메일로 기존 사용자 확인:', { 
+        finalUserId = existingUser.id;
+        console.log('✅ [Analyze API] Provider별 기존 사용자 확인:', { 
           sessionId: userId, 
-          emailBasedId: emailBasedUserId,
+          providerBasedId: providerBasedUserId,
           actualUserId: finalUserId, 
-          email: normalizedEmail 
+          email: normalizedEmail,
+          provider: provider
         });
       } else {
-        // 1-3. 기존 사용자가 없으면 이메일 기반 ID로 생성
+        // 1-3. 기존 사용자가 없으면 Provider 기반 ID로 생성
         try {
-          const provider = session.user.provider || (session as any).account?.provider || null;
-          
-          console.log('👤 [Analyze API] 이메일 기반 ID로 사용자 생성:', {
+          console.log('👤 [Analyze API] Provider별 사용자 생성:', {
             email: normalizedEmail,
-            emailBasedUserId: emailBasedUserId,
+            providerBasedUserId: providerBasedUserId,
+            provider: provider,
             sessionId: userId
           });
           
-          // createUser는 이메일로 기존 사용자를 찾으면 기존 ID 반환
+          // createUser는 Provider + 이메일 조합으로 기존 사용자를 찾으면 기존 ID 반환
           const createdUserId = createUser({
-            id: emailBasedUserId,
+            id: providerBasedUserId,
             email: normalizedEmail,
             blogUrl: null,
             name: session.user.name || undefined,
@@ -143,20 +144,21 @@ async function handleAnalyze(request: NextRequest) {
           });
           
           // createUser가 반환한 실제 사용자 ID 사용
-          finalUserId = createdUserId || emailBasedUserId;
-          console.log('✅ [Analyze API] 사용자 생성 완료:', {
-            emailBasedUserId: emailBasedUserId,
+          finalUserId = createdUserId || providerBasedUserId;
+          console.log('✅ [Analyze API] Provider별 사용자 생성 완료:', {
+            providerBasedUserId: providerBasedUserId,
             finalUserId: finalUserId,
-            email: normalizedEmail
+            email: normalizedEmail,
+            provider: provider
           });
         } catch (error: any) {
           console.error('❌ [Analyze API] 사용자 생성 오류:', error);
-          // 사용자 생성 실패 시 이메일 기반 ID 사용
-          finalUserId = emailBasedUserId;
+          // 사용자 생성 실패 시 Provider 기반 ID 사용
+          finalUserId = providerBasedUserId;
         }
       }
     } else {
-      // 이메일이 없으면 세션 ID로 사용자 확인
+      // Provider가 없으면 세션 ID로 사용자 확인 (하위 호환성)
       const user = getUser(userId);
       if (user) {
         finalUserId = user.id;
@@ -166,7 +168,9 @@ async function handleAnalyze(request: NextRequest) {
         });
       } else {
         console.warn('⚠️ [Analyze API] 세션 ID로 사용자를 찾을 수 없음:', {
-          sessionId: userId
+          sessionId: userId,
+          email: normalizedEmail,
+          provider: provider
         });
       }
     }
@@ -331,25 +335,29 @@ async function handleAnalyze(request: NextRequest) {
       });
       
       // FOREIGN KEY 제약 조건 오류인 경우 사용자 확인 및 생성 후 재시도
-      if (error?.code === 'SQLITE_CONSTRAINT_FOREIGNKEY' && session?.user?.email) {
-        console.warn('🔄 FOREIGN KEY 제약 조건 오류, 사용자 확인 및 생성 후 재시도:', error);
+      if (error?.code === 'SQLITE_CONSTRAINT_FOREIGNKEY' && session?.user?.email && session?.user?.provider) {
+        console.warn('🔄 FOREIGN KEY 제약 조건 오류, Provider별 사용자 확인 및 생성 후 재시도:', error);
         try {
-          // 이메일로 사용자 찾기 시도
+          // Provider + 이메일로 사용자 찾기 시도
           let retryUserId = finalUserId;
-          const userByEmail = getUserByEmail(session.user.email);
-          if (userByEmail) {
-            retryUserId = userByEmail.id;
-            console.log('📧 재시도: 이메일로 사용자 발견:', { 
+          const normalizedEmail = session.user.email.toLowerCase().trim();
+          const provider = session.user.provider;
+          const providerBasedUserId = generateUserIdFromEmail(normalizedEmail, provider);
+          
+          const existingUser = getUser(providerBasedUserId);
+          if (existingUser) {
+            retryUserId = existingUser.id;
+            console.log('📧 재시도: Provider별 사용자 발견:', { 
               originalId: finalUserId, 
               foundId: retryUserId,
-              email: session.user.email 
+              email: normalizedEmail,
+              provider: provider
             });
           } else {
-            // 사용자 생성 또는 기존 사용자 ID 가져오기
-            const provider = (session as any).account?.provider || null;
+            // Provider별 사용자 생성
             const createdUserId = createUser({
-              id: userId,
-              email: session.user.email,
+              id: providerBasedUserId,
+              email: normalizedEmail,
               blogUrl: null,
               name: session.user.name || undefined,
               image: session.user.image || undefined,
@@ -357,11 +365,12 @@ async function handleAnalyze(request: NextRequest) {
             });
             
             // createUser가 반환한 실제 사용자 ID 사용
-            retryUserId = createdUserId || userId;
-            console.log('👤 재시도: 사용자 확인/생성 완료:', { 
+            retryUserId = createdUserId || providerBasedUserId;
+            console.log('👤 재시도: Provider별 사용자 확인/생성 완료:', { 
               originalSessionId: userId, 
               finalUserId: retryUserId,
-              email: session.user.email 
+              email: normalizedEmail,
+              provider: provider
             });
           }
           
