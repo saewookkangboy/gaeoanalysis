@@ -220,15 +220,28 @@ export async function query<T extends Record<string, any> = any>(
     const hasPublicUrl = !!publicUrl;
     const shouldRetry = hasPublicUrl && isENOTFOUND;
     
-    // 디버깅 로그
+    // 상세 디버깅 로그
+    console.log('🔍 [PostgreSQL] 쿼리 오류 분석:', {
+      errorCode: error.code,
+      hostname: error.hostname,
+      isENOTFOUND,
+      hasPublicUrl,
+      shouldRetry,
+      isVercel,
+      isRailway,
+      hasPrivateUrl: !!privateUrl,
+      currentConnectionString: pool ? 'pool exists' : 'no pool'
+    });
+    
     if (isENOTFOUND && !shouldRetry) {
-      console.warn('⚠️ [PostgreSQL] ENOTFOUND 오류 발생, 재시도 불가:', {
+      console.error('❌ [PostgreSQL] ENOTFOUND 오류 발생, 재시도 불가:', {
         hasPublicUrl,
         errorCode: error.code,
         hostname: error.hostname,
         isVercel,
         isRailway,
-        hasPrivateUrl: !!privateUrl
+        hasPrivateUrl: !!privateUrl,
+        message: 'DATABASE_PUBLIC_URL 환경 변수가 설정되지 않았을 수 있습니다.'
       });
     }
     
@@ -236,7 +249,8 @@ export async function query<T extends Record<string, any> = any>(
       console.warn('⚠️ [PostgreSQL] Private URL 쿼리 실패, Public URL로 재시도...', {
         environment: isVercel ? 'Vercel' : 'Railway',
         errorCode: error.code,
-        hostname: error.hostname
+        hostname: error.hostname,
+        publicUrlExists: !!publicUrl
       });
       
       try {
