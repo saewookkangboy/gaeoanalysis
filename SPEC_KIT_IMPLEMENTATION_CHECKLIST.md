@@ -696,6 +696,6 @@ Spec-Kit의 `/speckit.plan`, `/speckit.tasks`, `/speckit.implement` 명령어와
 ---
 
 **문서 버전**: 1.0  
-**최종 업데이트**: 2025년 1월  
+**최종 업데이트**: 2025년 12월  
 **작성자**: AI Assistant (Spec-Kit 분석 기반)
 
