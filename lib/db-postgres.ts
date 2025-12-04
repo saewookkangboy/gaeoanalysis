@@ -45,23 +45,35 @@ function initializePostgresPool(): Pool {
   let connectionString: string;
   let usePrivateUrl = false;
   
+  // 환경 감지 로깅
+  console.log('🔍 [PostgreSQL] 환경 감지:', {
+    isVercel,
+    isRailway,
+    hasPrivateUrl: !!privateUrl,
+    hasPublicUrl: !!publicUrl,
+    privateUrlPreview: privateUrl ? privateUrl.replace(/:[^:@]+@/, ':****@').substring(0, 50) + '...' : 'N/A',
+    publicUrlPreview: publicUrl ? publicUrl.replace(/:[^:@]+@/, ':****@').substring(0, 50) + '...' : 'N/A'
+  });
+  
   if (isVercel) {
     // Vercel 환경에서는 Public URL만 사용 (Private URL에 접근 불가)
     if (!publicUrl) {
+      console.error('❌ [PostgreSQL] Vercel 환경에서 DATABASE_PUBLIC_URL이 설정되지 않았습니다.');
       throw new Error('Vercel 환경에서는 DATABASE_PUBLIC_URL이 필요합니다.');
     }
     connectionString = publicUrl;
-    console.log('🔗 [PostgreSQL] Vercel 환경: Public URL 사용:', publicUrl.replace(/:[^:@]+@/, ':****@')); // 비밀번호 마스킹
+    console.log('✅ [PostgreSQL] Vercel 환경: Public URL 사용');
   } else if (privateUrl && isRailway) {
     // Railway 환경이고 Private URL이 있으면 Private URL 사용 시도
     usePrivateUrl = true;
     connectionString = privateUrl;
-    console.log('🔗 [PostgreSQL] Railway 환경: Private URL 사용 시도:', privateUrl.replace(/:[^:@]+@/, ':****@')); // 비밀번호 마스킹
+    console.log('✅ [PostgreSQL] Railway 환경: Private URL 사용 시도');
   } else if (publicUrl) {
     // 그 외 환경에서는 Public URL 사용
     connectionString = publicUrl;
-    console.log('🔗 [PostgreSQL] Public URL 사용:', publicUrl.replace(/:[^:@]+@/, ':****@')); // 비밀번호 마스킹
+    console.log('✅ [PostgreSQL] Public URL 사용');
   } else {
+    console.error('❌ [PostgreSQL] 사용 가능한 데이터베이스 연결 URL이 없습니다.');
     throw new Error('사용 가능한 데이터베이스 연결 URL이 없습니다.');
   }
 
