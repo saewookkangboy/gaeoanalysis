@@ -38,7 +38,7 @@ async function handleChatSave(request: NextRequest) {
     });
     
     if (userEmail) {
-      const userByEmail = getUserByEmail(userEmail);
+      const userByEmail = await getUserByEmail(userEmail);
       if (userByEmail) {
         actualUserId = userByEmail.id;
         console.log('✅ [Chat Save] 이메일로 실제 사용자 ID 확인:', {
@@ -48,7 +48,7 @@ async function handleChatSave(request: NextRequest) {
         });
       } else {
         // 세션 ID로 확인
-        const user = getUser(session.user.id);
+        const user = await getUser(session.user.id);
         if (user) {
           actualUserId = user.id;
           console.log('✅ [Chat Save] 세션 ID로 사용자 확인:', {

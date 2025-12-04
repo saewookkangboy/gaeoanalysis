@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const user = getUser(session.user.id);
+    const user = await getUser(session.user.id);
 
     return NextResponse.json({
       blogUrl: user?.blogUrl || null,

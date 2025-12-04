@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
     const userEmail = session.user.email;
     
     if (userEmail) {
-      const userByEmail = getUserByEmail(userEmail);
+      const userByEmail = await getUserByEmail(userEmail);
       if (userByEmail) {
         actualUserId = userByEmail.id;
         console.log('✅ 채팅 이력 조회: 이메일로 실제 사용자 ID 확인:', {
@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
         });
       } else {
         // 세션 ID로 확인
-        const user = getUser(session.user.id);
+        const user = await getUser(session.user.id);
         if (user) {
           actualUserId = user.id;
         }
