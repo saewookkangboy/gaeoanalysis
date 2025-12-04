@@ -57,11 +57,33 @@ export async function GET(request: NextRequest) {
           provider: provider
         });
       } else {
-        console.warn('⚠️ [History API] Provider별 사용자를 찾을 수 없음:', {
-          email: normalizedEmail,
-          provider: provider,
-          providerBasedId: providerBasedUserId
-        });
+        // Provider 기반 ID로 사용자를 찾지 못한 경우
+        // 같은 Provider로 등록된 사용자가 있는지 확인 (기존 사용자 ID 마이그레이션 대비)
+        if (provider) {
+          const providerUserStmt = db.prepare('SELECT id, email, provider FROM users WHERE LOWER(TRIM(email)) = ? AND provider = ?');
+          const providerUser = providerUserStmt.get(normalizedEmail, provider) as { id: string; email: string; provider: string } | undefined;
+          
+          if (providerUser) {
+            // 같은 Provider로 등록된 사용자가 있지만 ID가 다른 경우
+            // 기존 사용자 ID를 사용 (마이그레이션 전 상태)
+            actualUserId = providerUser.id;
+            user = getUser(providerUser.id);
+            console.log('✅ [History API] 같은 Provider로 등록된 사용자 확인 (기존 ID):', {
+              sessionUserId: sessionUserId,
+              providerBasedId: providerBasedUserId,
+              actualUserId: actualUserId,
+              email: normalizedEmail,
+              provider: provider,
+              note: '기존 사용자 ID를 사용 중입니다. 다음 로그인 시 Provider 기반 ID로 마이그레이션됩니다.'
+            });
+          } else {
+            console.warn('⚠️ [History API] Provider별 사용자를 찾을 수 없음:', {
+              email: normalizedEmail,
+              provider: provider,
+              providerBasedId: providerBasedUserId
+            });
+          }
+        }
       }
     }
     

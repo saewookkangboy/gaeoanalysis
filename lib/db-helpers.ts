@@ -1176,31 +1176,132 @@ export function createUser(data: {
       const providerUser = providerUserStmt.get(normalizedEmail, data.provider) as { id: string; email: string; provider: string } | undefined;
       
       if (providerUser) {
-        // 같은 Provider로 이미 등록된 사용자가 있으면 그 ID 사용
-        console.log('✅ [createUser] 같은 Provider로 이미 등록된 사용자 발견:', {
-          existingId: providerUser.id,
-          newId: data.id,
-          email: normalizedEmail,
-          provider: data.provider
-        });
-        
-        // last_login_at 업데이트
-        try {
-          const tableInfo = db.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
-          const hasLastLoginAt = tableInfo.some(col => col.name === 'last_login_at');
+        // 같은 Provider로 이미 등록된 사용자가 있음
+        // Provider 기반 ID와 일치하는지 확인
+        if (providerUser.id === data.id) {
+          // Provider 기반 ID와 일치하면 그대로 사용
+          console.log('✅ [createUser] Provider 기반 ID로 사용자 확인:', {
+            userId: providerUser.id,
+            email: normalizedEmail,
+            provider: data.provider
+          });
+        } else {
+          // Provider 기반 ID와 일치하지 않으면 ID 마이그레이션 필요
+          console.log('🔄 [createUser] Provider별 사용자 ID 마이그레이션 필요:', {
+            existingId: providerUser.id,
+            providerBasedId: data.id,
+            email: normalizedEmail,
+            provider: data.provider
+          });
           
-          if (hasLastLoginAt) {
-            const updateStmt = db.prepare('UPDATE users SET last_login_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
-            updateStmt.run(providerUser.id);
-          } else {
-            const updateStmt = db.prepare('UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = ?');
-            updateStmt.run(providerUser.id);
+          // 기존 사용자 ID를 Provider 기반 ID로 마이그레이션
+          try {
+            // 관련 데이터의 user_id를 새로운 ID로 업데이트
+            const updateAnalysesStmt = db.prepare('UPDATE analyses SET user_id = ? WHERE user_id = ?');
+            const analysesUpdated = updateAnalysesStmt.run(data.id, providerUser.id);
+            
+            const updateChatStmt = db.prepare('UPDATE chat_conversations SET user_id = ? WHERE user_id = ?');
+            updateChatStmt.run(data.id, providerUser.id);
+            
+            try {
+              const updateAuthLogsStmt = db.prepare('UPDATE auth_logs SET user_id = ? WHERE user_id = ?');
+              updateAuthLogsStmt.run(data.id, providerUser.id);
+            } catch (e) {
+              // auth_logs 테이블이 없을 수 있음
+            }
+            
+            try {
+              const updateAIAgentStmt = db.prepare('UPDATE ai_agent_usage SET user_id = ? WHERE user_id = ?');
+              updateAIAgentStmt.run(data.id, providerUser.id);
+            } catch (e) {
+              // ai_agent_usage 테이블이 없을 수 있음
+            }
+            
+            // 기존 사용자 삭제
+            const deleteStmt = db.prepare('DELETE FROM users WHERE id = ?');
+            deleteStmt.run(providerUser.id);
+            
+            // 새로운 Provider 기반 ID로 사용자 생성
+            const tableInfo = db.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
+            const columnNames = tableInfo.map(col => col.name);
+            const hasProvider = columnNames.includes('provider');
+            const hasName = columnNames.includes('name');
+            const hasImage = columnNames.includes('image');
+            const hasLastLoginAt = columnNames.includes('last_login_at');
+            
+            if (hasProvider && hasName && hasImage) {
+              if (hasLastLoginAt) {
+                const insertStmt = db.prepare('INSERT INTO users (id, email, blog_url, name, image, provider, last_login_at) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)');
+                insertStmt.run(
+                  data.id,
+                  normalizedEmail,
+                  null,
+                  data.name || null,
+                  data.image || null,
+                  data.provider
+                );
+              } else {
+                const insertStmt = db.prepare('INSERT INTO users (id, email, blog_url, name, image, provider) VALUES (?, ?, ?, ?, ?, ?)');
+                insertStmt.run(
+                  data.id,
+                  normalizedEmail,
+                  null,
+                  data.name || null,
+                  data.image || null,
+                  data.provider
+                );
+              }
+            } else {
+              const insertStmt = db.prepare('INSERT INTO users (id, email, blog_url) VALUES (?, ?, ?)');
+              insertStmt.run(data.id, normalizedEmail, null);
+            }
+            
+            console.log('✅ [createUser] 사용자 ID 마이그레이션 완료:', {
+              oldId: providerUser.id,
+              newId: data.id,
+              analysesUpdated: analysesUpdated.changes
+            });
+            
+            return data.id;
+          } catch (migrateError: any) {
+            console.error('❌ [createUser] 사용자 ID 마이그레이션 실패, 기존 ID 사용:', migrateError);
+            // 마이그레이션 실패 시 기존 ID 사용
+            const tableInfo = db.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
+            const hasLastLoginAt = tableInfo.some(col => col.name === 'last_login_at');
+            
+            if (hasLastLoginAt) {
+              const updateStmt = db.prepare('UPDATE users SET last_login_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
+              updateStmt.run(providerUser.id);
+            } else {
+              const updateStmt = db.prepare('UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = ?');
+              updateStmt.run(providerUser.id);
+            }
+            
+            return providerUser.id;
           }
-        } catch (updateError) {
-          console.warn('⚠️ [createUser] last_login_at 업데이트 실패:', updateError);
         }
         
-        return providerUser.id;
+        // Provider 기반 ID와 일치하는 경우 last_login_at 업데이트
+        if (providerUser.id === data.id) {
+          try {
+            const tableInfo = db.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
+            const hasLastLoginAt = tableInfo.some(col => col.name === 'last_login_at');
+            
+            if (hasLastLoginAt) {
+              const updateStmt = db.prepare('UPDATE users SET last_login_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
+              updateStmt.run(providerUser.id);
+            } else {
+              const updateStmt = db.prepare('UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = ?');
+              updateStmt.run(providerUser.id);
+            }
+          } catch (updateError) {
+            console.warn('⚠️ [createUser] last_login_at 업데이트 실패:', updateError);
+          }
+          
+          return providerUser.id;
+        }
+        // Provider 기반 ID와 일치하지 않으면 마이그레이션 필요
+        // 마이그레이션은 아래에서 처리되므로 여기서는 return하지 않음
       }
     }
     
@@ -1211,7 +1312,7 @@ export function createUser(data: {
     
     if (emailUser && data.provider) {
       // 기존 사용자의 provider가 null이고, 새로운 Provider로 로그인하는 경우
-      // 기존 사용자 ID를 새로운 Provider별 ID로 업데이트하거나 새로 생성
+      // 기존 사용자 ID를 새로운 Provider별 ID로 업데이트
       console.log('🔄 [createUser] 기존 사용자(provider null) 발견, Provider별 사용자로 마이그레이션:', {
         oldId: emailUser.id,
         newId: data.id,
@@ -1220,32 +1321,95 @@ export function createUser(data: {
       });
       
       // 기존 사용자의 ID를 새로운 Provider별 ID로 업데이트
-      // 하지만 외래 키 제약 조건 때문에 직접 업데이트는 위험할 수 있음
-      // 대신 기존 사용자의 provider를 업데이트하고 ID는 유지하거나
-      // 새로운 ID로 사용자를 생성하고 기존 분석 이력을 마이그레이션
-      
-      // 간단한 방법: 기존 사용자의 provider를 업데이트하고 ID는 유지
+      // 외래 키 제약 조건 때문에 관련 데이터(analyses, chat_conversations 등)도 함께 업데이트 필요
       try {
         const tableInfo = db.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
         const hasLastLoginAt = tableInfo.some(col => col.name === 'last_login_at');
         
-        if (hasLastLoginAt) {
-          const updateStmt = db.prepare('UPDATE users SET provider = ?, name = ?, image = ?, last_login_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
-          updateStmt.run(data.provider, data.name || null, data.image || null, emailUser.id);
-        } else {
-          const updateStmt = db.prepare('UPDATE users SET provider = ?, name = ?, image = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
-          updateStmt.run(data.provider, data.name || null, data.image || null, emailUser.id);
+        // 1. 관련 데이터의 user_id를 새로운 ID로 업데이트
+        // analyses 테이블
+        const updateAnalysesStmt = db.prepare('UPDATE analyses SET user_id = ? WHERE user_id = ?');
+        updateAnalysesStmt.run(data.id, emailUser.id);
+        
+        // chat_conversations 테이블
+        const updateChatStmt = db.prepare('UPDATE chat_conversations SET user_id = ? WHERE user_id = ?');
+        updateChatStmt.run(data.id, emailUser.id);
+        
+        // auth_logs 테이블
+        try {
+          const updateAuthLogsStmt = db.prepare('UPDATE auth_logs SET user_id = ? WHERE user_id = ?');
+          updateAuthLogsStmt.run(data.id, emailUser.id);
+        } catch (e) {
+          // auth_logs 테이블이 없을 수 있음
         }
         
-        console.log('✅ [createUser] 기존 사용자 provider 업데이트 완료:', {
-          userId: emailUser.id,
+        // ai_agent_usage 테이블
+        try {
+          const updateAIAgentStmt = db.prepare('UPDATE ai_agent_usage SET user_id = ? WHERE user_id = ?');
+          updateAIAgentStmt.run(data.id, emailUser.id);
+        } catch (e) {
+          // ai_agent_usage 테이블이 없을 수 있음
+        }
+        
+        // 2. 기존 사용자 삭제
+        const deleteStmt = db.prepare('DELETE FROM users WHERE id = ?');
+        deleteStmt.run(emailUser.id);
+        
+        // 3. 새로운 Provider별 ID로 사용자 생성
+        if (hasLastLoginAt) {
+          const insertStmt = db.prepare('INSERT INTO users (id, email, blog_url, name, image, provider, last_login_at) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)');
+          insertStmt.run(
+            data.id,
+            normalizedEmail,
+            emailUser.email === normalizedEmail ? null : null, // 기존 사용자의 blog_url은 유지하지 않음
+            data.name || null,
+            data.image || null,
+            data.provider
+          );
+        } else {
+          const insertStmt = db.prepare('INSERT INTO users (id, email, blog_url, name, image, provider) VALUES (?, ?, ?, ?, ?, ?)');
+          insertStmt.run(
+            data.id,
+            normalizedEmail,
+            null,
+            data.name || null,
+            data.image || null,
+            data.provider
+          );
+        }
+        
+        console.log('✅ [createUser] 기존 사용자 ID를 Provider별 ID로 마이그레이션 완료:', {
+          oldUserId: emailUser.id,
+          newUserId: data.id,
           provider: data.provider
         });
         
-        return emailUser.id;
-      } catch (updateError: any) {
-        console.warn('⚠️ [createUser] 기존 사용자 provider 업데이트 실패, 새 사용자 생성 시도:', updateError);
-        // 업데이트 실패 시 새 사용자 생성 계속 진행
+        return data.id;
+      } catch (migrateError: any) {
+        console.error('❌ [createUser] 사용자 ID 마이그레이션 실패:', migrateError);
+        // 마이그레이션 실패 시 기존 사용자의 provider만 업데이트
+        try {
+          const tableInfo = db.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
+          const hasLastLoginAt = tableInfo.some(col => col.name === 'last_login_at');
+          
+          if (hasLastLoginAt) {
+            const updateStmt = db.prepare('UPDATE users SET provider = ?, name = ?, image = ?, last_login_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
+            updateStmt.run(data.provider, data.name || null, data.image || null, emailUser.id);
+          } else {
+            const updateStmt = db.prepare('UPDATE users SET provider = ?, name = ?, image = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
+            updateStmt.run(data.provider, data.name || null, data.image || null, emailUser.id);
+          }
+          
+          console.log('✅ [createUser] 기존 사용자 provider 업데이트 완료 (마이그레이션 실패 후):', {
+            userId: emailUser.id,
+            provider: data.provider
+          });
+          
+          return emailUser.id;
+        } catch (updateError: any) {
+          console.warn('⚠️ [createUser] 기존 사용자 provider 업데이트 실패, 새 사용자 생성 시도:', updateError);
+          // 업데이트 실패 시 새 사용자 생성 계속 진행
+        }
       }
     }
 
