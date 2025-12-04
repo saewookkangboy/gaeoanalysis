@@ -13,6 +13,25 @@ async function handleAuthRequest(
   try {
     return await handler(req);
   } catch (error: any) {
+    // GitHub OAuth 오류 상세 로깅
+    if (error?.cause?.body?.error === 'bad_verification_code') {
+      console.error('❌ [GitHub OAuth] bad_verification_code 오류 발생:', {
+        error: error.cause.body.error,
+        errorDescription: error.cause.body.error_description,
+        errorUri: error.cause.body.error_uri,
+        url: req.url,
+        method: req.method,
+        timestamp: new Date().toISOString(),
+        diagnostics: {
+          hasClientId: !!process.env.GITHUB_CLIENT_ID || !!process.env.GITHUB_CLIENT_ID_DEV,
+          hasClientSecret: !!process.env.GITHUB_CLIENT_SECRET || !!process.env.GITHUB_CLIENT_SECRET_DEV,
+          authUrl: process.env.AUTH_URL || process.env.NEXTAUTH_URL || 'N/A',
+          nodeEnv: process.env.NODE_ENV,
+          expectedCallbackUrl: `${process.env.AUTH_URL || process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/auth/callback/github`,
+        }
+      });
+    }
+    
     // PKCE 관련 에러인지 확인
     if (error?.message?.includes('pkceCodeVerifier') || 
         error?.message?.includes('InvalidCheck') ||
