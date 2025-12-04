@@ -109,58 +109,64 @@ function initializePostgresPool(): Pool {
   });
 
   // 초기 연결 테스트 (비동기로 실행, 실패해도 풀은 생성됨)
-  (async () => {
-    if (!pool) return;
-    
-    try {
-      const testResult = await pool.query('SELECT NOW() as now');
-      if (testResult.rows.length > 0) {
-        if (usePrivateUrl && connectionString && connectionString.includes('railway.internal')) {
-          console.log('✅ [PostgreSQL] Private URL 연결 성공 (egress fees 없음)');
-        } else if (isRailway && connectionString && connectionString.includes('containers-')) {
-          console.warn('⚠️ [PostgreSQL] Public URL 사용 중 (egress fees 발생 가능)');
-          console.warn('💡 Railway 환경에서는 Private URL(DATABASE_URL) 사용을 권장합니다.');
-        } else {
-          console.log('✅ [PostgreSQL] 연결 풀 초기화 완료');
-        }
-      }
-    } catch (testError: any) {
-      // Private URL 연결 실패 시 Public URL로 재시도
-      if (usePrivateUrl && publicUrl && (testError.code === 'ENOTFOUND' || testError.hostname?.includes('railway.internal'))) {
-        console.warn('⚠️ [PostgreSQL] Private URL 연결 테스트 실패, Public URL로 재시도...');
-        try {
-          if (pool) {
-            await pool.end();
+  // Vercel 환경에서는 연결 테스트를 건너뛰고 쿼리 실행 시 재시도 로직에 의존
+  if (!isVercel) {
+    (async () => {
+      if (!pool) return;
+      
+      try {
+        const testResult = await pool.query('SELECT NOW() as now');
+        if (testResult.rows.length > 0) {
+          if (usePrivateUrl && connectionString && connectionString.includes('railway.internal')) {
+            console.log('✅ [PostgreSQL] Private URL 연결 성공 (egress fees 없음)');
+          } else if (isRailway && connectionString && connectionString.includes('containers-')) {
+            console.warn('⚠️ [PostgreSQL] Public URL 사용 중 (egress fees 발생 가능)');
+            console.warn('💡 Railway 환경에서는 Private URL(DATABASE_URL) 사용을 권장합니다.');
+          } else {
+            console.log('✅ [PostgreSQL] 연결 풀 초기화 완료');
           }
-          pool = null;
-          
-          // Public URL로 재연결
-          pool = new Pool({
-            connectionString: publicUrl,
-            max: 20,
-            idleTimeoutMillis: 30000,
-            connectionTimeoutMillis: 5000,
-            ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-          });
-          
-          // Public URL 연결 테스트
-          if (pool) {
-            const retryResult = await pool.query('SELECT NOW() as now');
-            if (retryResult.rows.length > 0) {
-              console.log('✅ [PostgreSQL] Public URL로 재연결 성공');
-              console.warn('⚠️ [PostgreSQL] Public URL 사용 중 (egress fees 발생 가능)');
+        }
+      } catch (testError: any) {
+        // Private URL 연결 실패 시 Public URL로 재시도
+        if (usePrivateUrl && publicUrl && (testError.code === 'ENOTFOUND' || testError.hostname?.includes('railway.internal'))) {
+          console.warn('⚠️ [PostgreSQL] Private URL 연결 테스트 실패, Public URL로 재시도...');
+          try {
+            if (pool) {
+              await pool.end();
             }
+            pool = null;
+            
+            // Public URL로 재연결
+            pool = new Pool({
+              connectionString: publicUrl,
+              max: 20,
+              idleTimeoutMillis: 30000,
+              connectionTimeoutMillis: 5000,
+              ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+            });
+            
+            // Public URL 연결 테스트
+            if (pool) {
+              const retryResult = await pool.query('SELECT NOW() as now');
+              if (retryResult.rows.length > 0) {
+                console.log('✅ [PostgreSQL] Public URL로 재연결 성공');
+                console.warn('⚠️ [PostgreSQL] Public URL 사용 중 (egress fees 발생 가능)');
+              }
+            }
+          } catch (retryError) {
+            console.error('❌ [PostgreSQL] Public URL 재연결 실패:', retryError);
+            // 재연결 실패해도 풀은 유지 (다음 쿼리에서 재시도)
           }
-        } catch (retryError) {
-          console.error('❌ [PostgreSQL] Public URL 재연결 실패:', retryError);
-          // 재연결 실패해도 풀은 유지 (다음 쿼리에서 재시도)
+        } else {
+          console.error('❌ [PostgreSQL] 연결 테스트 실패:', testError.message);
+          // 연결 실패해도 풀은 유지 (다음 쿼리에서 재시도)
         }
-      } else {
-        console.error('❌ [PostgreSQL] 연결 테스트 실패:', testError.message);
-        // 연결 실패해도 풀은 유지 (다음 쿼리에서 재시도)
       }
-    }
-  })();
+    })();
+  } else {
+    // Vercel 환경에서는 Public URL 사용 확인만 로깅
+    console.log('✅ [PostgreSQL] Vercel 환경: Public URL 연결 풀 생성 완료 (쿼리 실행 시 연결 확인)');
+  }
 
   return pool;
 }
