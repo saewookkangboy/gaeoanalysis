@@ -138,13 +138,18 @@ function initializePostgresPool(): Pool {
   let usePrivateUrl = false;
   
   // 환경 감지 로깅
+  const privateUrlPreview = privateUrl ? (privateUrl.includes('://') ? privateUrl.replace(/:[^:@]+@/, ':****@').substring(0, 50) + '...' : privateUrl.substring(0, 50)) : 'N/A';
+  const publicUrlPreview = publicUrl ? (publicUrl.includes('://') ? publicUrl.replace(/:[^:@]+@/, ':****@').substring(0, 50) + '...' : publicUrl.substring(0, 50)) : 'N/A';
+  
   console.log('🔍 [PostgreSQL] 환경 감지:', {
     isVercel,
     isRailway,
     hasPrivateUrl: !!privateUrl,
     hasPublicUrl: !!publicUrl,
-    privateUrlPreview: privateUrl ? privateUrl.replace(/:[^:@]+@/, ':****@').substring(0, 50) + '...' : 'N/A',
-    publicUrlPreview: publicUrl ? publicUrl.replace(/:[^:@]+@/, ':****@').substring(0, 50) + '...' : 'N/A'
+    privateUrlPreview,
+    publicUrlPreview,
+    privateUrlHasProtocol: privateUrl ? privateUrl.includes('://') : false,
+    publicUrlHasProtocol: publicUrl ? publicUrl.includes('://') : false
   });
   
   if (isVercel) {
@@ -400,6 +405,15 @@ export async function query<T extends Record<string, any> = any>(
       
       // hostname 추출 실패 시 상세 로깅 및 재시도 중단
       if (!publicHostname && publicUrl) {
+        // 연결 문자열이 hostname만 있는 경우 (프로토콜이 없는 경우)
+        if (!publicUrl.includes('://')) {
+          console.error('❌ [PostgreSQL] DATABASE_PUBLIC_URL이 hostname만 포함하고 있습니다:', {
+            publicUrl,
+            message: 'DATABASE_PUBLIC_URL은 완전한 PostgreSQL 연결 문자열이어야 합니다. 형식: postgresql://user:password@hostname:port/database'
+          });
+          throw new Error('DATABASE_PUBLIC_URL이 완전한 연결 문자열 형식이 아닙니다. Railway 대시보드에서 Public URL을 복사하여 전체 연결 문자열을 설정하세요.');
+        }
+        
         // 연결 문자열의 일부를 안전하게 로깅 (비밀번호 마스킹)
         const safeUrl = publicUrl.replace(/:[^:@]+@/, ':****@');
         const urlLength = publicUrl.length;
