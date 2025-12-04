@@ -1439,7 +1439,9 @@ export async function createUser(data: {
   image?: string;
   provider?: string;
 }) {
-  return await transaction(async (client) => {
+  // SQLite는 트랜잭션 내부에서 비동기 함수를 사용할 수 없으므로 분기 처리
+  if (isPostgreSQL()) {
+    return await transaction(async (client) => {
     // 이메일 정규화 (소문자, 트림) - 일관된 사용자 식별을 위해 중요
     const normalizedEmail = data.email.toLowerCase().trim();
     

@@ -90,10 +90,16 @@ export async function transaction<T>(
     });
   } else {
     // SQLite 트랜잭션 (동기 함수)
+    // SQLite는 동기 함수이므로, callback이 Promise를 반환하는 경우 처리
     return new Promise<T>((resolve, reject) => {
       try {
         const result = db.transaction(() => {
-          return callback(db);
+          const syncResult = callback(db);
+          // Promise인 경우 처리 불가 (SQLite 트랜잭션은 동기만 지원)
+          if (syncResult instanceof Promise) {
+            throw new Error('SQLite transaction does not support async callbacks. Use synchronous operations only.');
+          }
+          return syncResult;
         })();
         resolve(result);
       } catch (error) {

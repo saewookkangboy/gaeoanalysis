@@ -1,0 +1,1001 @@
+
+> gaeo-analysis@0.1.0 test:user-flow
+> npx tsx scripts/test-user-flow.ts
+
+🚀 모의 사용자 데이터 100명 전체 플로우 테스트 시작
+
+📌 테스트 환경: localhost
+📌 Base URL: http://localhost:3000
+📌 데이터베이스: SQLite
+
+✅ 모의 사용자 100명 생성 완료
+
+
+📦 배치 1/10 처리 중 (10명)...
+
+🔐 [testuser1@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] provider 컬럼 추가 완료
+✅ [createUser] name 컬럼 추가 완료
+✅ [createUser] image 컬럼 추가 완료
+✅ [createUser] role 컬럼 추가 완료
+✅ [createUser] is_active 컬럼 추가 완료
+✅ [createUser] last_login_at 컬럼 추가 완료
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: 'a6921614-5456-f9ab-806b-835a13b3d099',
+  email: 'testuser1@example.com',
+  provider: 'google'
+}
+
+🔐 [testuser2@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] provider 컬럼 추가 완료
+✅ [createUser] name 컬럼 추가 완료
+✅ [createUser] image 컬럼 추가 완료
+✅ [createUser] role 컬럼 추가 완료
+✅ [createUser] is_active 컬럼 추가 완료
+✅ [createUser] last_login_at 컬럼 추가 완료
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: 'a6a27b47-f262-4540-611c-d62cfcbc5a49',
+  email: 'testuser2@example.com',
+  provider: 'github'
+}
+
+🔐 [testuser3@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] provider 컬럼 추가 완료
+✅ [createUser] name 컬럼 추가 완료
+✅ [createUser] image 컬럼 추가 완료
+✅ [createUser] role 컬럼 추가 완료
+✅ [createUser] is_active 컬럼 추가 완료
+✅ [createUser] last_login_at 컬럼 추가 완료
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '92d4aca6-44b2-fd3a-013c-9917e0fb6922',
+  email: 'testuser3@example.com',
+  provider: 'google'
+}
+
+🔐 [testuser4@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] provider 컬럼 추가 완료
+✅ [createUser] name 컬럼 추가 완료
+✅ [createUser] image 컬럼 추가 완료
+✅ [createUser] role 컬럼 추가 완료
+✅ [createUser] is_active 컬럼 추가 완료
+✅ [createUser] last_login_at 컬럼 추가 완료
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '37bb413a-442c-5e6e-afae-452a1c72c644',
+  email: 'testuser4@example.com',
+  provider: 'github'
+}
+
+🔐 [testuser5@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] provider 컬럼 추가 완료
+✅ [createUser] name 컬럼 추가 완료
+✅ [createUser] image 컬럼 추가 완료
+✅ [createUser] role 컬럼 추가 완료
+✅ [createUser] is_active 컬럼 추가 완료
+✅ [createUser] last_login_at 컬럼 추가 완료
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: 'd4c9e8fa-c927-20d7-ad29-86f390a91962',
+  email: 'testuser5@example.com',
+  provider: 'google'
+}
+
+🔐 [testuser6@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] provider 컬럼 추가 완료
+✅ [createUser] name 컬럼 추가 완료
+✅ [createUser] image 컬럼 추가 완료
+✅ [createUser] role 컬럼 추가 완료
+✅ [createUser] is_active 컬럼 추가 완료
+✅ [createUser] last_login_at 컬럼 추가 완료
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: 'db04a90d-c973-db3f-221d-1ae4a4970576',
+  email: 'testuser6@example.com',
+  provider: 'github'
+}
+
+🔐 [testuser7@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] provider 컬럼 추가 완료
+✅ [createUser] name 컬럼 추가 완료
+✅ [createUser] image 컬럼 추가 완료
+✅ [createUser] role 컬럼 추가 완료
+✅ [createUser] is_active 컬럼 추가 완료
+✅ [createUser] last_login_at 컬럼 추가 완료
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '7b3472ee-d7ef-40ce-ae6d-5fe474eba18a',
+  email: 'testuser7@example.com',
+  provider: 'google'
+}
+
+🔐 [testuser8@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] provider 컬럼 추가 완료
+✅ [createUser] name 컬럼 추가 완료
+✅ [createUser] image 컬럼 추가 완료
+✅ [createUser] role 컬럼 추가 완료
+✅ [createUser] is_active 컬럼 추가 완료
+✅ [createUser] last_login_at 컬럼 추가 완료
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '6cbd779e-3fb8-bdb0-5625-7424cf0e95aa',
+  email: 'testuser8@example.com',
+  provider: 'github'
+}
+
+🔐 [testuser9@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] provider 컬럼 추가 완료
+✅ [createUser] name 컬럼 추가 완료
+✅ [createUser] image 컬럼 추가 완료
+✅ [createUser] role 컬럼 추가 완료
+✅ [createUser] is_active 컬럼 추가 완료
+✅ [createUser] last_login_at 컬럼 추가 완료
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: 'bcf96464-48bd-5d92-cce2-99adc224edc7',
+  email: 'testuser9@example.com',
+  provider: 'google'
+}
+
+🔐 [testuser10@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] provider 컬럼 추가 완료
+✅ [createUser] name 컬럼 추가 완료
+✅ [createUser] image 컬럼 추가 완료
+✅ [createUser] role 컬럼 추가 완료
+✅ [createUser] is_active 컬럼 추가 완료
+✅ [createUser] last_login_at 컬럼 추가 완료
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: 'dd9d1169-6fcd-787f-8e4c-e929b4c029c9',
+  email: 'testuser10@example.com',
+  provider: 'github'
+}
+❌ [testuser1@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser2@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser3@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser4@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser5@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser6@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser7@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser8@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser9@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser10@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+🚀 마이그레이션 시작...
+🔄 마이그레이션 적용 중: add_ai_scores (v1)
+✅ 마이그레이션 완료: add_ai_scores (v1)
+🔄 마이그레이션 적용 중: add_users_updated_at (v2)
+✅ 마이그레이션 완료: add_users_updated_at (v2)
+🔄 마이그레이션 적용 중: add_composite_indexes (v3)
+✅ 마이그레이션 완료: add_composite_indexes (v3)
+🔄 마이그레이션 적용 중: add_users_provider_and_role (v4)
+🔄 [Migration v4] 추가할 컬럼: provider, name, image, role, is_active, last_login_at
+✅ [Migration v4] 컬럼 추가 완료: provider, name, image, role, is_active, last_login_at
+✅ 마이그레이션 완료: add_users_provider_and_role (v4)
+🔄 마이그레이션 적용 중: create_auth_logs_table (v5)
+✅ 마이그레이션 완료: create_auth_logs_table (v5)
+🔄 마이그레이션 적용 중: create_ai_agent_usage_table (v6)
+✅ 마이그레이션 완료: create_ai_agent_usage_table (v6)
+🔄 마이그레이션 적용 중: create_site_statistics_table (v7)
+✅ 마이그레이션 완료: create_site_statistics_table (v7)
+🔄 마이그레이션 적용 중: create_admin_logs_table (v8)
+✅ 마이그레이션 완료: create_admin_logs_table (v8)
+🔄 마이그레이션 적용 중: add_users_indexes (v9)
+✅ 마이그레이션 완료: add_users_indexes (v9)
+🔄 마이그레이션 적용 중: create_agent_lightning_tables (v10)
+✅ 마이그레이션 완료: create_agent_lightning_tables (v10)
+🔄 마이그레이션 적용 중: add_subscription_tables (v11)
+✅ 마이그레이션 완료: add_subscription_tables (v11)
+🔄 마이그레이션 적용 중: add_statistics_tables (v12)
+⚠️ [Migration] v12 적용 후에도 algorithm_versions 테이블이 없습니다. 재생성 시도...
+🔄 [Migration] algorithm_versions 테이블 생성 시도...
+✅ [Migration] algorithm_versions 테이블 생성 완료 (확인 시도 1/3)
+✅ [Migration] v12 적용 후 algorithm_versions 테이블 재생성 완료
+✅ 마이그레이션 완료: add_statistics_tables (v12)
+🔄 마이그레이션 적용 중: add_algorithm_learning_tables (v12)
+⏭️  마이그레이션 이미 적용됨: add_algorithm_learning_tables (v12)
+🔄 마이그레이션 적용 중: initialize_algorithms (v13)
+✅ [Migration] algorithm_versions 테이블 확인 완료
+✅ 마이그레이션 완료: initialize_algorithms (v13)
+🔄 마이그레이션 적용 중: add_provider_email_composite_index (v14)
+✅ [Migration v14] Provider별 사용자 조회 인덱스 추가 완료
+✅ 마이그레이션 완료: add_provider_email_composite_index (v14)
+🔄 마이그레이션 적용 중: remove_email_unique_constraint (v15)
+🔄 [Migration v15] email UNIQUE 제약 조건 제거 시작...
+✅ [Migration v15] email UNIQUE 제약 조건 제거 완료, (email, provider) 복합 UNIQUE 인덱스 생성
+✅ 마이그레이션 완료: remove_email_unique_constraint (v15)
+✨ 마이그레이션 완료: 16개 적용됨
+🚀 [Algorithm Initializer] 초기 알고리즘 버전 생성 시작...
+✅ [Algorithm Initializer] SEO 초기 버전 생성 완료
+✅ [Algorithm Initializer] AEO 초기 버전 생성 완료
+✅ [Algorithm Initializer] GEO 초기 버전 생성 완료
+✅ [Algorithm Initializer] AIO 초기 버전 생성 완료
+✨ [Algorithm Initializer] 모든 알고리즘 초기 버전 생성 완료
+🚀 [Algorithm Initializer] 초기 리서치 데이터 삽입 시작...
+✅ [Algorithm Initializer] 6개의 초기 리서치 데이터 삽입 완료
+✨ [Algorithm Initializer] 전체 초기화 완료
+
+📦 배치 2/10 처리 중 (10명)...
+
+🔐 [testuser11@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '6351b20b-d9ef-e37c-f5d4-be2c0eda5973',
+  email: 'testuser11@example.com',
+  provider: 'google'
+}
+
+🔐 [testuser12@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: 'a5b430fc-dce3-3a9b-9492-4610352f4a9b',
+  email: 'testuser12@example.com',
+  provider: 'github'
+}
+
+🔐 [testuser13@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '85ba9275-902c-61dd-2258-0076aa5082f7',
+  email: 'testuser13@example.com',
+  provider: 'google'
+}
+
+🔐 [testuser14@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '8287ed53-8224-eb2c-78ca-ddc7ce98251c',
+  email: 'testuser14@example.com',
+  provider: 'github'
+}
+
+🔐 [testuser15@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '2b99a314-db57-d8f5-084a-a106132167c6',
+  email: 'testuser15@example.com',
+  provider: 'google'
+}
+
+🔐 [testuser16@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: 'b061db7b-9595-b8c6-78f6-20e00fc92e15',
+  email: 'testuser16@example.com',
+  provider: 'github'
+}
+
+🔐 [testuser17@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '45848512-7c71-f256-a95e-a667530e1db9',
+  email: 'testuser17@example.com',
+  provider: 'google'
+}
+
+🔐 [testuser18@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: 'e8607f2a-d9f0-4a88-3528-2c4693036b3e',
+  email: 'testuser18@example.com',
+  provider: 'github'
+}
+
+🔐 [testuser19@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '3e260641-6095-6740-7f14-bf510013b026',
+  email: 'testuser19@example.com',
+  provider: 'google'
+}
+
+🔐 [testuser20@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '6033af2e-0f01-4b5a-c53e-9c030d07bc6e',
+  email: 'testuser20@example.com',
+  provider: 'github'
+}
+❌ [testuser11@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser12@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser13@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser14@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser15@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser16@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser17@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser18@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser19@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser20@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+
+📦 배치 3/10 처리 중 (10명)...
+
+🔐 [testuser21@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '12289279-e1e4-4837-191c-4676d621cc8f',
+  email: 'testuser21@example.com',
+  provider: 'google'
+}
+
+🔐 [testuser22@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '091e9220-c872-b160-cc1a-08b1bd7c0702',
+  email: 'testuser22@example.com',
+  provider: 'github'
+}
+
+🔐 [testuser23@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '246b5410-19b8-a912-1fd4-b5f4e78b15ae',
+  email: 'testuser23@example.com',
+  provider: 'google'
+}
+
+🔐 [testuser24@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: 'a4549652-cc74-ed30-02e6-7ae4b91f7fb7',
+  email: 'testuser24@example.com',
+  provider: 'github'
+}
+
+🔐 [testuser25@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '19aed8fc-97a2-62ab-4d1f-13f8a5c22b54',
+  email: 'testuser25@example.com',
+  provider: 'google'
+}
+
+🔐 [testuser26@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '60b821e2-9fb9-a71e-55db-20421e89f32d',
+  email: 'testuser26@example.com',
+  provider: 'github'
+}
+
+🔐 [testuser27@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '11ca2af0-0097-eb82-8582-58e76c3da6cd',
+  email: 'testuser27@example.com',
+  provider: 'google'
+}
+
+🔐 [testuser28@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: 'b1709b3d-3381-50c7-116f-b745d2305a76',
+  email: 'testuser28@example.com',
+  provider: 'github'
+}
+
+🔐 [testuser29@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '459a1a71-bb2d-ad2f-f1e9-35173a210f5e',
+  email: 'testuser29@example.com',
+  provider: 'google'
+}
+
+🔐 [testuser30@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: 'e916cc2e-78c7-89f2-86bd-f6b460e7274b',
+  email: 'testuser30@example.com',
+  provider: 'github'
+}
+❌ [testuser21@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser22@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser23@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser24@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser25@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser26@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser27@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser28@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser29@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser30@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+
+📦 배치 4/10 처리 중 (10명)...
+
+🔐 [testuser31@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '143072bf-61c7-179e-f172-e3ccd894d7ff',
+  email: 'testuser31@example.com',
+  provider: 'google'
+}
+
+🔐 [testuser32@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '61fd2359-ca23-1e1d-a6a6-a09d0f948c49',
+  email: 'testuser32@example.com',
+  provider: 'github'
+}
+
+🔐 [testuser33@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '3d5cb8db-398c-4053-6a7e-16882d3d3983',
+  email: 'testuser33@example.com',
+  provider: 'google'
+}
+
+🔐 [testuser34@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: 'a8d60ad0-85d1-0feb-0864-9d0c6a1d8641',
+  email: 'testuser34@example.com',
+  provider: 'github'
+}
+
+🔐 [testuser35@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '1a842148-258c-d41a-02d3-20feab06a60d',
+  email: 'testuser35@example.com',
+  provider: 'google'
+}
+
+🔐 [testuser36@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '5ae4b985-d589-fbba-1a61-84b95977f3b5',
+  email: 'testuser36@example.com',
+  provider: 'github'
+}
+
+🔐 [testuser37@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '1486112a-a016-abd0-8b83-9f8280e3fd9a',
+  email: 'testuser37@example.com',
+  provider: 'google'
+}
+
+🔐 [testuser38@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '40924701-a3f6-bc98-9795-cb531bb10e69',
+  email: 'testuser38@example.com',
+  provider: 'github'
+}
+
+🔐 [testuser39@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: 'a1758407-7e9d-8505-fb44-3eb6428ff13f',
+  email: 'testuser39@example.com',
+  provider: 'google'
+}
+
+🔐 [testuser40@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '1ac5e6ea-81a9-b0f5-2f2c-7e8b5c2d5a31',
+  email: 'testuser40@example.com',
+  provider: 'github'
+}
+❌ [testuser31@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser32@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser33@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser34@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser35@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser36@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser37@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser38@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser39@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser40@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+
+📦 배치 5/10 처리 중 (10명)...
+
+🔐 [testuser41@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: 'f23b3cfb-d9aa-dd5e-4453-b819d788cc32',
+  email: 'testuser41@example.com',
+  provider: 'google'
+}
+
+🔐 [testuser42@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '19290a6f-3f35-5ebc-18d6-1d9e8e9bb362',
+  email: 'testuser42@example.com',
+  provider: 'github'
+}
+
+🔐 [testuser43@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: 'e9a45e6d-b7c9-1424-cc67-fabe301e519d',
+  email: 'testuser43@example.com',
+  provider: 'google'
+}
+
+🔐 [testuser44@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: 'e1864b5a-627b-69cc-2d60-e0c710a8a5d3',
+  email: 'testuser44@example.com',
+  provider: 'github'
+}
+
+🔐 [testuser45@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '5bfdf4d6-4474-2459-70b9-76692686882d',
+  email: 'testuser45@example.com',
+  provider: 'google'
+}
+
+🔐 [testuser46@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '1564a55e-6d87-1678-eb62-28386a737d23',
+  email: 'testuser46@example.com',
+  provider: 'github'
+}
+
+🔐 [testuser47@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '426adcd9-6fec-754c-9f01-d05bb5b050f3',
+  email: 'testuser47@example.com',
+  provider: 'google'
+}
+
+🔐 [testuser48@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '9c0b3caf-5456-b818-9d7c-2d67aea2d7c6',
+  email: 'testuser48@example.com',
+  provider: 'github'
+}
+
+🔐 [testuser49@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '3fc606bc-de16-6aef-74b4-753f37b754a2',
+  email: 'testuser49@example.com',
+  provider: 'google'
+}
+
+🔐 [testuser50@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '3243baa9-c07f-c58c-f6dd-389142b8f0a5',
+  email: 'testuser50@example.com',
+  provider: 'github'
+}
+❌ [testuser41@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser42@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser43@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser44@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser45@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser46@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser47@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser48@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser49@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser50@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+
+📦 배치 6/10 처리 중 (10명)...
+
+🔐 [testuser51@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '2f6d236d-83d0-f038-d108-bd414dbf431e',
+  email: 'testuser51@example.com',
+  provider: 'google'
+}
+
+🔐 [testuser52@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '1ba5e4f7-4c7f-f0c3-0447-628186a56704',
+  email: 'testuser52@example.com',
+  provider: 'github'
+}
+
+🔐 [testuser53@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '3e9a7a01-550b-b8f5-27cf-a7fe37f15cc1',
+  email: 'testuser53@example.com',
+  provider: 'google'
+}
+
+🔐 [testuser54@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '76a50ac6-2391-ccd7-1ee2-c6def2168197',
+  email: 'testuser54@example.com',
+  provider: 'github'
+}
+
+🔐 [testuser55@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: 'caddec3e-1349-2a40-d937-28c7663bd481',
+  email: 'testuser55@example.com',
+  provider: 'google'
+}
+
+🔐 [testuser56@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: 'a3a3ff94-6952-474e-95f1-d34ef5ae0fe3',
+  email: 'testuser56@example.com',
+  provider: 'github'
+}
+
+🔐 [testuser57@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: 'b4e07f0b-e74c-52d6-885c-566ad328c026',
+  email: 'testuser57@example.com',
+  provider: 'google'
+}
+
+🔐 [testuser58@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: 'b3c41f43-f940-745f-fdf6-4660873e4bd5',
+  email: 'testuser58@example.com',
+  provider: 'github'
+}
+
+🔐 [testuser59@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '022bdc4c-67bd-4cef-3cbb-7ad54f992633',
+  email: 'testuser59@example.com',
+  provider: 'google'
+}
+
+🔐 [testuser60@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '4e3722b1-316c-314b-a928-828798f929e9',
+  email: 'testuser60@example.com',
+  provider: 'github'
+}
+❌ [testuser51@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser52@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser53@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser54@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser55@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser56@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser57@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser58@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser59@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser60@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+
+📦 배치 7/10 처리 중 (10명)...
+
+🔐 [testuser61@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: 'f86401bc-3963-6035-78f1-ba84ebd4b5d1',
+  email: 'testuser61@example.com',
+  provider: 'google'
+}
+
+🔐 [testuser62@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '7c223149-aa9a-0cf9-2ffa-0a14a4c7b31b',
+  email: 'testuser62@example.com',
+  provider: 'github'
+}
+
+🔐 [testuser63@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: 'ed571f33-e476-752a-9781-3825d1a6034e',
+  email: 'testuser63@example.com',
+  provider: 'google'
+}
+
+🔐 [testuser64@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '1c14fb7f-bed6-c46a-4b82-a89a91c8d001',
+  email: 'testuser64@example.com',
+  provider: 'github'
+}
+
+🔐 [testuser65@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: 'd09b7f10-8bc5-7c5f-2ea3-8e759318dec1',
+  email: 'testuser65@example.com',
+  provider: 'google'
+}
+
+🔐 [testuser66@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: 'a53e9249-13b5-3701-e24f-fad1cea4af4c',
+  email: 'testuser66@example.com',
+  provider: 'github'
+}
+
+🔐 [testuser67@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '465a3e9b-6802-4b51-c212-65e9debaa402',
+  email: 'testuser67@example.com',
+  provider: 'google'
+}
+
+🔐 [testuser68@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: 'ca213352-76f4-28c5-ad70-5838eccb50ef',
+  email: 'testuser68@example.com',
+  provider: 'github'
+}
+
+🔐 [testuser69@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '60998dd8-a5d2-2202-3327-bd09b9228d18',
+  email: 'testuser69@example.com',
+  provider: 'google'
+}
+
+🔐 [testuser70@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '755e8f85-5702-4bb2-4791-11edab9a9a3b',
+  email: 'testuser70@example.com',
+  provider: 'github'
+}
+❌ [testuser61@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser62@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser63@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser64@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser65@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser66@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser67@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser68@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser69@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser70@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+
+📦 배치 8/10 처리 중 (10명)...
+
+🔐 [testuser71@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: 'afe644bf-4298-a841-80c8-f817013504d6',
+  email: 'testuser71@example.com',
+  provider: 'google'
+}
+
+🔐 [testuser72@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '28529f5f-065f-beb2-b231-e630f251c80f',
+  email: 'testuser72@example.com',
+  provider: 'github'
+}
+
+🔐 [testuser73@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '0143cb7f-691c-16e1-d582-01d52f394936',
+  email: 'testuser73@example.com',
+  provider: 'google'
+}
+
+🔐 [testuser74@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '4abed673-b97a-2839-6c42-ccab591e1e04',
+  email: 'testuser74@example.com',
+  provider: 'github'
+}
+
+🔐 [testuser75@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '654b8605-8f24-8042-994d-8a746734732f',
+  email: 'testuser75@example.com',
+  provider: 'google'
+}
+
+🔐 [testuser76@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: 'f8e21c0c-8df3-9138-c5dd-bc6eb91b307b',
+  email: 'testuser76@example.com',
+  provider: 'github'
+}
+
+🔐 [testuser77@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '1828f5f0-46d9-cb56-c396-24ebdd8695ec',
+  email: 'testuser77@example.com',
+  provider: 'google'
+}
+
+🔐 [testuser78@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '724dbfd4-1485-ac03-fc01-9cee3594d021',
+  email: 'testuser78@example.com',
+  provider: 'github'
+}
+
+🔐 [testuser79@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: 'ad4c2686-f016-dcb5-9660-eec826cc37f6',
+  email: 'testuser79@example.com',
+  provider: 'google'
+}
+
+🔐 [testuser80@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: 'cf3b46d5-27ae-687c-393a-d532c6467473',
+  email: 'testuser80@example.com',
+  provider: 'github'
+}
+❌ [testuser71@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser72@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser73@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser74@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser75@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser76@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser77@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser78@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser79@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser80@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+
+📦 배치 9/10 처리 중 (10명)...
+
+🔐 [testuser81@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '27d9a62c-9459-a23e-36da-a014c9014887',
+  email: 'testuser81@example.com',
+  provider: 'google'
+}
+
+🔐 [testuser82@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '729825ae-6c1f-908e-f0fa-3ab1b581f6b9',
+  email: 'testuser82@example.com',
+  provider: 'github'
+}
+
+🔐 [testuser83@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '535ff0be-94b2-b4ca-3e2c-2f10148ae05b',
+  email: 'testuser83@example.com',
+  provider: 'google'
+}
+
+🔐 [testuser84@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '0e8a7ea3-5694-3b8f-0ff7-a3de785cc38f',
+  email: 'testuser84@example.com',
+  provider: 'github'
+}
+
+🔐 [testuser85@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '8f379a6c-2402-f11b-5044-ca8efae4c16b',
+  email: 'testuser85@example.com',
+  provider: 'google'
+}
+
+🔐 [testuser86@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '42fc88e1-07c9-fd92-cb9c-8ad46c9f3da2',
+  email: 'testuser86@example.com',
+  provider: 'github'
+}
+
+🔐 [testuser87@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '8035a07d-9414-ec9d-20fa-39b3ee9c45a5',
+  email: 'testuser87@example.com',
+  provider: 'google'
+}
+
+🔐 [testuser88@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '35d51b80-a93b-8660-ce68-9d2fc2f9f50e',
+  email: 'testuser88@example.com',
+  provider: 'github'
+}
+
+🔐 [testuser89@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '6434e7da-3b26-4ed5-4ee1-e47ce20dc0eb',
+  email: 'testuser89@example.com',
+  provider: 'google'
+}
+
+🔐 [testuser90@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '2b57c037-a093-7fce-2cf0-66193eada66b',
+  email: 'testuser90@example.com',
+  provider: 'github'
+}
+❌ [testuser81@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser82@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser83@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser84@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser85@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser86@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser87@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser88@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser89@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser90@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+
+📦 배치 10/10 처리 중 (10명)...
+
+🔐 [testuser91@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: 'bcbe2bfa-9f40-37bd-443e-4458287cd9bc',
+  email: 'testuser91@example.com',
+  provider: 'google'
+}
+
+🔐 [testuser92@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: 'f4a3c240-b2a1-6d10-3bec-c8d987b5e882',
+  email: 'testuser92@example.com',
+  provider: 'github'
+}
+
+🔐 [testuser93@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: 'a3f7ad15-3d9c-4dbd-c525-536fff9ab4cb',
+  email: 'testuser93@example.com',
+  provider: 'google'
+}
+
+🔐 [testuser94@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '1db40761-e293-d90f-840e-a8d7dd43dc66',
+  email: 'testuser94@example.com',
+  provider: 'github'
+}
+
+🔐 [testuser95@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '1384effa-4171-1f16-d070-b67f65de3a8d',
+  email: 'testuser95@example.com',
+  provider: 'google'
+}
+
+🔐 [testuser96@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '7e55fc54-b407-37b3-34b0-4d654501d3b4',
+  email: 'testuser96@example.com',
+  provider: 'github'
+}
+
+🔐 [testuser97@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '0d3e9589-a2dc-d353-6fff-689a48228852',
+  email: 'testuser97@example.com',
+  provider: 'google'
+}
+
+🔐 [testuser98@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: '5953cf52-3aa4-a36b-21c0-a11d7d8d0363',
+  email: 'testuser98@example.com',
+  provider: 'github'
+}
+
+🔐 [testuser99@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: 'ab71caf9-9bfc-1a97-f9a3-224549e97158',
+  email: 'testuser99@example.com',
+  provider: 'google'
+}
+
+🔐 [testuser100@example.com] 소셜 로그인 시뮬레이션 시작...
+✅ [createUser] 새 사용자 생성 완료: {
+  userId: 'e2b5e65d-d452-94ea-3a14-e66ec853fbc4',
+  email: 'testuser100@example.com',
+  provider: 'github'
+}
+❌ [testuser91@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser92@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser93@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser94@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser95@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser96@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser97@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser98@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser99@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+❌ [testuser100@example.com] 사용자 생성 오류: Transaction function cannot return a promise
+
+💾 테스트 결과 저장: /Users/chunghyo/gaeo-analysis/test-results/test-results-localhost-2025-12-04T10-43-10-818Z.json
+
+================================================================================
+📊 테스트 결과 요약
+================================================================================
+
+✅ 성공 통계:
+   - 총 사용자: 100명
+   - 로그인 성공: 0/100 (0.0%)
+   - 사용자 생성 성공: 0/100 (0.0%)
+   - 분석 생성 성공: 0개 (목표: 300개, 0.0%)
+   - 분석 조회 성공: 0개 (NaN%)
+   - 로그아웃 성공: 0/100 (0.0%)
+
+⏱️  소요 시간: 9.06초
+   - 평균 사용자당: 0.09초
+
+❌ 오류 통계:
+   - 오류 발생 사용자: 100/100 (100.0%)
+   - 총 오류 수: 100개
+
+   주요 오류 유형:
+     - 사용자 생성 오류: 100회
+
+   오류가 있는 사용자 (최대 10명):
+     - testuser1@example.com (google): 1개 오류
+       • 사용자 생성 오류: Transaction function cannot return a promise
+     - testuser2@example.com (github): 1개 오류
+       • 사용자 생성 오류: Transaction function cannot return a promise
+     - testuser3@example.com (google): 1개 오류
+       • 사용자 생성 오류: Transaction function cannot return a promise
+     - testuser4@example.com (github): 1개 오류
+       • 사용자 생성 오류: Transaction function cannot return a promise
+     - testuser5@example.com (google): 1개 오류
+       • 사용자 생성 오류: Transaction function cannot return a promise
+     - testuser6@example.com (github): 1개 오류
+       • 사용자 생성 오류: Transaction function cannot return a promise
+     - testuser7@example.com (google): 1개 오류
+       • 사용자 생성 오류: Transaction function cannot return a promise
+     - testuser8@example.com (github): 1개 오류
+       • 사용자 생성 오류: Transaction function cannot return a promise
+     - testuser9@example.com (google): 1개 오류
+       • 사용자 생성 오류: Transaction function cannot return a promise
+     - testuser10@example.com (github): 1개 오류
+       • 사용자 생성 오류: Transaction function cannot return a promise
+
+📊 데이터베이스 상태 확인:
+   - 총 사용자 수: 0명
+   - 총 분석 수: 0개
+   - 총 인증 로그 수: 0개
+
+================================================================================
+✨ 테스트 완료
+
+❌ 테스트 실패: 성공률이 90% 미만입니다.

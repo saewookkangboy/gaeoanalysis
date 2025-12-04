@@ -22,6 +22,8 @@
     "check:auth": "bash scripts/check-auth-secret.sh",
     "check:env": "npx tsx scripts/check-env.ts",
     "test:github-oauth": "npx tsx scripts/test-github-oauth.ts",
+    "test:user-flow": "npx tsx scripts/test-user-flow.ts",
+    "test:user-flow:prod": "TEST_ENV=production npx tsx scripts/test-user-flow.ts",
     "stats:aggregate": "npx tsx scripts/daily-statistics-aggregator.ts",
     "push": "bash scripts/auto-push.sh"
   },
