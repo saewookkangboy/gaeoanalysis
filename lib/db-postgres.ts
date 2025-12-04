@@ -269,19 +269,28 @@ export async function query<T extends Record<string, any> = any>(
         environment: isVercel ? 'Vercel' : 'Railway',
         errorCode: error.code,
         hostname: error.hostname,
-        publicUrlExists: !!publicUrl
+        publicUrlExists: !!publicUrl,
+        publicUrlPreview: publicUrl ? publicUrl.replace(/:[^:@]+@/, ':****@').substring(0, 50) + '...' : 'N/A'
       });
       
       try {
-        // 기존 풀 종료
+        // 기존 풀 종료 및 전역 풀 초기화
         const currentPool = pool;
         if (currentPool) {
-          await currentPool.end().catch(() => {});
+          console.log('🔄 [PostgreSQL] 기존 연결 풀 종료 중...');
+          await currentPool.end().catch((endError) => {
+            console.warn('⚠️ [PostgreSQL] 기존 풀 종료 중 오류 (무시):', endError.message);
+          });
         }
         
+        // 전역 풀 변수 초기화 (강제 재초기화)
+        pool = null;
+        setPool(null);
+        
         // Public URL로 새 풀 생성
+        console.log('🔄 [PostgreSQL] Public URL로 새 연결 풀 생성 중...');
         const newPool = new Pool({
-          connectionString: publicUrl,
+          connectionString: publicUrl!,
           max: 20,
           idleTimeoutMillis: 30000,
           connectionTimeoutMillis: 5000,
@@ -295,18 +304,21 @@ export async function query<T extends Record<string, any> = any>(
         console.log('✅ [PostgreSQL] Public URL로 재연결 완료, 쿼리 재시도...');
         
         // 재시도
-        const retryResult = await pool.query<T>(text, params);
+        const retryResult = await newPool.query<T>(text, params);
         const duration = Date.now() - start;
         
         if (duration > 1000) {
           console.warn(`⚠️ [PostgreSQL] 느린 쿼리 (재시도, ${duration}ms):`, text.substring(0, 100));
         }
         
+        console.log('✅ [PostgreSQL] 재시도 성공');
         return retryResult;
       } catch (retryError: any) {
         console.error('❌ [PostgreSQL] Public URL 재시도 실패:', {
           query: text.substring(0, 100),
           error: retryError.message,
+          errorCode: retryError.code,
+          hostname: retryError.hostname
         });
         throw retryError;
       }
