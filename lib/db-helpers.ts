@@ -271,8 +271,10 @@ export async function saveAnalysis(data: {
   let transactionVerified = false;
   let savedUserIdInTransaction = '';
   
-  try {
-    result = await transaction(async (client) => {
+  // SQLite는 트랜잭션 내부에서 비동기 함수를 사용할 수 없으므로 분기 처리
+  if (isPostgreSQL()) {
+    try {
+      result = await transaction(async (client) => {
       // 사용자 존재 확인
       let userExistsRow: { id: string; email: string } | null = null;
       
@@ -495,6 +497,138 @@ export async function saveAnalysis(data: {
     }
     
     throw error;
+    }
+  } else {
+    // SQLite: 트랜잭션 없이 직접 실행 (동기 함수만 사용)
+    try {
+      // 사용자 존재 확인
+      const userExistsStmt = db.prepare('SELECT id, email FROM users WHERE id = ?');
+      const userExistsRow = userExistsStmt.get(data.userId) as { id: string; email: string } | undefined;
+      
+      if (!userExistsRow) {
+        console.error('❌ [saveAnalysis] 사용자가 존재하지 않음:', {
+          userId: data.userId,
+          analysisId: data.id,
+          url: data.url
+        });
+        throw new Error(`사용자가 존재하지 않습니다: ${data.userId}. 분석을 저장하려면 먼저 로그인하거나 사용자를 생성해야 합니다.`);
+      }
+      
+      console.log('✅ [saveAnalysis] 사용자 확인 완료:', {
+        userId: data.userId,
+        userEmail: userExistsRow.email,
+        analysisId: data.id
+      });
+
+      // INSERT 실행
+      const stmt = db.prepare(`
+        INSERT INTO analyses (
+          id, user_id, url, aeo_score, geo_score, seo_score, 
+          overall_score, insights, chatgpt_score, perplexity_score, 
+          gemini_score, claude_score
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+      
+      const insertResult = stmt.run(
+        data.id,
+        data.userId,
+        data.url,
+        data.aeoScore,
+        data.geoScore,
+        data.seoScore,
+        data.overallScore,
+        JSON.stringify(data.insights),
+        data.aioScores?.chatgpt || null,
+        data.aioScores?.perplexity || null,
+        data.aioScores?.gemini || null,
+        data.aioScores?.claude || null
+      ) as { changes: number; lastInsertRowid?: number };
+
+      // INSERT 결과 확인
+      if (!insertResult || insertResult.changes === 0) {
+        console.error('❌ [saveAnalysis] INSERT 실행 실패 (changes = 0):', {
+          analysisId: data.id,
+          userId: data.userId,
+          insertResult: insertResult
+        });
+        throw new Error('분석 저장 실패: INSERT가 실행되지 않았습니다.');
+      }
+
+      console.log('✅ [saveAnalysis] INSERT 실행 성공:', {
+        analysisId: data.id,
+        changes: insertResult.changes,
+        lastInsertRowid: insertResult.lastInsertRowid
+      });
+
+      // 저장 후 즉시 확인
+      const verifyStmt = db.prepare('SELECT id, user_id, url FROM analyses WHERE id = ?');
+      const saved = verifyStmt.get(data.id) as { id: string; user_id: string; url: string } | undefined;
+      
+      if (!saved) {
+        console.error('❌ [saveAnalysis] 저장 후 확인 실패:', {
+          analysisId: data.id,
+          userId: data.userId,
+          insertChanges: insertResult.changes
+        });
+        throw new Error('분석 저장 후 확인 실패: 레코드를 찾을 수 없습니다.');
+      }
+      
+      if (saved.user_id !== data.userId) {
+        console.error('❌ [saveAnalysis] 저장된 user_id가 다름:', {
+          requestedUserId: data.userId,
+          savedUserId: saved.user_id,
+          analysisId: data.id
+        });
+        throw new Error(`저장된 user_id가 다릅니다: ${saved.user_id} !== ${data.userId}`);
+      }
+
+      console.log('✅ [saveAnalysis] SQLite 분석 저장 성공:', {
+        analysisId: data.id,
+        userId: data.userId,
+        url: data.url,
+        savedUserId: saved.user_id
+      });
+
+      transactionVerified = true;
+      savedUserIdInTransaction = saved.user_id;
+      result = data.id;
+    } catch (error: any) {
+      console.error('❌ [saveAnalysis] SQLite 저장 오류:', {
+        error: error.message,
+        code: error.code,
+        userId: data.userId,
+        analysisId: data.id,
+        url: data.url
+      });
+      
+      // FOREIGN KEY 제약 조건 오류인 경우 사용자 확인
+      if (error?.code === 'SQLITE_CONSTRAINT_FOREIGNKEY') {
+        const userCheck = await getUser(data.userId);
+        console.error('❌ [saveAnalysis] FOREIGN KEY 제약 조건 오류 - 사용자 확인:', {
+          userId: data.userId,
+          userExists: !!userCheck,
+          userEmail: userCheck?.email || 'N/A',
+          error: error.message
+        });
+        
+        if (!userCheck) {
+          throw new Error(`사용자가 존재하지 않습니다: ${data.userId}. 분석을 저장하려면 먼저 로그인하거나 사용자를 생성해야 합니다.`);
+        }
+      }
+      
+      // 테이블이 없는 경우
+      if (error?.code === 'SQLITE_ERROR' && error.message.includes('no such table')) {
+        console.error('❌ [saveAnalysis] 테이블이 존재하지 않음:', {
+          error: error.message,
+          userId: data.userId,
+          analysisId: data.id
+        });
+        throw new Error(`데이터베이스 테이블이 초기화되지 않았습니다: ${error.message}`);
+      }
+      
+      throw error;
+    }
   }
   
   // 저장 후 최종 확인 (트랜잭션 외부에서)
