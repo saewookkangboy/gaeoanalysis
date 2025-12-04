@@ -215,13 +215,15 @@ function initializePostgresPool(): Pool {
   pool = new Pool({
     connectionString,
     // 연결 풀 설정
-    max: isVercel ? 10 : 20, // Vercel 서버리스 환경에서는 최대 연결 수 감소
-    idleTimeoutMillis: 30000, // 30초
-    connectionTimeoutMillis: 15000, // 15초 (연결 타임아웃 증가 - Vercel 서버리스 환경 고려)
+    max: isVercel ? 5 : 20, // Vercel 서버리스 환경에서는 최대 연결 수 감소 (5개)
+    idleTimeoutMillis: 10000, // Vercel 환경에서는 짧은 idle timeout (10초)
+    connectionTimeoutMillis: 20000, // 20초 (연결 타임아웃 증가 - Vercel 서버리스 환경 고려)
     // SSL 연결 (Railway는 SSL 필수)
     ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
     // 서버리스 환경 최적화
     allowExitOnIdle: isVercel, // Vercel 환경에서는 idle 시 연결 종료 허용
+    // 쿼리 타임아웃 설정 (Vercel 환경)
+    statement_timeout: isVercel ? 20000 : undefined, // 20초
   });
 
   // 연결 오류 처리 - Private URL 실패 시 Public URL로 재시도
@@ -373,10 +375,12 @@ export async function query<T extends Record<string, any> = any>(
     const publicUrl = process.env.DATABASE_PUBLIC_URL;
     
     // ENOTFOUND 또는 타임아웃 오류이고 Public URL이 있으면 재시도
+    // Vercel 환경에서는 이미 Public URL을 사용 중이므로, 연결 풀 재생성만 시도
     const isENOTFOUND = error.code === 'ENOTFOUND' || error.hostname?.includes('railway.internal');
     const isTimeout = error.message?.includes('timeout') || error.message?.includes('Connection terminated');
     const hasPublicUrl = !!publicUrl;
-    const shouldRetry = hasPublicUrl && (isENOTFOUND || isTimeout);
+    // Vercel 환경에서 타임아웃 발생 시 연결 풀 재생성 시도
+    const shouldRetry = hasPublicUrl && (isENOTFOUND || (isTimeout && isVercel));
     
     // 상세 디버깅 로그
     console.log('🔍 [PostgreSQL] 쿼리 오류 분석:', {
@@ -404,15 +408,23 @@ export async function query<T extends Record<string, any> = any>(
     }
     
     if (shouldRetry) {
-      console.warn('⚠️ [PostgreSQL] Private URL 쿼리 실패, Public URL로 재시도...', {
-        environment: isVercel ? 'Vercel' : isRailway ? 'Railway' : 'Other',
-        errorCode: error.code,
-        errorMessage: error.message,
-        hostname: error.hostname,
-        publicUrlExists: hasPublicUrl,
-        publicUrlHostname: publicUrl ? extractHostname(publicUrl) : null,
-        publicUrlPreview: publicUrl ? publicUrl.replace(/:[^:@]+@/, ':****@').substring(0, 80) + '...' : 'N/A'
-      });
+      // Vercel 환경에서 타임아웃 발생 시 연결 풀 재생성만 시도 (이미 Public URL 사용 중)
+      if (isVercel && isTimeout) {
+        console.warn('⚠️ [PostgreSQL] Vercel 환경에서 연결 타임아웃 발생, 연결 풀 재생성 시도...', {
+          errorMessage: error.message,
+          publicUrlHostname: publicUrl ? extractHostname(publicUrl) : null
+        });
+      } else {
+        console.warn('⚠️ [PostgreSQL] Private URL 쿼리 실패, Public URL로 재시도...', {
+          environment: isVercel ? 'Vercel' : isRailway ? 'Railway' : 'Other',
+          errorCode: error.code,
+          errorMessage: error.message,
+          hostname: error.hostname,
+          publicUrlExists: hasPublicUrl,
+          publicUrlHostname: publicUrl ? extractHostname(publicUrl) : null,
+          publicUrlPreview: publicUrl ? publicUrl.replace(/:[^:@]+@/, ':****@').substring(0, 80) + '...' : 'N/A'
+        });
+      }
       
       // Public URL의 hostname 확인
       const publicHostname = publicUrl ? extractHostname(publicUrl) : null;
@@ -486,11 +498,13 @@ export async function query<T extends Record<string, any> = any>(
         const isVercelRetry = !!process.env.VERCEL;
         const newPool = new Pool({
           connectionString: publicUrl!,
-          max: isVercelRetry ? 10 : 20,
-          idleTimeoutMillis: 30000,
-          connectionTimeoutMillis: 15000,
+          max: isVercelRetry ? 5 : 20, // Vercel 환경에서는 더 적은 연결 수 사용
+          idleTimeoutMillis: 10000, // Vercel 서버리스 환경에서는 짧은 idle timeout
+          connectionTimeoutMillis: 20000, // 연결 타임아웃 증가 (20초)
           ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
           allowExitOnIdle: isVercelRetry,
+          // 서버리스 환경 최적화
+          statement_timeout: isVercelRetry ? 20000 : undefined, // 쿼리 타임아웃 설정
         });
         
         // 전역 풀 업데이트 (다음 호출을 위해)
