@@ -58,6 +58,12 @@ NEXT_PUBLIC_FIREBASE_APP_ID=<Vercel에서 복사>
 NODE_ENV=production
 ```
 
+### 7. 포트 설정 (자동 처리됨)
+```env
+PORT=<Railway가 자동으로 설정>
+```
+**참고**: Railway가 자동으로 `PORT` 환경 변수를 설정합니다. `package.json`의 start 스크립트가 이미 이를 지원하도록 설정되어 있습니다.
+
 ---
 
 ## ✅ OAuth 리다이렉트 URL 업데이트
