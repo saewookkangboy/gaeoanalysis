@@ -269,3 +269,165 @@ SELECT
 FROM analyses
 GROUP BY DATE(created_at);
 
+-- ============================================
+-- 9. Agent Lightning 학습 데이터 스키마
+-- SEO, AIO, AEO, GEO 학습에 필요한 데이터 저장
+-- ============================================
+
+-- ============================================
+-- 9.1 Agent Spans (이벤트 추적)
+-- ============================================
+CREATE TABLE IF NOT EXISTS agent_spans (
+  id VARCHAR(255) PRIMARY KEY,
+  type VARCHAR(50) NOT NULL, -- 'prompt', 'response', 'tool_call', 'reward'
+  agent_type VARCHAR(50) NOT NULL, -- 'seo', 'aeo', 'geo', 'aio', 'chat'
+  user_id VARCHAR(255),
+  analysis_id VARCHAR(255),
+  conversation_id VARCHAR(255),
+  data TEXT NOT NULL, -- JSON 문자열
+  metadata TEXT, -- JSON 문자열
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (analysis_id) REFERENCES analyses(id) ON DELETE SET NULL,
+  FOREIGN KEY (conversation_id) REFERENCES chat_conversations(id) ON DELETE SET NULL
+);
+
+-- ============================================
+-- 9.2 Prompt Templates (프롬프트 템플릿)
+-- ============================================
+CREATE TABLE IF NOT EXISTS prompt_templates (
+  id VARCHAR(255) PRIMARY KEY,
+  agent_type VARCHAR(50) NOT NULL, -- 'seo', 'aeo', 'geo', 'aio', 'chat'
+  template TEXT NOT NULL,
+  version INTEGER NOT NULL DEFAULT 1,
+  avg_score REAL DEFAULT 0.0,
+  total_uses INTEGER DEFAULT 0,
+  success_rate REAL DEFAULT 0.0,
+  variables TEXT, -- JSON 문자열 (템플릿 변수 목록)
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(agent_type, version)
+);
+
+-- ============================================
+-- 9.3 Agent Rewards (품질 평가)
+-- ============================================
+CREATE TABLE IF NOT EXISTS agent_rewards (
+  id VARCHAR(255) PRIMARY KEY,
+  span_id VARCHAR(255),
+  agent_type VARCHAR(50) NOT NULL, -- 'seo', 'aeo', 'geo', 'aio', 'chat'
+  score INTEGER NOT NULL CHECK(score >= 0 AND score <= 100),
+  relevance REAL NOT NULL CHECK(relevance >= 0 AND relevance <= 1),
+  accuracy REAL NOT NULL CHECK(accuracy >= 0 AND accuracy <= 1),
+  usefulness REAL NOT NULL CHECK(usefulness >= 0 AND usefulness <= 1),
+  user_satisfaction REAL CHECK(user_satisfaction IS NULL OR (user_satisfaction >= 0 AND user_satisfaction <= 1)),
+  feedback TEXT,
+  user_id VARCHAR(255),
+  analysis_id VARCHAR(255),
+  conversation_id VARCHAR(255),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (span_id) REFERENCES agent_spans(id) ON DELETE SET NULL,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (analysis_id) REFERENCES analyses(id) ON DELETE SET NULL,
+  FOREIGN KEY (conversation_id) REFERENCES chat_conversations(id) ON DELETE SET NULL
+);
+
+-- ============================================
+-- 9.4 Learning Metrics (학습 메트릭)
+-- ============================================
+CREATE TABLE IF NOT EXISTS learning_metrics (
+  id SERIAL PRIMARY KEY,
+  agent_type VARCHAR(50) NOT NULL, -- 'seo', 'aeo', 'geo', 'aio', 'chat'
+  date DATE NOT NULL,
+  total_spans INTEGER DEFAULT 0,
+  avg_reward REAL DEFAULT 0.0,
+  improvement_rate REAL DEFAULT 0.0, -- 개선율 (%)
+  best_prompt_version INTEGER DEFAULT 1,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(agent_type, date)
+);
+
+-- Agent Lightning 인덱스
+CREATE INDEX IF NOT EXISTS idx_agent_spans_type ON agent_spans(type);
+CREATE INDEX IF NOT EXISTS idx_agent_spans_agent_type ON agent_spans(agent_type);
+CREATE INDEX IF NOT EXISTS idx_agent_spans_user_id ON agent_spans(user_id);
+CREATE INDEX IF NOT EXISTS idx_agent_spans_analysis_id ON agent_spans(analysis_id);
+CREATE INDEX IF NOT EXISTS idx_agent_spans_conversation_id ON agent_spans(conversation_id);
+CREATE INDEX IF NOT EXISTS idx_agent_spans_created_at ON agent_spans(created_at);
+CREATE INDEX IF NOT EXISTS idx_agent_spans_agent_created ON agent_spans(agent_type, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_prompt_templates_agent_type ON prompt_templates(agent_type);
+CREATE INDEX IF NOT EXISTS idx_prompt_templates_version ON prompt_templates(version);
+CREATE INDEX IF NOT EXISTS idx_prompt_templates_agent_version ON prompt_templates(agent_type, version DESC);
+CREATE INDEX IF NOT EXISTS idx_prompt_templates_avg_score ON prompt_templates(avg_score DESC);
+
+CREATE INDEX IF NOT EXISTS idx_agent_rewards_span_id ON agent_rewards(span_id);
+CREATE INDEX IF NOT EXISTS idx_agent_rewards_agent_type ON agent_rewards(agent_type);
+CREATE INDEX IF NOT EXISTS idx_agent_rewards_score ON agent_rewards(score DESC);
+CREATE INDEX IF NOT EXISTS idx_agent_rewards_user_id ON agent_rewards(user_id);
+CREATE INDEX IF NOT EXISTS idx_agent_rewards_analysis_id ON agent_rewards(analysis_id);
+CREATE INDEX IF NOT EXISTS idx_agent_rewards_created_at ON agent_rewards(created_at);
+CREATE INDEX IF NOT EXISTS idx_agent_rewards_agent_created ON agent_rewards(agent_type, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_learning_metrics_agent_type ON learning_metrics(agent_type);
+CREATE INDEX IF NOT EXISTS idx_learning_metrics_date ON learning_metrics(date);
+CREATE INDEX IF NOT EXISTS idx_learning_metrics_agent_date ON learning_metrics(agent_type, date DESC);
+
+-- Agent Lightning 트리거
+CREATE OR REPLACE FUNCTION update_prompt_templates_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.last_updated = CURRENT_TIMESTAMP;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS update_prompt_templates_updated_at ON prompt_templates;
+CREATE TRIGGER update_prompt_templates_updated_at
+BEFORE UPDATE ON prompt_templates
+FOR EACH ROW
+EXECUTE FUNCTION update_prompt_templates_updated_at();
+
+CREATE OR REPLACE FUNCTION update_learning_metrics_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = CURRENT_TIMESTAMP;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS update_learning_metrics_updated_at ON learning_metrics;
+CREATE TRIGGER update_learning_metrics_updated_at
+BEFORE UPDATE ON learning_metrics
+FOR EACH ROW
+EXECUTE FUNCTION update_learning_metrics_updated_at();
+
+-- Agent Lightning 뷰 (PostgreSQL JSON 함수 사용)
+CREATE OR REPLACE VIEW agent_type_statistics AS
+SELECT 
+  agent_type,
+  COUNT(DISTINCT id) as total_spans,
+  COUNT(DISTINCT user_id) as unique_users,
+  AVG((data::json->>'score')::real) as avg_score,
+  MAX(created_at) as last_activity
+FROM agent_spans
+WHERE type = 'reward'
+GROUP BY agent_type;
+
+CREATE OR REPLACE VIEW prompt_template_performance AS
+SELECT 
+  pt.agent_type,
+  pt.version,
+  pt.avg_score,
+  pt.total_uses,
+  pt.success_rate,
+  pt.last_updated,
+  COUNT(DISTINCT ar.id) as total_rewards,
+  AVG(ar.score) as recent_avg_score
+FROM prompt_templates pt
+LEFT JOIN agent_rewards ar ON pt.agent_type = ar.agent_type 
+  AND ar.created_at >= pt.last_updated
+GROUP BY pt.id
+ORDER BY pt.agent_type, pt.version DESC;
+
