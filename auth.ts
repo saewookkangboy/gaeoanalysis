@@ -168,7 +168,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           const providerBasedUserId = generateUserIdFromEmail(normalizedEmail, account.provider);
           
           // Provider + 이메일 조합으로 기존 사용자 확인 (provider별 계정 분리)
-          const existingUser = getUser(providerBasedUserId);
+          const existingUser = await getUser(providerBasedUserId);
           let actualUserId = providerBasedUserId; // Provider 기반 ID 사용
           let isNewUser = !existingUser;
           
@@ -273,7 +273,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             providerBasedUserId = generateUserIdFromEmail(normalizedEmail, account.provider);
             
             // Provider별 기존 사용자 확인
-            const existingUser = getUser(providerBasedUserId);
+            const existingUser = await getUser(providerBasedUserId);
             if (existingUser) {
               // 기존 사용자가 있으면 그 ID 사용
               providerBasedUserId = existingUser.id;
@@ -309,7 +309,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const providerBasedUserId = generateUserIdFromEmail(normalizedEmail, provider);
         
         try {
-          const existingUser = getUser(providerBasedUserId);
+          const existingUser = await getUser(providerBasedUserId);
           if (existingUser) {
             // 기존 사용자가 있으면 그 ID 사용
             token.id = existingUser.id;
@@ -352,7 +352,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             const providerBasedUserId = generateUserIdFromEmail(normalizedEmail, provider);
             
             // Provider별 기존 사용자 확인
-            const existingUser = getUser(providerBasedUserId);
+            const existingUser = await getUser(providerBasedUserId);
             
             if (existingUser) {
               // 기존 사용자가 있으면 그 ID 사용
