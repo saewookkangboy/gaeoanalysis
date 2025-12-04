@@ -945,32 +945,70 @@ export async function saveOrUpdateChatConversation(data: {
   analysisId: string | null;
   messages: any[];
 }) {
-  // chat_conversations 테이블 존재 여부 확인
+  // chat_conversations 테이블 존재 여부 확인 및 자동 생성
   try {
-    const tableInfo = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='chat_conversations'").get() as { name: string } | undefined;
-    if (!tableInfo) {
-      console.error('❌ [saveOrUpdateChatConversation] chat_conversations 테이블이 존재하지 않음');
-      // 테이블이 없으면 자동으로 생성 시도
-      try {
-        db.exec(`
-          CREATE TABLE IF NOT EXISTS chat_conversations (
-            id TEXT PRIMARY KEY,
-            user_id TEXT,
-            analysis_id TEXT,
-            messages TEXT NOT NULL,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-            FOREIGN KEY (analysis_id) REFERENCES analyses(id) ON DELETE CASCADE
-          );
-          CREATE INDEX IF NOT EXISTS idx_chat_user_id ON chat_conversations(user_id);
-          CREATE INDEX IF NOT EXISTS idx_chat_analysis_id ON chat_conversations(analysis_id);
-          CREATE INDEX IF NOT EXISTS idx_chat_user_updated ON chat_conversations(user_id, updated_at DESC);
-        `);
-        console.log('✅ [saveOrUpdateChatConversation] chat_conversations 테이블 자동 생성 완료');
-      } catch (createError: any) {
-        console.error('❌ [saveOrUpdateChatConversation] 테이블 생성 실패:', createError);
-        throw new Error(`데이터베이스 테이블이 초기화되지 않았습니다: ${createError.message}`);
+    if (isSQLite()) {
+      const tableInfo = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='chat_conversations'").get() as { name: string } | undefined;
+      if (!tableInfo) {
+        console.error('❌ [saveOrUpdateChatConversation] chat_conversations 테이블이 존재하지 않음');
+        // 테이블이 없으면 자동으로 생성 시도
+        try {
+          db.exec(`
+            CREATE TABLE IF NOT EXISTS chat_conversations (
+              id TEXT PRIMARY KEY,
+              user_id TEXT,
+              analysis_id TEXT,
+              messages TEXT NOT NULL,
+              created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+              updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+              FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+              FOREIGN KEY (analysis_id) REFERENCES analyses(id) ON DELETE CASCADE
+            );
+            CREATE INDEX IF NOT EXISTS idx_chat_user_id ON chat_conversations(user_id);
+            CREATE INDEX IF NOT EXISTS idx_chat_analysis_id ON chat_conversations(analysis_id);
+            CREATE INDEX IF NOT EXISTS idx_chat_user_updated ON chat_conversations(user_id, updated_at DESC);
+          `);
+          console.log('✅ [saveOrUpdateChatConversation] chat_conversations 테이블 자동 생성 완료');
+        } catch (createError: any) {
+          console.error('❌ [saveOrUpdateChatConversation] 테이블 생성 실패:', createError);
+          throw new Error(`데이터베이스 테이블이 초기화되지 않았습니다: ${createError.message}`);
+        }
+      }
+    } else if (isPostgreSQL()) {
+      // PostgreSQL 테이블 존재 확인 및 자동 생성
+      const tableCheck = await query(`
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables 
+          WHERE table_schema = 'public' 
+          AND table_name = 'chat_conversations'
+        ) as exists
+      `);
+      
+      if (!tableCheck.rows[0]?.exists) {
+        console.warn('⚠️ [saveOrUpdateChatConversation] chat_conversations 테이블이 존재하지 않음, 자동 생성 시도');
+        try {
+          await query(`
+            CREATE TABLE IF NOT EXISTS chat_conversations (
+              id TEXT PRIMARY KEY,
+              user_id TEXT,
+              analysis_id TEXT,
+              messages TEXT NOT NULL,
+              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+              updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+              CONSTRAINT fk_chat_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+              CONSTRAINT fk_chat_analysis FOREIGN KEY (analysis_id) REFERENCES analyses(id) ON DELETE CASCADE
+            )
+          `);
+          
+          await query(`CREATE INDEX IF NOT EXISTS idx_chat_user_id ON chat_conversations(user_id)`);
+          await query(`CREATE INDEX IF NOT EXISTS idx_chat_analysis_id ON chat_conversations(analysis_id)`);
+          await query(`CREATE INDEX IF NOT EXISTS idx_chat_user_updated ON chat_conversations(user_id, updated_at DESC)`);
+          
+          console.log('✅ [saveOrUpdateChatConversation] chat_conversations 테이블 자동 생성 완료');
+        } catch (createError: any) {
+          console.error('❌ [saveOrUpdateChatConversation] 테이블 생성 실패:', createError);
+          throw new Error(`데이터베이스 테이블이 초기화되지 않았습니다: ${createError.message}`);
+        }
       }
     }
   } catch (tableCheckError: any) {
@@ -991,7 +1029,14 @@ export async function saveOrUpdateChatConversation(data: {
   
   // analysisId가 제공된 경우 분석 존재 확인
   if (data.analysisId) {
-    const analysisCheck = db.prepare('SELECT id FROM analyses WHERE id = ?').get(data.analysisId) as { id: string } | undefined;
+    let analysisCheck: { id: string } | null = null;
+    if (isPostgreSQL()) {
+      const analysisResult = await query('SELECT id FROM analyses WHERE id = $1', [data.analysisId]);
+      analysisCheck = analysisResult.rows[0] as { id: string } | null;
+    } else {
+      analysisCheck = db.prepare('SELECT id FROM analyses WHERE id = ?').get(data.analysisId) as { id: string } | undefined || null;
+    }
+    
     if (!analysisCheck) {
       console.warn('⚠️ [saveOrUpdateChatConversation] 분석이 존재하지 않음 (analysisId를 null로 설정):', {
         analysisId: data.analysisId,
@@ -1003,21 +1048,41 @@ export async function saveOrUpdateChatConversation(data: {
   }
   
   try {
-    return dbHelpers.transaction(() => {
+    return await transaction(async (client) => {
       // 기존 대화 확인
       if (data.conversationId) {
-        const existing = db
-          .prepare('SELECT id FROM chat_conversations WHERE id = ? AND user_id = ?')
-          .get(data.conversationId, data.userId);
+        let existing: any = null;
+        
+        if (isPostgreSQL()) {
+          const existingResult = await client.query(
+            'SELECT id FROM chat_conversations WHERE id = $1 AND user_id = $2',
+            [data.conversationId, data.userId]
+          );
+          existing = existingResult.rows[0] || null;
+        } else {
+          existing = db
+            .prepare('SELECT id FROM chat_conversations WHERE id = ? AND user_id = ?')
+            .get(data.conversationId, data.userId);
+        }
 
         if (existing) {
           // 업데이트
-          const updateStmt = db.prepare(`
-            UPDATE chat_conversations
-            SET messages = ?, updated_at = CURRENT_TIMESTAMP
-            WHERE id = ? AND user_id = ?
-          `);
-          updateStmt.run(JSON.stringify(data.messages), data.conversationId, data.userId);
+          if (isPostgreSQL()) {
+            await client.query(
+              `UPDATE chat_conversations
+               SET messages = $1, updated_at = CURRENT_TIMESTAMP
+               WHERE id = $2 AND user_id = $3`,
+              [JSON.stringify(data.messages), data.conversationId, data.userId]
+            );
+          } else {
+            const updateStmt = db.prepare(`
+              UPDATE chat_conversations
+              SET messages = ?, updated_at = CURRENT_TIMESTAMP
+              WHERE id = ? AND user_id = ?
+            `);
+            updateStmt.run(JSON.stringify(data.messages), data.conversationId, data.userId);
+          }
+          
           console.log('✅ [saveOrUpdateChatConversation] 기존 대화 업데이트 완료:', {
             conversationId: data.conversationId,
             userId: data.userId
@@ -1030,49 +1095,86 @@ export async function saveOrUpdateChatConversation(data: {
       const { v4: uuidv4 } = require('uuid');
       const conversationId = data.conversationId || uuidv4();
 
-      const insertStmt = db.prepare(`
-        INSERT INTO chat_conversations (id, user_id, analysis_id, messages)
-        VALUES (?, ?, ?, ?)
-      `);
-
       try {
-        insertStmt.run(
-          conversationId,
-          data.userId,
-          data.analysisId || null,
-          JSON.stringify(data.messages)
-        );
+        if (isPostgreSQL()) {
+          await client.query(
+            `INSERT INTO chat_conversations (id, user_id, analysis_id, messages)
+             VALUES ($1, $2, $3, $4)`,
+            [conversationId, data.userId, data.analysisId || null, JSON.stringify(data.messages)]
+          );
+        } else {
+          const insertStmt = db.prepare(`
+            INSERT INTO chat_conversations (id, user_id, analysis_id, messages)
+            VALUES (?, ?, ?, ?)
+          `);
+          insertStmt.run(
+            conversationId,
+            data.userId,
+            data.analysisId || null,
+            JSON.stringify(data.messages)
+          );
+        }
+        
         console.log('✅ [saveOrUpdateChatConversation] 새 대화 생성 완료:', {
           conversationId: conversationId,
           userId: data.userId,
           analysisId: data.analysisId || null
         });
       } catch (insertError: any) {
-        if (insertError?.code === 'SQLITE_CONSTRAINT_FOREIGNKEY') {
+        const isForeignKeyError = 
+          insertError?.code === 'SQLITE_CONSTRAINT_FOREIGNKEY' ||
+          insertError?.code === '23503' || // PostgreSQL foreign key violation
+          insertError?.constraint?.includes('foreign');
+        
+        if (isForeignKeyError) {
           console.error('❌ [saveOrUpdateChatConversation] FOREIGN KEY 제약 조건 오류:', {
             error: insertError.message,
             userId: data.userId,
             analysisId: data.analysisId,
-            conversationId: conversationId
+            conversationId: conversationId,
+            code: insertError.code
           });
+          
           // 사용자 재확인
-          const retryUserCheck = getUser(data.userId);
+          const retryUserCheck = await getUser(data.userId);
           if (!retryUserCheck) {
             throw new Error(`사용자가 존재하지 않습니다: ${data.userId}`);
           }
+          
           // analysisId가 있으면 재확인
           if (data.analysisId) {
-            const retryAnalysisCheck = db.prepare('SELECT id FROM analyses WHERE id = ?').get(data.analysisId) as { id: string } | undefined;
+            let retryAnalysisCheck: { id: string } | null = null;
+            if (isPostgreSQL()) {
+              const analysisResult = await query('SELECT id FROM analyses WHERE id = $1', [data.analysisId]);
+              retryAnalysisCheck = analysisResult.rows[0] as { id: string } | null;
+            } else {
+              retryAnalysisCheck = db.prepare('SELECT id FROM analyses WHERE id = ?').get(data.analysisId) as { id: string } | undefined || null;
+            }
+            
             if (!retryAnalysisCheck) {
               // analysisId를 null로 설정하고 재시도
               console.warn('⚠️ [saveOrUpdateChatConversation] 분석이 존재하지 않아 analysisId를 null로 설정하고 재시도');
               data.analysisId = null;
-              insertStmt.run(
-                conversationId,
-                data.userId,
-                null,
-                JSON.stringify(data.messages)
-              );
+              
+              if (isPostgreSQL()) {
+                await client.query(
+                  `INSERT INTO chat_conversations (id, user_id, analysis_id, messages)
+                   VALUES ($1, $2, $3, $4)`,
+                  [conversationId, data.userId, null, JSON.stringify(data.messages)]
+                );
+              } else {
+                const insertStmt = db.prepare(`
+                  INSERT INTO chat_conversations (id, user_id, analysis_id, messages)
+                  VALUES (?, ?, ?, ?)
+                `);
+                insertStmt.run(
+                  conversationId,
+                  data.userId,
+                  null,
+                  JSON.stringify(data.messages)
+                );
+              }
+              
               console.log('✅ [saveOrUpdateChatConversation] 재시도 성공 (analysisId 제거):', {
                 conversationId: conversationId,
                 userId: data.userId
