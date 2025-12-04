@@ -68,8 +68,21 @@ function initializePostgresPool(): Pool {
       console.error('❌ [PostgreSQL] Vercel 환경에서 DATABASE_PUBLIC_URL이 설정되지 않았습니다.');
       throw new Error('Vercel 환경에서는 DATABASE_PUBLIC_URL이 필요합니다.');
     }
+    
+    // Public URL의 hostname 확인
+    const publicHostname = extractHostname(publicUrl);
+    if (publicHostname?.includes('railway.internal')) {
+      console.error('❌ [PostgreSQL] DATABASE_PUBLIC_URL이 Private URL을 가리키고 있습니다!', {
+        hostname: publicHostname,
+        message: 'Vercel에서는 Railway의 Private URL(postgres.railway.internal)에 접근할 수 없습니다. Railway 대시보드에서 Public URL을 확인하고 DATABASE_PUBLIC_URL 환경 변수를 업데이트하세요.'
+      });
+      throw new Error('DATABASE_PUBLIC_URL이 Private URL을 가리키고 있습니다. Railway Public URL을 사용해야 합니다.');
+    }
+    
     connectionString = publicUrl;
-    console.log('✅ [PostgreSQL] Vercel 환경: Public URL 사용');
+    console.log('✅ [PostgreSQL] Vercel 환경: Public URL 사용', {
+      hostname: publicHostname
+    });
   } else if (privateUrl && isRailway) {
     // Railway 환경이고 Private URL이 있으면 Private URL 사용 시도
     usePrivateUrl = true;
@@ -272,11 +285,25 @@ export async function query<T extends Record<string, any> = any>(
     }
     
     if (shouldRetry) {
+      // Public URL의 hostname 확인
+      const publicHostname = publicUrl ? extractHostname(publicUrl) : null;
+      
+      if (publicHostname?.includes('railway.internal')) {
+        console.error('❌ [PostgreSQL] DATABASE_PUBLIC_URL이 Private URL을 가리키고 있습니다!', {
+          hostname: publicHostname,
+          environment: isVercel ? 'Vercel' : 'Railway',
+          message: 'DATABASE_PUBLIC_URL이 Private URL(postgres.railway.internal)을 가리키고 있어 재시도할 수 없습니다. Railway 대시보드에서 Public URL을 확인하고 DATABASE_PUBLIC_URL 환경 변수를 업데이트하세요.'
+        });
+        // 재시도 불가능하므로 원래 오류를 throw
+        throw new Error(`DATABASE_PUBLIC_URL이 Private URL을 가리키고 있습니다. Public URL을 사용해야 합니다. (hostname: ${publicHostname})`);
+      }
+      
       console.warn('⚠️ [PostgreSQL] Private URL 쿼리 실패, Public URL로 재시도...', {
         environment: isVercel ? 'Vercel' : 'Railway',
         errorCode: error.code,
         hostname: error.hostname,
         publicUrlExists: !!publicUrl,
+        publicUrlHostname: publicHostname,
         publicUrlPreview: publicUrl ? publicUrl.replace(/:[^:@]+@/, ':****@').substring(0, 50) + '...' : 'N/A'
       });
       
@@ -293,7 +320,9 @@ export async function query<T extends Record<string, any> = any>(
         resetPool();
         
         // Public URL로 새 풀 생성
-        console.log('🔄 [PostgreSQL] Public URL로 새 연결 풀 생성 중...');
+        console.log('🔄 [PostgreSQL] Public URL로 새 연결 풀 생성 중...', {
+          hostname: publicHostname
+        });
         const newPool = new Pool({
           connectionString: publicUrl!,
           max: 20,
