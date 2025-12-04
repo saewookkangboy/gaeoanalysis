@@ -12,7 +12,15 @@ const isBuildTime = process.env.NEXT_PHASE === 'phase-production-build' ||
 let pool: Pool | null = null;
 
 /**
+ * 연결 풀 설정 (재연결 시 사용)
+ */
+export function setPool(newPool: Pool) {
+  pool = newPool;
+}
+
+/**
  * PostgreSQL 연결 풀 초기화
+ * Private URL 실패 시 Public URL로 자동 fallback
  */
 function initializePostgresPool(): Pool {
   if (pool) {
@@ -24,28 +32,26 @@ function initializePostgresPool(): Pool {
   // 로컬 환경에서는 Public URL 사용 가능
   const isRailway = !!process.env.RAILWAY_ENVIRONMENT || !!process.env.RAILWAY;
   
-  let connectionString = process.env.DATABASE_URL; // Private URL (Railway 내부)
+  const privateUrl = process.env.DATABASE_URL; // Private URL (Railway 내부)
+  const publicUrl = process.env.DATABASE_PUBLIC_URL; // Public URL
   
-  // Railway 환경에서 Private URL이 없으면 Public URL 사용 (fallback)
-  if (!connectionString && isRailway) {
-    connectionString = process.env.DATABASE_PUBLIC_URL;
-  }
-  
-  // 로컬 환경에서는 Public URL도 허용
-  if (!connectionString) {
-    connectionString = process.env.DATABASE_PUBLIC_URL;
-  }
-  
-  if (!connectionString) {
+  if (!privateUrl && !publicUrl) {
     throw new Error('DATABASE_URL 또는 DATABASE_PUBLIC_URL 환경 변수가 설정되지 않았습니다.');
   }
   
-  // 사용 중인 URL 타입 로깅 (비용 최적화 안내)
-  if (isRailway && connectionString.includes('railway.internal')) {
-    console.log('✅ [PostgreSQL] Private URL 사용 중 (egress fees 없음)');
-  } else if (isRailway && connectionString.includes('containers-')) {
-    console.warn('⚠️ [PostgreSQL] Public URL 사용 중 (egress fees 발생 가능)');
-    console.warn('💡 Railway 환경에서는 Private URL(DATABASE_URL) 사용을 권장합니다.');
+  // Private URL 우선 시도
+  let connectionString = privateUrl;
+  let usePrivateUrl = false;
+  
+  if (privateUrl && isRailway) {
+    // Private URL이 있고 Railway 환경이면 Private URL 사용 시도
+    usePrivateUrl = true;
+    connectionString = privateUrl;
+    console.log('🔗 [PostgreSQL] Private URL 사용 시도:', privateUrl.replace(/:[^:@]+@/, ':****@')); // 비밀번호 마스킹
+  } else if (publicUrl) {
+    // Private URL이 없거나 Railway 환경이 아니면 Public URL 사용
+    connectionString = publicUrl;
+    console.log('🔗 [PostgreSQL] Public URL 사용:', publicUrl.replace(/:[^:@]+@/, ':****@')); // 비밀번호 마스킹
   }
 
   pool = new Pool({
@@ -53,17 +59,98 @@ function initializePostgresPool(): Pool {
     // 연결 풀 설정
     max: 20, // 최대 연결 수
     idleTimeoutMillis: 30000, // 30초
-    connectionTimeoutMillis: 2000, // 2초
+    connectionTimeoutMillis: 5000, // 5초 (연결 타임아웃 증가)
     // SSL 연결 (Railway는 SSL 필수)
     ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
   });
 
-  // 연결 오류 처리
-  pool.on('error', (err) => {
-    console.error('❌ [PostgreSQL] 예상치 못한 클라이언트 오류:', err);
+  // 연결 오류 처리 - Private URL 실패 시 Public URL로 재시도
+  pool.on('error', async (err: any) => {
+    console.error('❌ [PostgreSQL] 예상치 못한 클라이언트 오류:', {
+      error: err.message,
+      code: err.code,
+      hostname: err.hostname
+    });
+    
+    // Private URL 연결 실패 시 Public URL로 재시도
+    if (usePrivateUrl && publicUrl && (err.code === 'ENOTFOUND' || err.hostname?.includes('railway.internal'))) {
+      console.warn('⚠️ [PostgreSQL] Private URL 연결 실패, Public URL로 재시도...');
+      try {
+        if (pool) {
+          await pool.end();
+        }
+        pool = null;
+        
+        // Public URL로 재연결
+        pool = new Pool({
+          connectionString: publicUrl,
+          max: 20,
+          idleTimeoutMillis: 30000,
+          connectionTimeoutMillis: 5000,
+          ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+        });
+        
+        console.log('✅ [PostgreSQL] Public URL로 재연결 완료');
+      } catch (retryError) {
+        console.error('❌ [PostgreSQL] Public URL 재연결 실패:', retryError);
+      }
+    }
   });
 
-  console.log('✅ [PostgreSQL] 연결 풀 초기화 완료');
+  // 초기 연결 테스트 (비동기로 실행, 실패해도 풀은 생성됨)
+  (async () => {
+    if (!pool) return;
+    
+    try {
+      const testResult = await pool.query('SELECT NOW() as now');
+      if (testResult.rows.length > 0) {
+        if (usePrivateUrl && connectionString && connectionString.includes('railway.internal')) {
+          console.log('✅ [PostgreSQL] Private URL 연결 성공 (egress fees 없음)');
+        } else if (isRailway && connectionString && connectionString.includes('containers-')) {
+          console.warn('⚠️ [PostgreSQL] Public URL 사용 중 (egress fees 발생 가능)');
+          console.warn('💡 Railway 환경에서는 Private URL(DATABASE_URL) 사용을 권장합니다.');
+        } else {
+          console.log('✅ [PostgreSQL] 연결 풀 초기화 완료');
+        }
+      }
+    } catch (testError: any) {
+      // Private URL 연결 실패 시 Public URL로 재시도
+      if (usePrivateUrl && publicUrl && (testError.code === 'ENOTFOUND' || testError.hostname?.includes('railway.internal'))) {
+        console.warn('⚠️ [PostgreSQL] Private URL 연결 테스트 실패, Public URL로 재시도...');
+        try {
+          if (pool) {
+            await pool.end();
+          }
+          pool = null;
+          
+          // Public URL로 재연결
+          pool = new Pool({
+            connectionString: publicUrl,
+            max: 20,
+            idleTimeoutMillis: 30000,
+            connectionTimeoutMillis: 5000,
+            ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+          });
+          
+          // Public URL 연결 테스트
+          if (pool) {
+            const retryResult = await pool.query('SELECT NOW() as now');
+            if (retryResult.rows.length > 0) {
+              console.log('✅ [PostgreSQL] Public URL로 재연결 성공');
+              console.warn('⚠️ [PostgreSQL] Public URL 사용 중 (egress fees 발생 가능)');
+            }
+          }
+        } catch (retryError) {
+          console.error('❌ [PostgreSQL] Public URL 재연결 실패:', retryError);
+          // 재연결 실패해도 풀은 유지 (다음 쿼리에서 재시도)
+        }
+      } else {
+        console.error('❌ [PostgreSQL] 연결 테스트 실패:', testError.message);
+        // 연결 실패해도 풀은 유지 (다음 쿼리에서 재시도)
+      }
+    }
+  })();
+
   return pool;
 }
 
@@ -85,12 +172,13 @@ export function getPostgresPool(): Pool {
 
 /**
  * 쿼리 실행 (Promise 기반)
+ * Private URL 연결 실패 시 Public URL로 자동 재시도
  */
 export async function query<T extends Record<string, any> = any>(
   text: string,
   params?: any[]
 ): Promise<QueryResult<T>> {
-  const pool = getPostgresPool();
+  let pool = getPostgresPool();
   const start = Date.now();
   
   try {
@@ -103,9 +191,67 @@ export async function query<T extends Record<string, any> = any>(
     
     return result;
   } catch (error: any) {
+    // Private URL 연결 실패 시 Public URL로 재시도
+    const isRailway = !!process.env.RAILWAY_ENVIRONMENT || !!process.env.RAILWAY;
+    const privateUrl = process.env.DATABASE_URL;
+    const publicUrl = process.env.DATABASE_PUBLIC_URL;
+    
+    if (
+      isRailway &&
+      privateUrl &&
+      publicUrl &&
+      (error.code === 'ENOTFOUND' || error.hostname?.includes('railway.internal')) &&
+      pool &&
+      (await pool.query('SELECT 1').catch(() => null)) === null // 현재 풀이 작동하지 않음
+    ) {
+      console.warn('⚠️ [PostgreSQL] Private URL 쿼리 실패, Public URL로 재시도...');
+      
+      try {
+        // 기존 풀 종료
+        if (pool) {
+          await pool.end().catch(() => {});
+        }
+        pool = null;
+        
+        // Public URL로 새 풀 생성
+        const newPool = new Pool({
+          connectionString: publicUrl,
+          max: 20,
+          idleTimeoutMillis: 30000,
+          connectionTimeoutMillis: 5000,
+          ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+        });
+        
+        pool = newPool;
+        
+        // 전역 풀 업데이트 (다음 호출을 위해)
+        setPool(newPool);
+        
+        console.log('✅ [PostgreSQL] Public URL로 재연결 완료, 쿼리 재시도...');
+        
+        // 재시도
+        const retryResult = await pool.query<T>(text, params);
+        const duration = Date.now() - start;
+        
+        if (duration > 1000) {
+          console.warn(`⚠️ [PostgreSQL] 느린 쿼리 (재시도, ${duration}ms):`, text.substring(0, 100));
+        }
+        
+        return retryResult;
+      } catch (retryError: any) {
+        console.error('❌ [PostgreSQL] Public URL 재시도 실패:', {
+          query: text.substring(0, 100),
+          error: retryError.message,
+        });
+        throw retryError;
+      }
+    }
+    
     console.error('❌ [PostgreSQL] 쿼리 오류:', {
       query: text.substring(0, 100),
       error: error.message,
+      code: error.code,
+      hostname: error.hostname,
     });
     throw error;
   }
