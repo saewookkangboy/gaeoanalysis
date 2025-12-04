@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { useSession, signOut } from 'next-auth/react';
-import ThemeToggle from './ThemeToggle';
 
 // 개발 환경에서 네비게이션 오류를 조용히 처리
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
@@ -52,7 +51,6 @@ export default function Navigation() {
             </Link>
           </div>
           <div className="flex items-center gap-2 sm:gap-4">
-            <ThemeToggle />
             {status === 'loading' ? (
               // 로딩 중에도 로그인 버튼 표시 (빠른 렌더링)
               <Link
@@ -65,9 +63,12 @@ export default function Navigation() {
               <>
                 <Link
                   href="/history"
-                  className="group hidden sm:block rounded-lg border-2 border-transparent px-3 sm:px-4 py-2 text-sm font-semibold text-gray-700 dark:text-gray-300 transition-all duration-200 hover:border-sky-200 hover:bg-gradient-to-r hover:from-sky-50 hover:to-indigo-50 dark:hover:from-gray-800 dark:hover:to-gray-700 hover:shadow-sm"
+                  className="group flex items-center gap-1.5 rounded-lg border-2 border-transparent px-2.5 sm:px-4 py-2 text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300 transition-all duration-200 hover:border-sky-200 hover:bg-gradient-to-r hover:from-sky-50 hover:to-indigo-50 dark:hover:from-gray-800 dark:hover:to-gray-700 hover:shadow-sm"
                 >
-                  분석 이력
+                  <svg className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className="whitespace-nowrap">분석 이력</span>
                 </Link>
                 <span className="hidden md:block text-sm font-medium text-gray-700 dark:text-gray-300 truncate max-w-[150px]">
                   {session.user.email}
