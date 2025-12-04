@@ -93,7 +93,7 @@ async function handleRegister(request: NextRequest) {
     const userId = userCredential.user.uid;
 
     // 사용자 정보를 DB에 저장 (트랜잭션 사용)
-    createUser({
+    await createUser({
       id: userId,
       email,
       blogUrl: sanitizedBlogUrl,
