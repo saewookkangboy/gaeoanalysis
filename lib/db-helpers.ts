@@ -277,7 +277,8 @@ export async function saveAnalysis(data: {
       let userExistsRow: { id: string; email: string } | null = null;
       
       if (isPostgreSQL()) {
-        const userResult = await query('SELECT id, email FROM users WHERE id = $1', [data.userId]);
+        // PostgreSQL 트랜잭션 내부에서는 클라이언트를 직접 사용
+        const userResult = await client.query('SELECT id, email FROM users WHERE id = $1', [data.userId]);
         userExistsRow = userResult.rows[0] as { id: string; email: string } | null;
       } else {
         const userExistsStmt = db.prepare('SELECT id, email FROM users WHERE id = ?');
@@ -294,6 +295,7 @@ export async function saveAnalysis(data: {
         // 디버깅: 모든 사용자 확인
         try {
           if (isPostgreSQL()) {
+            // 트랜잭션 외부이므로 query 함수 사용 (트랜잭션 클라이언트가 아님)
             const allUsersResult = await query('SELECT id, email FROM users LIMIT 10');
             console.warn('🔍 [saveAnalysis] DB에 존재하는 사용자 목록:', allUsersResult.rows);
           } else {
@@ -318,6 +320,7 @@ export async function saveAnalysis(data: {
       let insertResult: { changes: number; lastInsertRowid?: number } | null = null;
       
       if (isPostgreSQL()) {
+        // PostgreSQL 트랜잭션 내부에서는 클라이언트를 직접 사용
         const insertQuery = `
           INSERT INTO analyses (
             id, user_id, url, aeo_score, geo_score, seo_score, 
@@ -326,7 +329,7 @@ export async function saveAnalysis(data: {
           )
           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
         `;
-        const insertQueryResult = await query(insertQuery, [
+        const insertQueryResult = await client.query(insertQuery, [
           data.id,
           data.userId,
           data.url,
@@ -386,7 +389,8 @@ export async function saveAnalysis(data: {
       let saved: { id: string; user_id: string; url: string } | null = null;
       
       if (isPostgreSQL()) {
-        const verifyResult = await query('SELECT id, user_id, url FROM analyses WHERE id = $1', [data.id]);
+        // PostgreSQL 트랜잭션 내부에서는 클라이언트를 직접 사용
+        const verifyResult = await client.query('SELECT id, user_id, url FROM analyses WHERE id = $1', [data.id]);
         saved = verifyResult.rows[0] as { id: string; user_id: string; url: string } | null;
       } else {
         const verifyStmt = db.prepare('SELECT id, user_id, url FROM analyses WHERE id = ?');
@@ -415,8 +419,9 @@ export async function saveAnalysis(data: {
       if (process.env.NODE_ENV === 'development' || process.env.DEBUG_DB || process.env.VERCEL) {
         try {
           if (isPostgreSQL()) {
-            const totalResult = await query('SELECT COUNT(*) as count FROM analyses');
-            const userResult = await query('SELECT COUNT(*) as count FROM analyses WHERE user_id = $1', [data.userId]);
+            // PostgreSQL 트랜잭션 내부에서는 클라이언트를 직접 사용
+            const totalResult = await client.query('SELECT COUNT(*) as count FROM analyses');
+            const userResult = await client.query('SELECT COUNT(*) as count FROM analyses WHERE user_id = $1', [data.userId]);
             console.log('📊 [saveAnalysis] 저장 후 DB 상태 (트랜잭션 내부):', {
               totalAnalyses: parseInt(totalResult.rows[0]?.count as string, 10) || 0,
               userAnalyses: parseInt(userResult.rows[0]?.count as string, 10) || 0,
@@ -493,13 +498,61 @@ export async function saveAnalysis(data: {
   }
   
   // 저장 후 최종 확인 (트랜잭션 외부에서)
-  // 트랜잭션 내부에서 확인이 성공했으면, 외부 확인 실패해도 저장은 완료된 것으로 간주
+  // PostgreSQL에서는 트랜잭션 커밋 후 즉시 조회 가능해야 함
   if (transactionVerified) {
-    console.log('✅ [saveAnalysis] 트랜잭션 내부 확인 성공, 외부 확인 스킵:', {
+    console.log('✅ [saveAnalysis] 트랜잭션 내부 확인 성공, 외부 확인 수행:', {
       analysisId: result,
       userId: data.userId,
       savedUserId: savedUserIdInTransaction
     });
+    
+    // PostgreSQL에서는 트랜잭션 커밋 후 즉시 조회 가능하도록 보장
+    if (isPostgreSQL()) {
+      try {
+        // 트랜잭션 커밋 후 즉시 조회 (최대 3회 재시도, 각 500ms 대기)
+        let finalCheck: { id: string; user_id: string; url: string } | null = null;
+        let retryCount = 0;
+        const maxRetries = 3;
+        
+        while (!finalCheck && retryCount < maxRetries) {
+          if (retryCount > 0) {
+            await new Promise(resolve => setTimeout(resolve, 500 * retryCount));
+          }
+          
+          const finalCheckResult = await query('SELECT id, user_id, url FROM analyses WHERE id = $1', [result]);
+          finalCheck = finalCheckResult.rows[0] as { id: string; user_id: string; url: string } | undefined || null;
+          
+          if (finalCheck) {
+            console.log('✅ [saveAnalysis] PostgreSQL 트랜잭션 커밋 후 즉시 조회 성공:', {
+              analysisId: result,
+              userId: data.userId,
+              savedUserId: finalCheck.user_id,
+              url: finalCheck.url,
+              retryCount: retryCount + 1
+            });
+            break;
+          } else {
+            retryCount++;
+            if (retryCount < maxRetries) {
+              console.warn(`⚠️ [saveAnalysis] PostgreSQL 조회 실패, 재시도 중 (${retryCount}/${maxRetries}):`, {
+                analysisId: result,
+                userId: data.userId
+              });
+            }
+          }
+        }
+        
+        if (!finalCheck) {
+          console.error('❌ [saveAnalysis] PostgreSQL 트랜잭션 커밋 후 조회 실패 (최대 재시도 횟수 초과):', {
+            analysisId: result,
+            userId: data.userId,
+            retryCount
+          });
+        }
+      } catch (error) {
+        console.warn('⚠️ [saveAnalysis] PostgreSQL 외부 확인 오류 (트랜잭션 내부 확인 성공으로 저장은 완료됨):', error);
+      }
+    }
   } else {
     try {
       if (isPostgreSQL()) {

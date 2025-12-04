@@ -273,18 +273,61 @@ async function handleAnalyze(request: NextRequest) {
         console.warn('⚠️ [Analyze API] 외부 확인 오류 (트랜잭션 내부 확인 성공으로 저장은 완료됨):', directCheckError);
       }
       
-      // 사용자 ID로 조회하여 최근 분석 확인 (디버깅용)
+      // 저장 후 즉시 사용자별 분석 이력 확인 (PostgreSQL 실시간 반영 확인)
       try {
-        const userAnalyses = await getUserAnalyses(finalUserId, { limit: 10 });
+        // PostgreSQL에서는 트랜잭션 커밋 후 즉시 조회 가능해야 함
+        // 최대 3회 재시도, 각 500ms 대기
+        let userAnalyses: any[] = [];
+        let retryCount = 0;
+        const maxRetries = 3;
+        
+        while (userAnalyses.length === 0 && retryCount < maxRetries) {
+          if (retryCount > 0) {
+            await new Promise(resolve => setTimeout(resolve, 500 * retryCount));
+          }
+          
+          userAnalyses = await getUserAnalyses(finalUserId, { limit: 10 });
+          
+          if (userAnalyses.length > 0) {
+            const savedRecord = userAnalyses.find(a => a.id === savedId);
+            if (savedRecord) {
+              console.log('✅ [Analyze API] 저장 후 즉시 조회 성공 (실시간 반영 확인):', {
+                analysisId: savedId,
+                userId: finalUserId,
+                sessionId: userId,
+                email: normalizedEmail,
+                totalAnalyses: userAnalyses.length,
+                retryCount: retryCount + 1,
+                savedRecord: { id: savedRecord.id, url: savedRecord.url, createdAt: savedRecord.createdAt }
+              });
+              break;
+            } else {
+              console.warn(`⚠️ [Analyze API] 저장된 분석이 조회 결과에 없음 (재시도 ${retryCount + 1}/${maxRetries}):`, {
+                analysisId: savedId,
+                userId: finalUserId,
+                totalAnalyses: userAnalyses.length,
+                allAnalysisIds: userAnalyses.map(a => a.id)
+              });
+            }
+          } else {
+            console.warn(`⚠️ [Analyze API] 사용자별 분석 이력이 0개 (재시도 ${retryCount + 1}/${maxRetries}):`, {
+              analysisId: savedId,
+              userId: finalUserId,
+              sessionId: userId,
+              email: normalizedEmail
+            });
+          }
+          
+          retryCount++;
+        }
+        
         if (userAnalyses.length === 0) {
-          console.warn('⚠️ [Analyze API] 사용자별 분석 이력이 0개 (디버깅):', { 
-            analysisId: savedId, 
+          console.error('❌ [Analyze API] 저장 후 조회 실패 (최대 재시도 횟수 초과):', {
+            analysisId: savedId,
             userId: finalUserId,
             sessionId: userId,
             email: normalizedEmail,
-            totalAnalyses: userAnalyses.length,
-            allAnalysisIds: userAnalyses.map(a => a.id),
-            allAnalyses: userAnalyses.map(a => ({ id: a.id, url: a.url }))
+            retryCount
           });
           
           // 세션 ID로도 확인 시도
