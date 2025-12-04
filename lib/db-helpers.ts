@@ -262,10 +262,11 @@ export async function saveAnalysis(data: {
   
   try {
     result = dbHelpers.transaction(() => {
-      // 사용자 존재 확인
-      let userExists = getUser(data.userId);
+      // 사용자 존재 확인 (트랜잭션 내부에서는 직접 쿼리 사용)
+      const userExistsStmt = db.prepare('SELECT id, email FROM users WHERE id = ?');
+      const userExistsRow = userExistsStmt.get(data.userId) as { id: string; email: string } | undefined;
       
-      if (!userExists) {
+      if (!userExistsRow) {
         console.error('❌ [saveAnalysis] 사용자가 존재하지 않음:', {
           userId: data.userId,
           analysisId: data.id,
@@ -286,7 +287,7 @@ export async function saveAnalysis(data: {
       
       console.log('✅ [saveAnalysis] 사용자 확인 완료:', {
         userId: data.userId,
-        userEmail: userExists.email,
+        userEmail: userExistsRow.email,
         analysisId: data.id
       });
 
@@ -1764,17 +1765,21 @@ export function migrateUserEmail(oldEmail: string, newEmail: string): string | n
     const normalizedOldEmail = oldEmail.toLowerCase().trim();
     const normalizedNewEmail = newEmail.toLowerCase().trim();
     
-    // 기존 이메일로 사용자 찾기
-    const oldUser = getUserByEmail(normalizedOldEmail);
-    if (!oldUser) {
+    // 기존 이메일로 사용자 찾기 (트랜잭션 내부에서는 직접 쿼리 사용)
+    const oldUserStmt = db.prepare('SELECT id, email FROM users WHERE LOWER(TRIM(email)) = ?');
+    const oldUserRow = oldUserStmt.get(normalizedOldEmail) as { id: string; email: string } | undefined;
+    if (!oldUserRow) {
       console.warn('⚠️ [migrateUserEmail] 기존 이메일로 사용자를 찾을 수 없음:', {
         oldEmail: normalizedOldEmail
       });
       return null;
     }
+    const oldUser = { id: oldUserRow.id, email: oldUserRow.email };
     
     // 새 이메일로 사용자 찾기
-    const newUser = getUserByEmail(normalizedNewEmail);
+    const newUserStmt = db.prepare('SELECT id, email FROM users WHERE LOWER(TRIM(email)) = ?');
+    const newUserRow = newUserStmt.get(normalizedNewEmail) as { id: string; email: string } | undefined;
+    const newUser = newUserRow ? { id: newUserRow.id, email: newUserRow.email } : null;
     
     if (newUser && newUser.id !== oldUser.id) {
       // 새 이메일로 이미 다른 사용자가 있는 경우, 분석 이력 마이그레이션
