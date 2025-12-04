@@ -15,7 +15,16 @@ fi
 # Vercel 로그인 확인
 if ! vercel whoami &> /dev/null; then
     echo "❌ Vercel에 로그인되지 않았습니다."
-    echo "💡 로그인: vercel login"
+    echo ""
+    echo "💡 로그인 방법:"
+    echo "   1. vercel login"
+    echo "   2. 브라우저가 열리면 Vercel 계정으로 로그인"
+    echo "   3. 이 스크립트를 다시 실행"
+    echo ""
+    echo "또는 토큰을 사용하여 로그인:"
+    echo "   vercel login --token <your-vercel-token>"
+    echo ""
+    echo "토큰은 Vercel 대시보드 → Settings → Tokens에서 생성할 수 있습니다."
     exit 1
 fi
 
