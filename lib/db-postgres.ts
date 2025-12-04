@@ -106,7 +106,7 @@ function extractHostname(connectionString: string): string | null {
 
 /**
  * 연결 문자열을 완전한 PostgreSQL 연결 문자열로 변환
- * hostname만 있는 경우 기본 형식으로 변환 시도
+ * hostname만 있는 경우 Railway 개별 환경 변수로부터 연결 문자열 구성 시도
  */
 function normalizeConnectionString(connectionString: string, isPublic: boolean = false): string | null {
   if (!connectionString || typeof connectionString !== 'string') {
@@ -118,21 +118,61 @@ function normalizeConnectionString(connectionString: string, isPublic: boolean =
     return connectionString;
   }
   
-  // hostname만 있는 경우
-  const hostname = extractHostname(connectionString);
+  // hostname:port 형식인 경우 파싱
+  let hostname: string | null = null;
+  let port: number | null = null;
+  
+  if (connectionString.includes(':')) {
+    // hostname:port 형식
+    const parts = connectionString.split(':');
+    hostname = parts[0].trim();
+    const portStr = parts[1].trim();
+    port = parseInt(portStr, 10);
+    if (isNaN(port)) {
+      port = null;
+    }
+  } else {
+    // hostname만 있는 경우
+    hostname = connectionString.trim();
+  }
+  
   if (!hostname) {
     return null;
   }
   
-  // Railway Public URL의 기본 포트와 형식 사용
-  // 실제 연결 정보는 환경 변수에서 가져와야 하지만, 
-  // 여기서는 기본 형식만 제공하고 실제 사용은 환경 변수 확인 필요
-  console.warn('⚠️ [PostgreSQL] 연결 문자열이 hostname만 포함하고 있습니다:', {
-    hostname,
-    message: 'DATABASE_PUBLIC_URL 환경 변수가 완전한 연결 문자열 형식이 아닙니다. 형식: postgresql://user:pass@hostname:port/database'
+  // Railway 개별 환경 변수 확인 (PGHOST, PGPORT, PGUSER, PGPASSWORD, PGDATABASE)
+  const pgHost = process.env.PGHOST || hostname;
+  const pgPort = port || parseInt(process.env.PGPORT || '5432', 10);
+  const pgUser = process.env.PGUSER || process.env.POSTGRES_USER || 'postgres';
+  const pgPassword = process.env.PGPASSWORD || process.env.POSTGRES_PASSWORD;
+  const pgDatabase = process.env.PGDATABASE || process.env.POSTGRES_DB || 'railway';
+  
+  // 비밀번호가 없으면 연결할 수 없음
+  if (!pgPassword) {
+    console.error('❌ [PostgreSQL] 연결 문자열 구성 실패:', {
+      hostname,
+      port,
+      hasPassword: !!pgPassword,
+      hasUser: !!pgUser,
+      hasDatabase: !!pgDatabase,
+      message: 'PGPASSWORD 또는 POSTGRES_PASSWORD 환경 변수가 필요합니다. Railway 대시보드에서 PostgreSQL 서비스의 Variables 탭을 확인하세요.'
+    });
+    return null;
+  }
+  
+  // 연결 문자열 구성
+  const normalizedUrl = `postgresql://${encodeURIComponent(pgUser)}:${encodeURIComponent(pgPassword)}@${pgHost}:${pgPort}/${pgDatabase}`;
+  
+  console.log('✅ [PostgreSQL] 연결 문자열 구성 완료:', {
+    hostname: pgHost,
+    port: pgPort,
+    user: pgUser,
+    database: pgDatabase,
+    hasPassword: !!pgPassword,
+    urlPreview: normalizedUrl.replace(/:[^:@]+@/, ':****@').substring(0, 80) + '...'
   });
   
-  return null; // hostname만으로는 연결할 수 없으므로 null 반환
+  return normalizedUrl;
 }
 
 /**
@@ -199,54 +239,102 @@ function initializePostgresPool(): Pool {
       throw new Error('Vercel 환경에서는 DATABASE_PUBLIC_URL이 필요합니다.');
     }
     
-    // Public URL의 hostname 확인
-    const publicHostname = extractHostname(publicUrl);
-    
-    // 연결 문자열이 hostname만 있는 경우 (프로토콜이 없는 경우)
+    // 연결 문자열이 hostname:port 형식인 경우 정규화 시도
     if (!publicUrl.includes('://')) {
-      console.error('❌ [PostgreSQL] DATABASE_PUBLIC_URL이 hostname만 포함하고 있습니다:', {
-        publicUrl,
+      console.log('⚠️ [PostgreSQL] DATABASE_PUBLIC_URL이 hostname:port 형식입니다. 연결 문자열 구성 시도...');
+      const normalizedUrl = normalizeConnectionString(publicUrl, true);
+      if (normalizedUrl) {
+        connectionString = normalizedUrl;
+        console.log('✅ [PostgreSQL] Vercel 환경: 정규화된 Public URL 사용');
+      } else {
+        console.error('❌ [PostgreSQL] DATABASE_PUBLIC_URL 정규화 실패:', {
+          publicUrl,
+          message: 'Railway 대시보드에서 PostgreSQL 서비스의 Variables 탭을 확인하고, PGPASSWORD 또는 POSTGRES_PASSWORD 환경 변수를 설정하세요. 또는 Connect 탭에서 완전한 Public URL을 복사하여 DATABASE_PUBLIC_URL에 설정하세요.'
+        });
+        throw new Error('DATABASE_PUBLIC_URL을 정규화할 수 없습니다. Railway 대시보드에서 완전한 연결 문자열을 확인하세요.');
+      }
+    } else {
+      // Public URL의 hostname 확인
+      const publicHostname = extractHostname(publicUrl);
+      
+      if (!publicHostname) {
+        // 연결 문자열의 일부를 안전하게 로깅
+        const safeUrl = publicUrl.replace(/:[^:@]+@/, ':****@');
+        console.error('❌ [PostgreSQL] Vercel 환경에서 Public URL의 hostname을 추출할 수 없습니다:', {
+          urlPreview: safeUrl.substring(0, 100),
+          urlLength: publicUrl.length,
+          urlHasAt: publicUrl.includes('@'),
+          urlHasProtocol: publicUrl.includes('://'),
+          message: '연결 문자열 형식이 올바르지 않습니다. 형식: postgresql://user:pass@hostname:port/database'
+        });
+        throw new Error('DATABASE_PUBLIC_URL의 형식이 올바르지 않습니다. PostgreSQL 연결 문자열 형식을 확인하세요.');
+      }
+      
+      if (publicHostname.includes('railway.internal')) {
+        console.error('❌ [PostgreSQL] DATABASE_PUBLIC_URL이 Private URL을 가리키고 있습니다!', {
+          hostname: publicHostname,
+          message: 'Vercel에서는 Railway의 Private URL(postgres.railway.internal)에 접근할 수 없습니다. Railway 대시보드에서 Public URL을 확인하고 DATABASE_PUBLIC_URL 환경 변수를 업데이트하세요.'
+        });
+        throw new Error('DATABASE_PUBLIC_URL이 Private URL을 가리키고 있습니다. Railway Public URL을 사용해야 합니다.');
+      }
+      
+      connectionString = publicUrl;
+      console.log('✅ [PostgreSQL] Vercel 환경: Public URL 사용', {
         hostname: publicHostname,
-        message: 'DATABASE_PUBLIC_URL은 완전한 PostgreSQL 연결 문자열이어야 합니다. 형식: postgresql://user:password@hostname:port/database'
+        urlPreview: publicUrl.replace(/:[^:@]+@/, ':****@').substring(0, 80)
       });
-      throw new Error('DATABASE_PUBLIC_URL이 완전한 연결 문자열 형식이 아닙니다. Railway 대시보드에서 Public URL을 복사하여 전체 연결 문자열을 설정하세요.');
     }
-    
-    if (!publicHostname) {
-      // 연결 문자열의 일부를 안전하게 로깅
-      const safeUrl = publicUrl.replace(/:[^:@]+@/, ':****@');
-      console.error('❌ [PostgreSQL] Vercel 환경에서 Public URL의 hostname을 추출할 수 없습니다:', {
-        urlPreview: safeUrl.substring(0, 100),
-        urlLength: publicUrl.length,
-        urlHasAt: publicUrl.includes('@'),
-        urlHasProtocol: publicUrl.includes('://'),
-        message: '연결 문자열 형식이 올바르지 않습니다. 형식: postgresql://user:pass@hostname:port/database'
-      });
-      throw new Error('DATABASE_PUBLIC_URL의 형식이 올바르지 않습니다. PostgreSQL 연결 문자열 형식을 확인하세요.');
-    }
-    
-    if (publicHostname.includes('railway.internal')) {
-      console.error('❌ [PostgreSQL] DATABASE_PUBLIC_URL이 Private URL을 가리키고 있습니다!', {
-        hostname: publicHostname,
-        message: 'Vercel에서는 Railway의 Private URL(postgres.railway.internal)에 접근할 수 없습니다. Railway 대시보드에서 Public URL을 확인하고 DATABASE_PUBLIC_URL 환경 변수를 업데이트하세요.'
-      });
-      throw new Error('DATABASE_PUBLIC_URL이 Private URL을 가리키고 있습니다. Railway Public URL을 사용해야 합니다.');
-    }
-    
-    connectionString = publicUrl;
-    console.log('✅ [PostgreSQL] Vercel 환경: Public URL 사용', {
-      hostname: publicHostname,
-      urlPreview: publicUrl.replace(/:[^:@]+@/, ':****@').substring(0, 80)
-    });
   } else if (privateUrl && isRailway) {
     // Railway 환경이고 Private URL이 있으면 Private URL 사용 시도
-    usePrivateUrl = true;
-    connectionString = privateUrl;
-    console.log('✅ [PostgreSQL] Railway 환경: Private URL 사용 시도');
+    // 연결 문자열이 hostname만 있는 경우 정규화 시도
+    if (!privateUrl.includes('://')) {
+      console.log('⚠️ [PostgreSQL] DATABASE_URL이 hostname만 포함하고 있습니다. 연결 문자열 구성 시도...');
+      const normalizedUrl = normalizeConnectionString(privateUrl, false);
+      if (normalizedUrl) {
+        connectionString = normalizedUrl;
+        usePrivateUrl = true;
+        console.log('✅ [PostgreSQL] Railway 환경: 정규화된 Private URL 사용');
+      } else {
+        // 정규화 실패 시 Public URL로 fallback
+        console.warn('⚠️ [PostgreSQL] Private URL 정규화 실패, Public URL로 fallback 시도...');
+        if (publicUrl) {
+          if (!publicUrl.includes('://')) {
+            const normalizedPublicUrl = normalizeConnectionString(publicUrl, true);
+            if (normalizedPublicUrl) {
+              connectionString = normalizedPublicUrl;
+              console.log('✅ [PostgreSQL] Railway 환경: 정규화된 Public URL 사용 (Private URL 실패)');
+            } else {
+              throw new Error('DATABASE_URL과 DATABASE_PUBLIC_URL 모두 정규화할 수 없습니다. Railway 대시보드에서 환경 변수를 확인하세요.');
+            }
+          } else {
+            connectionString = publicUrl;
+            console.log('✅ [PostgreSQL] Railway 환경: Public URL 사용 (Private URL 실패)');
+          }
+        } else {
+          throw new Error('DATABASE_URL을 정규화할 수 없고 DATABASE_PUBLIC_URL도 없습니다. Railway 대시보드에서 환경 변수를 확인하세요.');
+        }
+      }
+    } else {
+      usePrivateUrl = true;
+      connectionString = privateUrl;
+      console.log('✅ [PostgreSQL] Railway 환경: Private URL 사용 시도');
+    }
   } else if (publicUrl) {
     // 그 외 환경에서는 Public URL 사용
-    connectionString = publicUrl;
-    console.log('✅ [PostgreSQL] Public URL 사용');
+    // 연결 문자열이 hostname:port 형식인 경우 정규화 시도
+    if (!publicUrl.includes('://')) {
+      console.log('⚠️ [PostgreSQL] DATABASE_PUBLIC_URL이 hostname:port 형식입니다. 연결 문자열 구성 시도...');
+      const normalizedUrl = normalizeConnectionString(publicUrl, true);
+      if (normalizedUrl) {
+        connectionString = normalizedUrl;
+        console.log('✅ [PostgreSQL] 정규화된 Public URL 사용');
+      } else {
+        throw new Error('DATABASE_PUBLIC_URL을 정규화할 수 없습니다. Railway 대시보드에서 완전한 연결 문자열을 확인하세요.');
+      }
+    } else {
+      connectionString = publicUrl;
+      console.log('✅ [PostgreSQL] Public URL 사용');
+    }
   } else {
     console.error('❌ [PostgreSQL] 사용 가능한 데이터베이스 연결 URL이 없습니다.');
     throw new Error('사용 가능한 데이터베이스 연결 URL이 없습니다.');
