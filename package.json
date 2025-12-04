@@ -16,6 +16,7 @@
     "db:optimize": "npx tsx scripts/optimize-db.ts",
     "db:download-from-vercel": "npx tsx scripts/download-db-from-vercel.ts",
     "db:download-from-vercel:cli": "bash scripts/download-db-vercel-cli.sh",
+    "db:upload-to-railway": "bash scripts/upload-db-to-railway.sh",
     "firebase:delete-user": "npx tsx scripts/delete-firebase-user.ts",
     "check:auth": "bash scripts/check-auth-secret.sh",
     "check:env": "npx tsx scripts/check-env.ts",

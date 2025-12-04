@@ -38,7 +38,11 @@ railway login
 railway link
 
 # DB 파일 업로드
+# 옵션 A: backup/gaeo.db 사용 (Vercel에서 다운로드한 경우)
 railway run bash -c "mkdir -p /app/data && cat > /app/data/gaeo.db" < backup/gaeo.db
+
+# 옵션 B: 로컬 data/gaeo.db 사용 (개발 환경의 DB)
+railway run bash -c "mkdir -p /app/data && cat > /app/data/gaeo.db" < data/gaeo.db
 ```
 
 ---
