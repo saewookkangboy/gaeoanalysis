@@ -382,19 +382,6 @@ export async function query<T extends Record<string, any> = any>(
     // Vercel 환경에서 타임아웃 발생 시 연결 풀 재생성 시도
     const shouldRetry = hasPublicUrl && (isENOTFOUND || (isTimeout && isVercel));
     
-    // 상세 디버깅 로그
-    console.log('🔍 [PostgreSQL] 쿼리 오류 분석:', {
-      errorCode: error.code,
-      hostname: error.hostname,
-      isENOTFOUND,
-      hasPublicUrl,
-      shouldRetry,
-      isVercel,
-      isRailway,
-      hasPrivateUrl: !!privateUrl,
-      currentConnectionString: pool ? 'pool exists' : 'no pool'
-    });
-    
     if (isENOTFOUND && !shouldRetry) {
       console.error('❌ [PostgreSQL] ENOTFOUND 오류 발생, 재시도 불가:', {
         hasPublicUrl,
