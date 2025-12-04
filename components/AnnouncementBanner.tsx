@@ -61,18 +61,14 @@ export default function AnnouncementBanner() {
         
         .marquee-track {
           display: flex;
-          width: max-content;
-          animation: marquee 25s linear infinite;
+          width: fit-content;
+          animation: marquee 30s linear infinite;
           will-change: transform;
         }
         
         .marquee-item {
           display: inline-flex;
           flex-shrink: 0;
-          min-width: 100%;
-        }
-        
-        .marquee-item:first-child {
           padding-right: 4rem;
         }
         
