@@ -187,7 +187,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           
           // 사용자 생성 또는 업데이트 (Provider 기반 ID 사용)
           // createUser는 Provider + 이메일 조합으로 기존 사용자를 찾으면 기존 ID 반환
-          const createdUserId = createUser({
+          const createdUserId = await createUser({
             id: providerBasedUserId, // Provider 기반 ID 사용
             email: normalizedEmail,
             blogUrl: null,
@@ -384,7 +384,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               
               // 사용자가 DB에 없으면 생성 시도 (signIn 콜백이 실행되지 않은 경우 대비)
               try {
-                const createdUserId = createUser({
+                const createdUserId = await createUser({
                   id: providerBasedUserId,
                   email: normalizedEmail,
                   blogUrl: null,
