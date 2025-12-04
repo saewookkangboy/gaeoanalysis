@@ -112,7 +112,7 @@ async function handleAnalyze(request: NextRequest) {
       const providerBasedUserId = generateUserIdFromEmail(normalizedEmail, provider);
       
       // 1-2. Provider별 사용자 찾기 (기존 사용자 확인)
-      const existingUser = getUser(providerBasedUserId);
+      const existingUser = await getUser(providerBasedUserId);
       if (existingUser) {
         // 기존 사용자가 있으면 그 ID 사용 (분석 이력 유지)
         finalUserId = existingUser.id;
@@ -147,7 +147,7 @@ async function handleAnalyze(request: NextRequest) {
           finalUserId = createdUserId || providerBasedUserId;
           
           // createUser가 반환한 ID로 실제 사용자 확인 (중요: DB에 실제로 존재하는 ID 확인)
-          const actualUser = getUser(finalUserId);
+          const actualUser = await getUser(finalUserId);
           if (actualUser) {
             finalUserId = actualUser.id; // 실제 DB에 존재하는 ID 사용
             console.log('✅ [Analyze API] Provider별 사용자 생성 완료:', {
@@ -177,7 +177,7 @@ async function handleAnalyze(request: NextRequest) {
       }
     } else {
       // Provider가 없으면 세션 ID로 사용자 확인 (하위 호환성)
-      const user = getUser(userId);
+      const user = await getUser(userId);
       if (user) {
         finalUserId = user.id;
         console.log('✅ [Analyze API] 세션 ID로 사용자 확인:', { 
@@ -196,7 +196,7 @@ async function handleAnalyze(request: NextRequest) {
     analysisId = uuidv4();
     try {
       // 저장 전 사용자 확인
-      const userBeforeSave = getUser(finalUserId);
+      const userBeforeSave = await getUser(finalUserId);
       if (!userBeforeSave) {
         console.error('❌ [Analyze API] 저장 전 사용자 확인 실패:', {
           userId: finalUserId,
@@ -275,7 +275,7 @@ async function handleAnalyze(request: NextRequest) {
       
       // 사용자 ID로 조회하여 최근 분석 확인 (디버깅용)
       try {
-        const userAnalyses = getUserAnalyses(finalUserId, { limit: 10 });
+        const userAnalyses = await getUserAnalyses(finalUserId, { limit: 10 });
         if (userAnalyses.length === 0) {
           console.warn('⚠️ [Analyze API] 사용자별 분석 이력이 0개 (디버깅):', { 
             analysisId: savedId, 
@@ -289,7 +289,7 @@ async function handleAnalyze(request: NextRequest) {
           
           // 세션 ID로도 확인 시도
           if (finalUserId !== userId) {
-            const sessionAnalyses = getUserAnalyses(userId, { limit: 10 });
+            const sessionAnalyses = await getUserAnalyses(userId, { limit: 10 });
             console.log('🔍 [Analyze API] 세션 ID로 분석 이력 확인:', {
               sessionId: userId,
               count: sessionAnalyses.length,
@@ -320,7 +320,7 @@ async function handleAnalyze(request: NextRequest) {
           const provider = session.user.provider;
           const providerBasedUserId = generateUserIdFromEmail(normalizedEmail, provider);
           
-          const existingUser = getUser(providerBasedUserId);
+          const existingUser = await getUser(providerBasedUserId);
           if (existingUser) {
             retryUserId = existingUser.id;
             console.log('📧 재시도: Provider별 사용자 발견:', { 
@@ -364,7 +364,7 @@ async function handleAnalyze(request: NextRequest) {
           });
           
           // 저장 후 즉시 확인
-          const savedAnalyses = getUserAnalyses(retryUserId, { limit: 10 });
+          const savedAnalyses = await getUserAnalyses(retryUserId, { limit: 10 });
           const savedRecord = savedAnalyses.find(a => a.id === savedId);
           
           if (savedRecord) {

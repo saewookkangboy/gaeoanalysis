@@ -106,7 +106,7 @@ async function handleChatSave(request: NextRequest) {
       messagesCount: messages.length
     });
 
-    const savedConversationId = saveOrUpdateChatConversation({
+    const savedConversationId = await saveOrUpdateChatConversation({
       conversationId: conversationId || undefined,
       userId: actualUserId, // 실제 사용자 ID 사용
       analysisId: analysisId || null,

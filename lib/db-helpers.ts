@@ -401,8 +401,8 @@ export async function saveAnalysis(data: {
     });
     
     // FOREIGN KEY 제약 조건 오류인 경우 사용자 확인
-    if (error?.code === 'SQLITE_CONSTRAINT_FOREIGNKEY') {
-      const userCheck = getUser(data.userId);
+    if (error?.code === 'SQLITE_CONSTRAINT_FOREIGNKEY' || error?.code === '23503') {
+      const userCheck = await getUser(data.userId);
       console.error('❌ [saveAnalysis] FOREIGN KEY 제약 조건 오류 - 사용자 확인:', {
         userId: data.userId,
         userExists: !!userCheck,
@@ -746,7 +746,7 @@ export async function saveAnalysis(data: {
       }
       
       // 통계 업데이트 전 사용자 및 분석 존재 확인
-      const userCheck = getUser(data.userId);
+      const userCheck = await getUser(data.userId);
       if (!userCheck) {
         console.warn('⚠️ [saveAnalysis] 통계 업데이트 전 사용자 확인 실패:', {
           userId: data.userId,
@@ -794,7 +794,7 @@ export async function saveAnalysis(data: {
               error: userStatError.message
             });
             // 사용자 재확인 후 재시도
-            const retryUserCheck = getUser(data.userId);
+            const retryUserCheck = await getUser(data.userId);
             if (retryUserCheck) {
               try {
                 updateUserActivityStatistics(data.userId, 'analysis', data.overallScore);
@@ -863,7 +863,7 @@ export async function saveAnalysis(data: {
 /**
  * 채팅 대화 저장 또는 업데이트 (트랜잭션 사용)
  */
-export function saveOrUpdateChatConversation(data: {
+export async function saveOrUpdateChatConversation(data: {
   conversationId?: string;
   userId: string;
   analysisId: string | null;
@@ -903,7 +903,7 @@ export function saveOrUpdateChatConversation(data: {
   }
 
   // 저장 전 사용자 존재 확인
-  const userCheck = getUser(data.userId);
+  const userCheck = await getUser(data.userId);
   if (!userCheck) {
     console.error('❌ [saveOrUpdateChatConversation] 사용자가 존재하지 않음:', {
       userId: data.userId,
@@ -1018,10 +1018,10 @@ export function saveOrUpdateChatConversation(data: {
       }
 
       // 통계 업데이트 (비동기로 처리)
-      setImmediate(() => {
+      setImmediate(async () => {
         try {
           // 통계 업데이트 전 사용자 존재 확인
-          const userCheck = getUser(data.userId);
+          const userCheck = await getUser(data.userId);
           if (!userCheck) {
             console.warn('⚠️ [saveOrUpdateChatConversation] 통계 업데이트 전 사용자 확인 실패:', {
               userId: data.userId,
@@ -1042,7 +1042,7 @@ export function saveOrUpdateChatConversation(data: {
                 error: userStatError.message
               });
               // 사용자 재확인 후 재시도
-              const retryUserCheck = getUser(data.userId);
+              const retryUserCheck = await getUser(data.userId);
               if (retryUserCheck) {
                 try {
                   updateUserActivityStatistics(data.userId, 'chat');
@@ -1657,7 +1657,7 @@ export function createUser(data: {
       // UNIQUE 제약 조건 오류인 경우 (동시성 문제 또는 email UNIQUE 제약)
       if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
         // 다시 확인 (Provider별 사용자 ID로만 확인)
-        const retryUser = getUser(data.id);
+        const retryUser = await getUser(data.id);
         if (retryUser) {
           return data.id;
         }
