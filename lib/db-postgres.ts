@@ -210,10 +210,21 @@ export async function query<T extends Record<string, any> = any>(
     const publicUrl = process.env.DATABASE_PUBLIC_URL;
     
     // ENOTFOUND 오류이고 Public URL이 있으면 재시도
-    const shouldRetry = 
-      publicUrl &&
-      (error.code === 'ENOTFOUND' || error.hostname?.includes('railway.internal')) &&
-      (isVercel || (isRailway && privateUrl));
+    const isENOTFOUND = error.code === 'ENOTFOUND' || error.hostname?.includes('railway.internal');
+    const hasPublicUrl = !!publicUrl;
+    const shouldRetry = hasPublicUrl && isENOTFOUND;
+    
+    // 디버깅 로그
+    if (isENOTFOUND && !shouldRetry) {
+      console.warn('⚠️ [PostgreSQL] ENOTFOUND 오류 발생, 재시도 불가:', {
+        hasPublicUrl,
+        errorCode: error.code,
+        hostname: error.hostname,
+        isVercel,
+        isRailway,
+        hasPrivateUrl: !!privateUrl
+      });
+    }
     
     if (shouldRetry) {
       console.warn('⚠️ [PostgreSQL] Private URL 쿼리 실패, Public URL로 재시도...', {
