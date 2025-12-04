@@ -19,6 +19,13 @@ export function setPool(newPool: Pool | null) {
 }
 
 /**
+ * 연결 풀 초기화 (재연결 시 사용)
+ */
+export function resetPool() {
+  pool = null;
+}
+
+/**
  * PostgreSQL 연결 풀 초기화
  * Private URL 실패 시 Public URL로 자동 fallback
  */
@@ -207,11 +214,11 @@ export async function query<T extends Record<string, any> = any>(
   text: string,
   params?: any[]
 ): Promise<QueryResult<T>> {
-  let pool = getPostgresPool();
+  let currentPool = getPostgresPool();
   const start = Date.now();
   
   try {
-    const result = await pool.query<T>(text, params);
+    const result = await currentPool.query<T>(text, params);
     const duration = Date.now() - start;
     
     if (duration > 1000) {
@@ -275,7 +282,6 @@ export async function query<T extends Record<string, any> = any>(
       
       try {
         // 기존 풀 종료 및 전역 풀 초기화
-        const currentPool = pool;
         if (currentPool) {
           console.log('🔄 [PostgreSQL] 기존 연결 풀 종료 중...');
           await currentPool.end().catch((endError) => {
@@ -284,8 +290,7 @@ export async function query<T extends Record<string, any> = any>(
         }
         
         // 전역 풀 변수 초기화 (강제 재초기화)
-        // setPool은 null을 받을 수 없으므로 직접 pool 변수만 초기화
-        pool = null;
+        resetPool();
         
         // Public URL로 새 풀 생성
         console.log('🔄 [PostgreSQL] Public URL로 새 연결 풀 생성 중...');
@@ -299,7 +304,6 @@ export async function query<T extends Record<string, any> = any>(
         
         // 전역 풀 업데이트 (다음 호출을 위해)
         setPool(newPool);
-        pool = newPool;
         
         console.log('✅ [PostgreSQL] Public URL로 재연결 완료, 쿼리 재시도...');
         
