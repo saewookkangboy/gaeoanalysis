@@ -673,10 +673,10 @@ export async function getAnalyses(
     const values: any[] = [];
     let paramIndex = 1;
 
-    // 날짜 범위 필터 (2025-12-04 06:00 이후)
-    conditions.push(`created_at >= $${paramIndex++}`);
+    // 날짜 범위 필터 (analyses 테이블의 created_at 사용)
+    conditions.push(`a.created_at >= $${paramIndex++}`);
     values.push(start.toISOString());
-    conditions.push(`created_at <= $${paramIndex++}`);
+    conditions.push(`a.created_at <= $${paramIndex++}`);
     values.push(end.toISOString());
 
     // 사용자 필터
