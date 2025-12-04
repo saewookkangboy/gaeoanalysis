@@ -220,6 +220,13 @@ export async function query<T extends Record<string, any> = any>(
     
     return result;
   } catch (error: any) {
+    // 오류 발생 시 즉시 로깅 (재시도 전)
+    console.error('❌ [PostgreSQL] 쿼리 오류 발생 (재시도 전):', {
+      errorCode: error.code,
+      errorMessage: error.message,
+      hostname: error.hostname,
+      syscall: error.syscall
+    });
     // Private URL 연결 실패 시 Public URL로 재시도
     // Vercel 환경에서는 Private URL에 접근할 수 없으므로 항상 Public URL로 재시도
     const isVercel = !!process.env.VERCEL;
