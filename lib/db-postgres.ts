@@ -345,26 +345,35 @@ export async function query<T extends Record<string, any> = any>(
       // Public URL의 hostname 확인
       const publicHostname = publicUrl ? extractHostname(publicUrl) : null;
       
-      // hostname 추출 실패 시 상세 로깅
+      // hostname 추출 실패 시 상세 로깅 및 재시도 중단
       if (!publicHostname && publicUrl) {
         // 연결 문자열의 일부를 안전하게 로깅 (비밀번호 마스킹)
         const safeUrl = publicUrl.replace(/:[^:@]+@/, ':****@');
         const urlLength = publicUrl.length;
-        const urlStart = safeUrl.substring(0, 50);
-        const urlEnd = safeUrl.length > 50 ? safeUrl.substring(safeUrl.length - 20) : '';
+        const urlStart = safeUrl.substring(0, 80);
+        const urlEnd = safeUrl.length > 80 ? '...' + safeUrl.substring(safeUrl.length - 30) : '';
         
-        console.error('❌ [PostgreSQL] Public URL에서 hostname을 추출할 수 없습니다:', {
+        // 연결 문자열 구조 분석
+        const urlAnalysis = {
           urlLength,
           urlStart,
           urlEnd,
-          urlHasAt: publicUrl.includes('@'),
-          urlHasPostgres: publicUrl.includes('postgres'),
-          urlHasPostgresql: publicUrl.includes('postgresql'),
+          hasProtocol: publicUrl.startsWith('postgresql://') || publicUrl.startsWith('postgres://'),
+          hasAt: publicUrl.includes('@'),
+          hasColon: publicUrl.includes(':'),
+          hasSlash: publicUrl.includes('/'),
+          urlParts: publicUrl.split('@').length,
+          firstPart: publicUrl.split('@')[0]?.substring(0, 30),
+          afterAt: publicUrl.split('@')[1]?.substring(0, 50)
+        };
+        
+        console.error('❌ [PostgreSQL] Public URL에서 hostname을 추출할 수 없습니다:', {
+          ...urlAnalysis,
           message: '연결 문자열 형식이 올바르지 않을 수 있습니다. 전체 연결 문자열 형식: postgresql://user:pass@hostname:port/database'
         });
         
         // 재시도 불가능하므로 원래 오류를 throw
-        throw new Error(`Public URL에서 hostname을 추출할 수 없습니다. 연결 문자열 형식을 확인하세요. (길이: ${urlLength})`);
+        throw new Error(`Public URL에서 hostname을 추출할 수 없습니다. 연결 문자열 형식을 확인하세요. (길이: ${urlLength}, 프로토콜: ${urlAnalysis.hasProtocol}, @ 포함: ${urlAnalysis.hasAt})`);
       }
       
       if (publicHostname?.includes('railway.internal')) {
