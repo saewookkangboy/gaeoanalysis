@@ -282,20 +282,23 @@ async function handleAnalyze(request: NextRequest) {
             userId: finalUserId,
             sessionId: userId,
             email: normalizedEmail,
-          totalAnalyses: userAnalyses.length,
-          allAnalysisIds: userAnalyses.map(a => a.id),
-          allAnalyses: userAnalyses.map(a => ({ id: a.id, url: a.url }))
-        });
-        
-        // 세션 ID로도 확인 시도
-        if (finalUserId !== userId) {
-          const sessionAnalyses = getUserAnalyses(userId, { limit: 10 });
-          console.log('🔍 [Analyze API] 세션 ID로 분석 이력 확인:', {
-            sessionId: userId,
-            count: sessionAnalyses.length,
-            analyses: sessionAnalyses.map(a => ({ id: a.id, url: a.url }))
+            totalAnalyses: userAnalyses.length,
+            allAnalysisIds: userAnalyses.map(a => a.id),
+            allAnalyses: userAnalyses.map(a => ({ id: a.id, url: a.url }))
           });
+          
+          // 세션 ID로도 확인 시도
+          if (finalUserId !== userId) {
+            const sessionAnalyses = getUserAnalyses(userId, { limit: 10 });
+            console.log('🔍 [Analyze API] 세션 ID로 분석 이력 확인:', {
+              sessionId: userId,
+              count: sessionAnalyses.length,
+              analyses: sessionAnalyses.map(a => ({ id: a.id, url: a.url }))
+            });
+          }
         }
+      } catch (debugError) {
+        console.warn('⚠️ [Analyze API] 디버깅 쿼리 오류:', debugError);
       }
     } catch (error: any) {
       console.error('❌ 분석 저장 오류:', {
@@ -423,6 +426,9 @@ async function handleAnalyze(request: NextRequest) {
 // 에러 핸들링 및 보안 헤더를 포함한 핸들러
 async function handleWithErrorAndSecurity(request: NextRequest): Promise<NextResponse> {
   const response = await withErrorHandling(handleAnalyze, '분석 중 오류가 발생했습니다.')(request);
+  if (!response) {
+    return createErrorResponse('INTERNAL_ERROR', '분석 중 오류가 발생했습니다.', 500);
+  }
   return addSecurityHeaders(request, response);
 }
 
