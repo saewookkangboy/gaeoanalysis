@@ -242,13 +242,16 @@ function initializePostgresPool(): Pool {
     // 연결 풀 설정
     max: isVercel ? 5 : 20, // Vercel 서버리스 환경에서는 최대 연결 수 감소 (5개)
     idleTimeoutMillis: 10000, // Vercel 환경에서는 짧은 idle timeout (10초)
-    connectionTimeoutMillis: 20000, // 20초 (연결 타임아웃 증가 - Vercel 서버리스 환경 고려)
+    connectionTimeoutMillis: 30000, // 30초 (연결 타임아웃 증가 - ETIMEDOUT 방지)
     // SSL 연결 (Railway는 SSL 필수)
     ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
     // 서버리스 환경 최적화
     allowExitOnIdle: isVercel, // Vercel 환경에서는 idle 시 연결 종료 허용
     // 쿼리 타임아웃 설정 (Vercel 환경)
-    statement_timeout: isVercel ? 20000 : undefined, // 20초
+    statement_timeout: isVercel ? 30000 : undefined, // 30초
+    // 연결 유지 설정 (타임아웃 방지)
+    keepAlive: true,
+    keepAliveInitialDelayMillis: 10000,
   });
 
   // 연결 오류 처리 - Private URL 실패 시 Public URL로 재시도
@@ -404,10 +407,14 @@ export async function query<T extends Record<string, any> = any>(
     // ENOTFOUND 또는 타임아웃 오류이고 Public URL이 있으면 재시도
     // Vercel 환경에서는 이미 Public URL을 사용 중이므로, 연결 풀 재생성만 시도
     const isENOTFOUND = error.code === 'ENOTFOUND' || error.hostname?.includes('railway.internal');
-    const isTimeout = error.message?.includes('timeout') || error.message?.includes('Connection terminated');
+    const isETIMEDOUT = error.code === 'ETIMEDOUT';
+    const isTimeout = isETIMEDOUT || 
+                      error.message?.includes('timeout') || 
+                      error.message?.includes('Connection terminated') ||
+                      error.message?.includes('ETIMEDOUT');
     const hasPublicUrl = !!publicUrl;
-    // Vercel 환경에서 타임아웃 발생 시 연결 풀 재생성 시도
-    const shouldRetry = hasPublicUrl && (isENOTFOUND || (isTimeout && isVercel));
+    // 모든 타임아웃 오류에 대해 재시도 (Vercel 환경에서는 연결 풀 재생성, 다른 환경에서는 Public URL로 재시도)
+    const shouldRetry = hasPublicUrl && (isENOTFOUND || isTimeout);
     
     if (isENOTFOUND && !shouldRetry) {
       console.error('❌ [PostgreSQL] ENOTFOUND 오류 발생, 재시도 불가:', {
@@ -423,24 +430,28 @@ export async function query<T extends Record<string, any> = any>(
     
     if (shouldRetry) {
       // 재시도 로그는 한 번만 출력 (중복 방지)
-      const retryLogKey = `retry_${text.substring(0, 50)}_${Date.now()}`;
+      const retryLogKey = `retry_${text.substring(0, 50)}_${Math.floor(Date.now() / 1000)}`; // 초 단위로 그룹화
       const lastRetryLog = (global as any).__lastRetryLog;
       
       // Vercel 환경에서 타임아웃 발생 시 연결 풀 재생성만 시도 (이미 Public URL 사용 중)
       if (isVercel && isTimeout) {
         if (lastRetryLog !== retryLogKey) {
           console.warn('⚠️ [PostgreSQL] Vercel 환경에서 연결 타임아웃 발생, 연결 풀 재생성 시도...', {
+            errorCode: error.code,
             errorMessage: error.message,
+            isETIMEDOUT,
             publicUrlHostname: publicUrl ? extractHostname(publicUrl) : null
           });
           (global as any).__lastRetryLog = retryLogKey;
         }
       } else {
         if (lastRetryLog !== retryLogKey) {
-          console.warn('⚠️ [PostgreSQL] Private URL 쿼리 실패, Public URL로 재시도...', {
+          console.warn('⚠️ [PostgreSQL] 연결 실패, 재시도 시도...', {
             environment: isVercel ? 'Vercel' : isRailway ? 'Railway' : 'Other',
             errorCode: error.code,
             errorMessage: error.message,
+            isETIMEDOUT,
+            isENOTFOUND,
             hostname: error.hostname,
             publicUrlExists: hasPublicUrl,
             publicUrlHostname: publicUrl ? extractHostname(publicUrl) : null,
@@ -523,11 +534,14 @@ export async function query<T extends Record<string, any> = any>(
           connectionString: publicUrl!,
           max: isVercelRetry ? 5 : 20, // Vercel 환경에서는 더 적은 연결 수 사용
           idleTimeoutMillis: 10000, // Vercel 서버리스 환경에서는 짧은 idle timeout
-          connectionTimeoutMillis: 20000, // 연결 타임아웃 증가 (20초)
+          connectionTimeoutMillis: 30000, // 연결 타임아웃 증가 (30초) - ETIMEDOUT 방지
           ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
           allowExitOnIdle: isVercelRetry,
           // 서버리스 환경 최적화
-          statement_timeout: isVercelRetry ? 20000 : undefined, // 쿼리 타임아웃 설정
+          statement_timeout: isVercelRetry ? 30000 : undefined, // 쿼리 타임아웃 설정 (30초)
+          // 연결 재시도 설정
+          keepAlive: true,
+          keepAliveInitialDelayMillis: 10000,
         });
         
         // 전역 풀 업데이트 (다음 호출을 위해)

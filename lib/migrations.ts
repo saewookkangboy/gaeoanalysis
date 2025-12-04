@@ -844,6 +844,12 @@ const migrations: Migration[] = [
     version: 13,
     name: 'initialize_algorithms',
     up: () => {
+      // PostgreSQL 환경에서는 SQLite 테이블 확인을 건너뜀
+      if (isPostgreSQL()) {
+        console.log('⏭️  [Migration] PostgreSQL 환경: algorithm_versions 테이블 초기화 건너뜀 (SQLite 전용)');
+        return;
+      }
+      
       try {
         // 테이블이 없으면 강제로 생성 (최대 3회 시도)
         let tableCreated = false;
