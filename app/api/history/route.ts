@@ -234,7 +234,7 @@ export async function GET(request: NextRequest) {
               count: allUserCounts.find(uc => uc.user_id === otherUserId)?.count || 0
             });
             
-            const otherAnalyses = getUserAnalyses(otherUserId, { limit: 50 });
+            const otherAnalyses = await getUserAnalyses(otherUserId, { limit: 50 });
             if (otherAnalyses.length > 0) {
               analyses = otherAnalyses;
               actualUserId = otherUserId;
@@ -302,7 +302,7 @@ export async function GET(request: NextRequest) {
                   count: emailUserCounts.find(uc => uc.user_id === otherUserId)?.count || 0
                 });
                 
-                const otherAnalyses = getUserAnalyses(otherUserId, { limit: 50 });
+                const otherAnalyses = await getUserAnalyses(otherUserId, { limit: 50 });
                 if (otherAnalyses.length > 0) {
                   analyses = otherAnalyses;
                   actualUserId = otherUserId;

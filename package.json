@@ -8,6 +8,7 @@
     "cleanup": "bash scripts/cleanup-dev.sh",
     "cleanup:all": "bash scripts/cleanup-dev.sh --clean",
     "build": "next build --webpack",
+    "postinstall": "npm install --include=optional --no-save || true",
     "start": "next start -p ${PORT:-3000}",
     "lint": "eslint",
     "db:migrate": "npx tsx scripts/migrate-db.ts",
@@ -61,6 +62,8 @@
     "typescript": "^5"
   },
   "optionalDependencies": {
+    "@tailwindcss/oxide-linux-x64-gnu": "^4",
+    "@tailwindcss/oxide-linux-x64-musl": "^4",
     "lightningcss-linux-x64-gnu": "^1.30.2"
   }
 }
