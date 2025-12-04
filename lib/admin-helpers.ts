@@ -400,7 +400,7 @@ export async function getAuthLogsSummary(
       conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
     // PostgreSQL과 SQLite 모두 지원하기 위해 boolean 비교 처리
-    const { isPostgreSQL } = await import('./db-adapter');
+    // (위에서 이미 isPostgreSQL을 import했으므로 재사용)
     const successTrueCondition = isPostgreSQL() ? 'success = true' : 'success = 1';
     const successFalseCondition = isPostgreSQL() ? 'success = false' : 'success = 0';
 
