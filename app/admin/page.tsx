@@ -16,7 +16,7 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* 빠른 링크 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Link
           href="/admin/auth-logs"
           className="block bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow"
@@ -38,6 +38,18 @@ export default function AdminDashboardPage() {
           </h3>
           <p className="text-sm text-gray-600">
             사용자 목록 및 분석 이력을 모니터링합니다.
+          </p>
+        </Link>
+
+        <Link
+          href="/admin/analyses"
+          className="block bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow"
+        >
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            분석 결과
+          </h3>
+          <p className="text-sm text-gray-600">
+            모든 사용자의 분석 결과(점수, 진단 결과)를 조회합니다.
           </p>
         </Link>
 

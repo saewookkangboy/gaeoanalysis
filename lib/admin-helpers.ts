@@ -632,13 +632,18 @@ export async function getAnalyses(
   try {
     const { userId, search, startDate, endDate } = params;
 
-    // 날짜 범위 정규화 (기본값: 2025-12-04 06:00 이후)
+    // 날짜 범위 정규화 (기본값: 2025-12-04 06:00 이후, 또는 오늘 00:00)
     let start: Date;
     if (startDate) {
       start = new Date(startDate);
     } else {
-      // 기본값: 2025-12-04 06:00
-      start = new Date('2025-12-04T06:00:00.000Z');
+      // 기본값: 2025-12-04 06:00 (UTC) = 2025-12-04 15:00 (KST)
+      // 또는 오늘 00:00 중 더 최근 것으로 설정
+      const defaultDate = new Date('2025-12-04T06:00:00.000Z');
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      // 더 최근 날짜 사용
+      start = defaultDate > todayStart ? defaultDate : todayStart;
     }
 
     const now = new Date();
