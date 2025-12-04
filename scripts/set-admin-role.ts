@@ -23,7 +23,42 @@ async function setAdminRole(email: string) {
     
     if (!user) {
       console.error(`❌ 사용자를 찾을 수 없습니다: ${normalizedEmail}`);
-      console.error('이메일 주소를 확인하고 다시 시도하세요.');
+      console.error('이메일 주소를 확인하고 다시 시도하세요.\n');
+      
+      // 데이터베이스에 있는 사용자 목록 표시
+      try {
+        console.log('📋 데이터베이스에 등록된 사용자 목록:');
+        const usersResult = await query(
+          'SELECT id, email, role, provider, created_at FROM users ORDER BY created_at DESC LIMIT 20'
+        );
+        
+        if (usersResult.rows.length === 0) {
+          console.log('  (등록된 사용자가 없습니다)');
+        } else {
+          usersResult.rows.forEach((row: any, index: number) => {
+            console.log(`  ${index + 1}. ${row.email} (role: ${row.role || 'user'}, provider: ${row.provider || 'N/A'})`);
+          });
+        }
+        
+        // 유사한 이메일 찾기
+        const emailPrefix = normalizedEmail.split('@')[0];
+        if (emailPrefix) {
+          const similarResult = await query(
+            'SELECT email, role FROM users WHERE LOWER(email) LIKE $1 LIMIT 5',
+            [`%${emailPrefix}%`]
+          );
+          
+          if (similarResult.rows.length > 0) {
+            console.log(`\n💡 유사한 이메일 (${emailPrefix} 포함):`);
+            similarResult.rows.forEach((row: any) => {
+              console.log(`  - ${row.email} (role: ${row.role || 'user'})`);
+            });
+          }
+        }
+      } catch (listError: any) {
+        console.error('⚠️  사용자 목록 조회 중 오류:', listError.message);
+      }
+      
       process.exit(1);
     }
     
@@ -70,11 +105,21 @@ async function setAdminRole(email: string) {
 }
 
 async function main() {
-  const email = process.argv[2];
+  let email = process.argv[2];
   
   if (!email) {
     console.error('❌ 사용법: npx tsx scripts/set-admin-role.ts <email>');
     console.error('예시: npx tsx scripts/set-admin-role.ts chunghyo@troe.kr');
+    process.exit(1);
+  }
+  
+  // 이메일 정리 (백슬래시, 따옴표 등 제거)
+  email = email.replace(/^[\\'"\s]+|[\\'"\s]+$/g, '').trim();
+  
+  if (!email || !email.includes('@')) {
+    console.error('❌ 올바른 이메일 주소를 입력해주세요.');
+    console.error('입력된 값:', process.argv[2]);
+    console.error('정리된 값:', email);
     process.exit(1);
   }
   
