@@ -211,6 +211,17 @@ export async function getAuthLogs(
   pagination: PaginationResult;
 }> {
   try {
+    // PostgreSQL 스키마 초기화 보장
+    const { isPostgreSQL } = await import('./db-adapter');
+    if (isPostgreSQL()) {
+      try {
+        const { ensurePostgresSchema } = await import('./db-postgres-schema');
+        await ensurePostgresSchema();
+      } catch (schemaError) {
+        console.warn('⚠️ [getAuthLogs] 스키마 초기화 스킵:', schemaError);
+      }
+    }
+
     const { provider = 'all', userId, startDate, endDate } = params;
 
     // 날짜 범위 정규화
@@ -301,7 +312,17 @@ export async function getAuthLogs(
       pagination,
     };
   } catch (error: any) {
-    console.error('❌ [getAuthLogs] 로그인 이력 조회 오류:', error);
+    console.error('❌ [getAuthLogs] 로그인 이력 조회 오류:', {
+      error: error.message,
+      code: error.code,
+      params,
+    });
+    
+    // 테이블이 없는 경우 명시적으로 알림
+    if (error.code === '42P01' || error.message?.includes('does not exist') || error.message?.includes('no such table')) {
+      console.error('❌ [getAuthLogs] auth_logs 테이블이 존재하지 않습니다. 스키마를 초기화해주세요.');
+    }
+    
     return {
       logs: [],
       pagination: {
@@ -338,6 +359,17 @@ export async function getAuthLogsSummary(
   params: Omit<AuthLogFilterParams, 'page' | 'limit'> = {}
 ): Promise<AuthLogSummary> {
   try {
+    // PostgreSQL 스키마 초기화 보장
+    const { isPostgreSQL } = await import('./db-adapter');
+    if (isPostgreSQL()) {
+      try {
+        const { ensurePostgresSchema } = await import('./db-postgres-schema');
+        await ensurePostgresSchema();
+      } catch (schemaError) {
+        console.warn('⚠️ [getAuthLogsSummary] 스키마 초기화 스킵:', schemaError);
+      }
+    }
+
     const { provider = 'all', userId, startDate, endDate } = params;
 
     // 날짜 범위 정규화
@@ -392,7 +424,17 @@ export async function getAuthLogsSummary(
       },
     };
   } catch (error: any) {
-    console.error('❌ [getAuthLogsSummary] 통계 계산 오류:', error);
+    console.error('❌ [getAuthLogsSummary] 통계 계산 오류:', {
+      error: error.message,
+      code: error.code,
+      params,
+    });
+    
+    // 테이블이 없는 경우 명시적으로 알림
+    if (error.code === '42P01' || error.message?.includes('does not exist') || error.message?.includes('no such table')) {
+      console.error('❌ [getAuthLogsSummary] auth_logs 테이블이 존재하지 않습니다. 스키마를 초기화해주세요.');
+    }
+    
     return {
       totalLogs: 0,
       successCount: 0,
