@@ -1206,8 +1206,8 @@ export function createUser(data: {
     
     // 기존 사용자 확인: 같은 이메일이지만 provider가 null인 경우 처리
     // 기존 사용자를 Provider별 사용자로 마이그레이션
-    const emailUserStmt = db.prepare('SELECT id, email, provider FROM users WHERE LOWER(TRIM(email)) = ? AND (provider IS NULL OR provider = "")');
-    const emailUser = emailUserStmt.get(normalizedEmail) as { id: string; email: string; provider: string | null } | undefined;
+    const emailUserStmt = db.prepare('SELECT id, email, provider FROM users WHERE LOWER(TRIM(email)) = ? AND (provider IS NULL OR provider = ?)');
+    const emailUser = emailUserStmt.get(normalizedEmail, '') as { id: string; email: string; provider: string | null } | undefined;
     
     if (emailUser && data.provider) {
       // 기존 사용자의 provider가 null이고, 새로운 Provider로 로그인하는 경우
@@ -1325,8 +1325,8 @@ export function createUser(data: {
         }
         
         // email UNIQUE 제약 조건 오류이지만 provider가 null인 기존 사용자가 있는 경우
-        const retryEmailUserStmt = db.prepare('SELECT id FROM users WHERE LOWER(TRIM(email)) = ? AND (provider IS NULL OR provider = "")');
-        const retryEmailUser = retryEmailUserStmt.get(normalizedEmail) as { id: string } | undefined;
+        const retryEmailUserStmt = db.prepare('SELECT id FROM users WHERE LOWER(TRIM(email)) = ? AND (provider IS NULL OR provider = ?)');
+        const retryEmailUser = retryEmailUserStmt.get(normalizedEmail, '') as { id: string } | undefined;
         if (retryEmailUser && data.provider) {
           // 기존 사용자의 provider 업데이트 시도
           try {
