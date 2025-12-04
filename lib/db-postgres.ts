@@ -35,6 +35,17 @@ function extractHostname(connectionString: string): string | null {
     return null;
   }
   
+  // 연결 문자열이 hostname만 있는 경우 (프로토콜이 없는 경우)
+  // 예: 'postgres-gaeoanalysis.up.railway.app'
+  if (!connectionString.includes('://') && !connectionString.includes('@')) {
+    // hostname만 있는 경우 그대로 반환
+    const trimmed = connectionString.trim();
+    if (trimmed && !trimmed.includes(' ') && !trimmed.includes('\n')) {
+      return trimmed;
+    }
+    return null;
+  }
+  
   try {
     // PostgreSQL 연결 문자열 형식: postgresql://user:pass@hostname:port/database
     // 또는 postgres://user:pass@hostname:port/database
@@ -66,6 +77,37 @@ function extractHostname(connectionString: string): string | null {
     
     return null;
   }
+}
+
+/**
+ * 연결 문자열을 완전한 PostgreSQL 연결 문자열로 변환
+ * hostname만 있는 경우 기본 형식으로 변환 시도
+ */
+function normalizeConnectionString(connectionString: string, isPublic: boolean = false): string | null {
+  if (!connectionString || typeof connectionString !== 'string') {
+    return null;
+  }
+  
+  // 이미 완전한 연결 문자열인 경우
+  if (connectionString.includes('://') && connectionString.includes('@')) {
+    return connectionString;
+  }
+  
+  // hostname만 있는 경우
+  const hostname = extractHostname(connectionString);
+  if (!hostname) {
+    return null;
+  }
+  
+  // Railway Public URL의 기본 포트와 형식 사용
+  // 실제 연결 정보는 환경 변수에서 가져와야 하지만, 
+  // 여기서는 기본 형식만 제공하고 실제 사용은 환경 변수 확인 필요
+  console.warn('⚠️ [PostgreSQL] 연결 문자열이 hostname만 포함하고 있습니다:', {
+    hostname,
+    message: 'DATABASE_PUBLIC_URL 환경 변수가 완전한 연결 문자열 형식이 아닙니다. 형식: postgresql://user:pass@hostname:port/database'
+  });
+  
+  return null; // hostname만으로는 연결할 수 없으므로 null 반환
 }
 
 /**
@@ -115,6 +157,16 @@ function initializePostgresPool(): Pool {
     // Public URL의 hostname 확인
     const publicHostname = extractHostname(publicUrl);
     
+    // 연결 문자열이 hostname만 있는 경우 (프로토콜이 없는 경우)
+    if (!publicUrl.includes('://')) {
+      console.error('❌ [PostgreSQL] DATABASE_PUBLIC_URL이 hostname만 포함하고 있습니다:', {
+        publicUrl,
+        hostname: publicHostname,
+        message: 'DATABASE_PUBLIC_URL은 완전한 PostgreSQL 연결 문자열이어야 합니다. 형식: postgresql://user:password@hostname:port/database'
+      });
+      throw new Error('DATABASE_PUBLIC_URL이 완전한 연결 문자열 형식이 아닙니다. Railway 대시보드에서 Public URL을 복사하여 전체 연결 문자열을 설정하세요.');
+    }
+    
     if (!publicHostname) {
       // 연결 문자열의 일부를 안전하게 로깅
       const safeUrl = publicUrl.replace(/:[^:@]+@/, ':****@');
@@ -122,6 +174,7 @@ function initializePostgresPool(): Pool {
         urlPreview: safeUrl.substring(0, 100),
         urlLength: publicUrl.length,
         urlHasAt: publicUrl.includes('@'),
+        urlHasProtocol: publicUrl.includes('://'),
         message: '연결 문자열 형식이 올바르지 않습니다. 형식: postgresql://user:pass@hostname:port/database'
       });
       throw new Error('DATABASE_PUBLIC_URL의 형식이 올바르지 않습니다. PostgreSQL 연결 문자열 형식을 확인하세요.');
