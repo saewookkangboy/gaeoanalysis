@@ -54,11 +54,9 @@ export default function HistoryPage() {
   // 분석 완료 이벤트 리스너 (분석 완료 후 즉시 이력 새로고침)
   useEffect(() => {
     const handleAnalysisCompleted = () => {
-      // 분석 완료 후 짧은 지연 후 이력 새로고침 (DB 저장 완료 대기)
+      // 분석 완료 후 즉시 이력 새로고침 (대기 시간 제거)
       // 로딩 표시 없이 백그라운드에서 새로고침
-      setTimeout(() => {
-        fetchHistories(false);
-      }, 1000);
+      fetchHistories(false);
     };
 
     window.addEventListener('analysisCompleted', handleAnalysisCompleted);

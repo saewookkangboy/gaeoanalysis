@@ -23,6 +23,9 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
 
 export default function Navigation() {
   const { data: session, status } = useSession();
+  
+  // 세션 로딩 중에도 로그인 버튼을 먼저 표시하여 사용자 경험 개선
+  const showLoginButton = status !== 'loading' && !session;
 
   return (
     <nav className="sticky top-0 z-40 border-b border-gray-200 bg-white/80 backdrop-blur-sm dark:border-gray-800 dark:bg-gray-900/80">
@@ -51,7 +54,13 @@ export default function Navigation() {
           <div className="flex items-center gap-2 sm:gap-4">
             <ThemeToggle />
             {status === 'loading' ? (
-              <span className="text-sm text-gray-500 dark:text-gray-400">로딩 중...</span>
+              // 로딩 중에도 로그인 버튼 표시 (빠른 렌더링)
+              <Link
+                href="/login"
+                className="group rounded-lg bg-gradient-to-r from-sky-600 to-indigo-600 px-4 sm:px-5 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:shadow-lg hover:scale-105 opacity-70"
+              >
+                로그인
+              </Link>
             ) : session ? (
               <>
                 <Link

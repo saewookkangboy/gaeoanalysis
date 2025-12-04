@@ -141,296 +141,40 @@ export async function GET(request: NextRequest) {
       }
     }
     
-    // 3-3. Provider별 분석 이력이 없으면 디버깅 정보 출력
+    // 3-3. 결과가 없으면 간단히 로그만 출력 (성능 개선: 불필요한 디버깅 쿼리 제거)
     if (analyses.length === 0 && normalizedEmail && provider) {
-      try {
-        // Provider별 사용자 확인
-        const providerBasedUserId = generateUserIdFromEmail(normalizedEmail, provider);
-        const providerUser = await getUser(providerBasedUserId);
-        
-        console.log('🔍 [History API] Provider별 분석 이력 확인:', {
-          email: normalizedEmail,
-          provider: provider,
-          providerBasedUserId: providerBasedUserId,
-          userExists: !!providerUser,
-          message: '각 Provider 계정은 독립적인 사용자로 취급되며, 분석 이력은 Provider별로 분리됩니다.'
-        });
-        
-        // 같은 이메일의 다른 Provider 사용자 확인 (디버깅용)
-        let allProviderUsers: Array<{ id: string; email: string; provider: string }> = [];
-        
-        if (isPostgreSQL()) {
-          const allProviderUsersResult = await query(
-            'SELECT id, email, provider FROM users WHERE LOWER(TRIM(email)) = $1',
-            [normalizedEmail]
-          );
-          allProviderUsers = allProviderUsersResult.rows as Array<{ id: string; email: string; provider: string }>;
-        } else {
-          const allProviderUsersStmt = db.prepare('SELECT id, email, provider FROM users WHERE LOWER(TRIM(email)) = ?');
-          allProviderUsers = allProviderUsersStmt.all(normalizedEmail) as Array<{ id: string; email: string; provider: string }>;
-        }
-        
-        if (allProviderUsers.length > 0) {
-          console.log('📊 [History API] 같은 이메일의 Provider별 사용자:', {
-            email: normalizedEmail,
-            providers: allProviderUsers.map(u => ({ id: u.id, provider: u.provider })),
-            message: '같은 이메일로 여러 Provider에 로그인한 경우 각각 독립적으로 관리됩니다.'
-          });
-        }
-      } catch (error) {
-        console.error('❌ [History API] 디버깅 정보 조회 오류:', error);
-      }
-    }
-    
-    // 3-4. Vercel 환경에서 결과가 없고, Blob Storage 동기화가 필요한 경우에만 1회 재시도
-    if (analyses.length === 0 && process.env.VERCEL) {
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Provider별 사용자 ID로 다시 조회
-      if (actualUserId) {
-        analyses = await getUserAnalyses(actualUserId, { limit: 50 });
-        console.log('🔄 [History API] 재시도: Provider별 사용자 ID로 조회 결과:', {
-          userId: actualUserId,
-          provider: provider,
-          count: analyses.length
-        });
-      }
-    }
-    
-    // 디버깅: 조회 결과가 0개인 경우 추가 확인
-    if (analyses.length === 0) {
-      // 사용자 존재 확인
-      const userCheck = await getUser(actualUserId);
-      console.warn('⚠️ [History API] 분석 이력이 0개, 사용자 확인:', {
-        userId: actualUserId,
-        userExists: !!userCheck,
-        userEmail: userCheck?.email || 'N/A'
+      console.log('ℹ️ [History API] 분석 이력이 없습니다:', {
+        email: normalizedEmail,
+        provider: provider,
+        userId: actualUserId
       });
-      
-      // 전체 분석 이력 개수 확인 (디버깅용)
+    }
+    
+    // 디버깅: 조회 결과가 0개인 경우 최소한의 확인만 수행 (성능 개선)
+    if (analyses.length === 0) {
+      // 성능 개선: 불필요한 디버깅 쿼리 제거, 최소한의 확인만 수행
       try {
-        let totalCount = 0;
-        let userCount = 0;
-        
-        if (isPostgreSQL()) {
-          const totalResult = await query('SELECT COUNT(*) as count FROM analyses');
-          totalCount = parseInt(totalResult.rows[0]?.count || '0', 10);
-          const userCountResult = await query('SELECT COUNT(*) as count FROM analyses WHERE user_id = $1', [actualUserId]);
-          userCount = parseInt(userCountResult.rows[0]?.count || '0', 10);
-        } else {
-          const totalStmt = db.prepare('SELECT COUNT(*) as count FROM analyses');
-          totalCount = (totalStmt.get() as { count: number })?.count || 0;
-          const userCountStmt = db.prepare('SELECT COUNT(*) as count FROM analyses WHERE user_id = ?');
-          userCount = (userCountStmt.get(actualUserId) as { count: number })?.count || 0;
-        }
-        
-        // 같은 이메일의 다른 사용자 ID로 저장된 분석 확인
-        let allUserCounts: Array<{ user_id: string; count: number }> = [];
-        if (normalizedEmail) {
-          let allUsers: Array<{ id: string }> = [];
-          
-          if (isPostgreSQL()) {
-            const allUsersResult = await query('SELECT id FROM users WHERE LOWER(TRIM(email)) = $1', [normalizedEmail]);
-            allUsers = allUsersResult.rows as Array<{ id: string }>;
-          } else {
-            const allUsersStmt = db.prepare('SELECT id FROM users WHERE LOWER(TRIM(email)) = ?');
-            allUsers = allUsersStmt.all(normalizedEmail) as Array<{ id: string }>;
-          }
-          
-          if (allUsers.length > 0) {
-            const userIds = allUsers.map(u => u.id);
-            
-            if (isPostgreSQL()) {
-              const placeholders = userIds.map((_, i) => `$${i + 1}`).join(',');
-              const allUserCountsResult = await query(
-                `SELECT user_id, COUNT(*) as count 
-                 FROM analyses 
-                 WHERE user_id IN (${placeholders})
-                 GROUP BY user_id`,
-                userIds
-              );
-              allUserCounts = allUserCountsResult.rows.map((row: any) => ({
-                user_id: row.user_id,
-                count: parseInt(row.count || '0', 10)
-              }));
-            } else {
-              const placeholders = userIds.map(() => '?').join(',');
-              const allUserCountsStmt = db.prepare(`
-                SELECT user_id, COUNT(*) as count 
-                FROM analyses 
-                WHERE user_id IN (${placeholders})
-                GROUP BY user_id
-              `);
-              allUserCounts = allUserCountsStmt.all(...userIds) as Array<{ user_id: string; count: number }>;
-            }
-          }
-        }
-        
-        console.warn('🔍 [History API] 디버깅 정보:', {
-          totalAnalysesInDB: totalCount,
-          analysesForThisUser: userCount,
-          userId: actualUserId
-        });
-        
-        console.warn('🔍 [History API] 모든 사용자별 분석 이력:', {
-          requestedUserId: actualUserId,
-          requestedEmail: normalizedEmail,
-          allUserCounts: allUserCounts
-        });
-        
-        // 같은 이메일의 다른 사용자 ID로 저장된 분석이 있으면 해당 사용자 ID로도 조회 시도
-        if (allUserCounts.length > 0 && allUserCounts.some(uc => uc.user_id !== actualUserId && uc.count > 0)) {
-          const otherUserId = allUserCounts.find(uc => uc.user_id !== actualUserId && uc.count > 0)?.user_id;
-          if (otherUserId) {
-            console.log('🔄 [History API] 다른 사용자 ID로 저장된 분석 발견, 해당 ID로 조회 시도:', {
-              requestedUserId: actualUserId,
-              foundUserId: otherUserId,
-              count: allUserCounts.find(uc => uc.user_id === otherUserId)?.count || 0
-            });
-            
-            const otherAnalyses = await getUserAnalyses(otherUserId, { limit: 50 });
-            if (otherAnalyses.length > 0) {
-              analyses = otherAnalyses;
-              actualUserId = otherUserId;
-              console.log('✅ [History API] 다른 사용자 ID로 분석 이력 조회 성공:', {
-                userId: otherUserId,
-                count: otherAnalyses.length
-              });
-            }
-          }
-        }
-        
-        // user_id가 NULL인 분석 이력 확인
-        let nullCount = 0;
-        if (isPostgreSQL()) {
-          const nullCountResult = await query('SELECT COUNT(*) as count FROM analyses WHERE user_id IS NULL');
-          nullCount = parseInt(nullCountResult.rows[0]?.count || '0', 10);
-        } else {
-          const nullUserIdStmt = db.prepare('SELECT COUNT(*) as count FROM analyses WHERE user_id IS NULL');
-          nullCount = (nullUserIdStmt.get() as { count: number })?.count || 0;
-        }
-        
-        if (nullCount > 0) {
-          console.warn('⚠️ [History API] user_id가 NULL인 분석 이력 발견:', { count: nullCount });
-        }
-        
-        // 같은 이메일의 다른 사용자 ID로 저장된 분석 확인
-        let emailUserCounts: Array<{ user_id: string; count: number }> = [];
-        if (normalizedEmail) {
-          let allUsers: Array<{ id: string }> = [];
-          
-          if (isPostgreSQL()) {
-            const allUsersResult = await query('SELECT id FROM users WHERE LOWER(TRIM(email)) = $1', [normalizedEmail]);
-            allUsers = allUsersResult.rows as Array<{ id: string }>;
-          } else {
-            const allUsersStmt = db.prepare('SELECT id FROM users WHERE LOWER(TRIM(email)) = ?');
-            allUsers = allUsersStmt.all(normalizedEmail) as Array<{ id: string }>;
-          }
-          
-          if (allUsers.length > 0) {
-            const userIds = allUsers.map(u => u.id);
-            
-            if (isPostgreSQL()) {
-              const placeholders = userIds.map((_, i) => `$${i + 1}`).join(',');
-              const emailUserCountsResult = await query(
-                `SELECT user_id, COUNT(*) as count 
-                 FROM analyses 
-                 WHERE user_id IN (${placeholders})
-                 GROUP BY user_id`,
-                userIds
-              );
-              emailUserCounts = emailUserCountsResult.rows.map((row: any) => ({
-                user_id: row.user_id,
-                count: parseInt(row.count || '0', 10)
-              }));
-            } else {
-              const placeholders = userIds.map(() => '?').join(',');
-              const emailUserCountsStmt = db.prepare(`
-                SELECT user_id, COUNT(*) as count 
-                FROM analyses 
-                WHERE user_id IN (${placeholders})
-                GROUP BY user_id
-              `);
-              emailUserCounts = emailUserCountsStmt.all(...userIds) as Array<{ user_id: string; count: number }>;
-            }
-          }
-        }
-        
-        // 다른 사용자 ID로 저장된 분석 이력 확인
-        let allUserCountsFromDB: Array<{ user_id: string; count: number }> = [];
-        
-        if (isPostgreSQL()) {
-          const allUserCountsResult = await query('SELECT user_id, COUNT(*) as count FROM analyses GROUP BY user_id LIMIT 10');
-          allUserCountsFromDB = allUserCountsResult.rows.map((row: any) => ({
-            user_id: row.user_id,
-            count: parseInt(row.count || '0', 10)
-          }));
-        } else {
-          const allUserStmt = db.prepare('SELECT user_id, COUNT(*) as count FROM analyses GROUP BY user_id LIMIT 10');
-          allUserCountsFromDB = allUserStmt.all() as Array<{ user_id: string; count: number }>;
-        }
-        
-        if (allUserCountsFromDB.length > 0) {
-          console.warn('🔍 [History API] 모든 사용자별 분석 이력:', {
-            requestedUserId: actualUserId,
-            requestedEmail: normalizedEmail,
-            allUserCounts: allUserCountsFromDB
+        const userCheck = await getUser(actualUserId);
+        if (!userCheck) {
+          console.warn('⚠️ [History API] 사용자를 찾을 수 없습니다:', {
+            userId: actualUserId,
+            email: normalizedEmail
           });
-          
-          // 이메일로 등록된 다른 사용자 ID가 있는지 확인
-          if (normalizedEmail) {
-            let emailUsers: Array<{ id: string; email: string }> = [];
-            
-            if (isPostgreSQL()) {
-              const emailUsersResult = await query('SELECT id, email FROM users WHERE LOWER(TRIM(email)) = $1', [normalizedEmail]);
-              emailUsers = emailUsersResult.rows as Array<{ id: string; email: string }>;
-            } else {
-              const emailUsersStmt = db.prepare('SELECT id, email FROM users WHERE LOWER(TRIM(email)) = ?');
-              emailUsers = emailUsersStmt.all(normalizedEmail) as Array<{ id: string; email: string }>;
-            }
-            
-            console.warn('🔍 [History API] 이메일로 등록된 모든 사용자:', {
-              email: normalizedEmail,
-              users: emailUsers,
-              analysisCounts: emailUserCounts
-            });
-            
-            // 같은 이메일의 다른 사용자 ID로 저장된 분석이 있으면 해당 사용자 ID로도 조회 시도
-            if (emailUserCounts.length > 0 && emailUserCounts.some(uc => uc.user_id !== actualUserId && uc.count > 0)) {
-              const otherUserId = emailUserCounts.find(uc => uc.user_id !== actualUserId && uc.count > 0)?.user_id;
-              if (otherUserId) {
-                console.log('🔄 [History API] 다른 사용자 ID로 저장된 분석 발견, 해당 ID로 조회 시도:', {
-                  requestedUserId: actualUserId,
-                  foundUserId: otherUserId,
-                  count: emailUserCounts.find(uc => uc.user_id === otherUserId)?.count || 0
-                });
-                
-                const otherAnalyses = await getUserAnalyses(otherUserId, { limit: 50 });
-                if (otherAnalyses.length > 0) {
-                  analyses = otherAnalyses;
-                  actualUserId = otherUserId;
-                  console.log('✅ [History API] 다른 사용자 ID로 분석 이력 조회 성공:', {
-                    userId: otherUserId,
-                    count: otherAnalyses.length
-                  });
-                }
-              }
-            }
-          }
         }
       } catch (error) {
-        console.error('❌ [History API] 디버깅 쿼리 오류:', error);
+        // 조용히 무시 (성능 우선)
       }
     }
     
-    
-    console.log('✅ [History API] 분석 이력 조회 완료:', { 
-      sessionUserId: sessionUserId,
-      actualUserId: actualUserId, 
-      userEmail: normalizedEmail,
-      count: analyses.length,
-      analyses: analyses.map(a => ({ id: a.id, url: a.url, createdAt: a.createdAt }))
-    });
+    // 성능 개선: 프로덕션에서는 상세 로그 제거
+    if (process.env.NODE_ENV === 'development') {
+      console.log('✅ [History API] 분석 이력 조회 완료:', { 
+        sessionUserId: sessionUserId,
+        actualUserId: actualUserId, 
+        userEmail: normalizedEmail,
+        count: analyses.length
+      });
+    }
 
     // 응답 생성 및 보안 헤더 추가
     const response = NextResponse.json(

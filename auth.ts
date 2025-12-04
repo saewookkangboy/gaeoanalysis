@@ -233,7 +233,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           user.email = normalizedEmail; // 정규화된 이메일 사용
           
           // 로그인 이력 저장 (비동기로 처리하여 로그인 속도에 영향 없도록)
-          setImmediate(async () => {
+          // 즉시 반환을 위해 Promise로 처리하지 않고 백그라운드에서 실행
+          Promise.resolve().then(async () => {
             try {
               await saveAuthLog({
                 id: uuidv4(),
@@ -243,15 +244,15 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 success: true,
               });
             } catch (error) {
-              console.error('로그인 이력 저장 오류:', error);
+              // 로그인 이력 저장 실패는 조용히 무시 (로그인 성공에는 영향 없음)
             }
           });
         } catch (error: any) {
           console.error('사용자 저장 오류:', error);
           console.error('에러 상세:', error.message);
           
-          // 로그인 실패 이력 저장
-          setImmediate(async () => {
+          // 로그인 실패 이력 저장 (비동기로 처리)
+          Promise.resolve().then(async () => {
             try {
               await saveAuthLog({
                 id: uuidv4(),
@@ -262,7 +263,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 errorMessage: error.message,
               });
             } catch (logError) {
-              console.error('로그인 실패 이력 저장 오류:', logError);
+              // 로그인 실패 이력 저장 실패는 조용히 무시
             }
           });
           // 에러가 발생해도 로그인은 허용 (사용자 경험을 위해)

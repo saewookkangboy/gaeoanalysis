@@ -11,19 +11,14 @@ function LoginForm() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState<string | null>(null);
 
-  // 로그인 성공 후 세션 확인 및 리디렉션
+  // 로그인 성공 후 세션 확인 및 리디렉션 (즉시 처리)
   useEffect(() => {
     if (status === 'authenticated' && session?.user) {
-      // 로그인 성공 시 메인 페이지로 리디렉션
-      try {
-        router.push('/');
-      } catch (error) {
-        // 네비게이션 실패 시 전체 페이지 새로고침으로 대체
-        console.warn('네비게이션 실패, 전체 페이지 새로고침:', error);
-        window.location.href = '/';
-      }
+      // 로그인 성공 시 즉시 메인 페이지로 리디렉션 (대기 시간 없음)
+      // router.push 대신 window.location.href 사용하여 더 빠른 전환
+      window.location.href = '/';
     }
-  }, [status, session, router]);
+  }, [status, session]);
 
   // 에러 메시지 표시
   useEffect(() => {
@@ -56,31 +51,18 @@ function LoginForm() {
     setIsLoading(provider);
     
     try {
+      // 즉시 리디렉션하여 대기 시간 최소화
       const result = await signIn(provider, {
         callbackUrl: '/',
-        redirect: false, // 수동 리디렉션으로 변경하여 에러 처리 개선
+        redirect: true, // 즉시 리디렉션으로 변경하여 속도 개선
       });
 
+      // redirect: true인 경우 result는 반환되지 않지만, 에러 처리를 위해 확인
       if (result?.error) {
         console.error(`${provider} 로그인 오류:`, result.error);
         const providerName = provider === 'google' ? 'Google' : 'GitHub';
         setError(`${providerName} 로그인 중 오류가 발생했습니다.`);
         setIsLoading(null);
-      } else if (result?.url) {
-        // OAuth 리디렉션 URL이 있는 경우 (OAuth 제공자 페이지로 이동)
-        // 이 경우는 OAuth 인증 페이지로 리디렉션하는 것이므로 isLoading 유지
-        window.location.href = result.url;
-      } else if (result?.ok) {
-        // 로그인 성공 시 (콜백에서 돌아온 경우)
-        // 세션 확인 후 리디렉션은 useEffect에서 처리
-        setIsLoading(null);
-      } else {
-        // 결과가 없는 경우, 기본적으로 리디렉션 허용
-        // NextAuth가 자동으로 처리하도록 redirect: true로 다시 시도
-        await signIn(provider, {
-          callbackUrl: '/',
-          redirect: true,
-        });
       }
     } catch (err: any) {
       console.error(`${provider} 로그인 예외:`, err);
