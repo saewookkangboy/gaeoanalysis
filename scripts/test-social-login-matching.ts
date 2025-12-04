@@ -115,8 +115,8 @@ async function runTest(testNumber: number): Promise<TestResult> {
     });
     
     // 생성된 사용자 확인
-    const retrievedUser = getUser(createdUserId);
-    const retrievedUserByEmail = getUserByEmail(email);
+    const retrievedUser = await getUser(createdUserId);
+    const retrievedUserByEmail = await getUserByEmail(email);
     
     const loginSuccess = retrievedUser !== null && 
                         retrievedUserByEmail !== null &&
@@ -234,10 +234,10 @@ async function runTest(testNumber: number): Promise<TestResult> {
   
   try {
     // 사용자 ID로 조회
-    const userAnalyses = getUserAnalyses(createdUserId);
+    const userAnalyses = await getUserAnalyses(createdUserId);
     
     // 이메일로 조회
-    const emailAnalyses = getAnalysesByEmail(email);
+    const emailAnalyses = await getAnalysesByEmail(email);
     
     console.log(`   사용자 ID로 조회: ${userAnalyses.length}개`);
     console.log(`   이메일로 조회: ${emailAnalyses.length}개`);
