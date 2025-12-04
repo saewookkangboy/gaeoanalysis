@@ -148,12 +148,23 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       // OAuth 로그인 시 디버깅 정보 출력 (프로덕션에서도 출력)
       if (account) {
         const callbackUrl = `${authUrl || 'http://localhost:3000'}/api/auth/callback/${account.provider}`;
+        const isDevelopment = process.env.NODE_ENV === 'development';
+        const clientId = isDevelopment 
+          ? (process.env.GITHUB_CLIENT_ID_DEV || process.env.GITHUB_CLIENT_ID || 'N/A')
+          : (process.env.GITHUB_CLIENT_ID || 'N/A');
+        
         console.log('🔐 [signIn] OAuth 로그인 시도:', {
           provider: account.provider,
           expectedCallbackUrl: callbackUrl,
           accountId: account.providerAccountId,
           userId: user?.id,
           userEmail: user?.email,
+          hasClientId: account.provider === 'github' ? !!clientId && clientId !== 'N/A' : true,
+          hasClientSecret: account.provider === 'github' 
+            ? !!(isDevelopment ? (process.env.GITHUB_CLIENT_SECRET_DEV || process.env.GITHUB_CLIENT_SECRET) : process.env.GITHUB_CLIENT_SECRET)
+            : true,
+          authUrl: authUrl || 'N/A',
+          nodeEnv: process.env.NODE_ENV,
         });
       }
 
