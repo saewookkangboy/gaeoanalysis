@@ -122,9 +122,6 @@ export default function AboutPage() {
                 회원가입하고 시작하기
               </Link>
             </div>
-            <p className="mt-4 text-xs text-gray-600">
-              💡 회원가입 시 블로그 URL을 등록하면 로그인 시 자동으로 분석됩니다
-            </p>
           </div>
         </section>
 
@@ -418,9 +415,6 @@ export default function AboutPage() {
                 회원가입하고 시작하기
               </Link>
             </div>
-            <p className="mt-6 text-sm text-gray-600">
-              💡 회원가입 시 블로그 URL을 등록하면 로그인 시 자동으로 분석됩니다
-            </p>
           </div>
         </section>
 
