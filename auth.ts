@@ -401,68 +401,96 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (session.user) {
         // Provider별 독립적인 사용자 ID 확인
         let actualUserId = token.id as string;
+        let actualProvider = token.provider as string | undefined;
         
-        if (token.email && token.provider) {
+        if (token.email) {
           try {
             const normalizedEmail = (token.email as string).toLowerCase().trim();
-            const provider = token.provider as string;
             
-            // Provider + 이메일 기반으로 독립적인 사용자 ID 생성
-            const providerBasedUserId = generateUserIdFromEmail(normalizedEmail, provider);
-            
-            // Provider별 기존 사용자 확인
-            const existingUser = await getUser(providerBasedUserId);
-            
-            if (existingUser) {
-              // 기존 사용자가 있으면 그 ID 사용
-              actualUserId = existingUser.id;
-              if (existingUser.id !== providerBasedUserId) {
-                console.log('🔄 [Session] Provider별 기존 사용자 ID 확인:', {
+            if (token.provider) {
+              // Provider가 있으면 Provider + 이메일 기반으로 독립적인 사용자 ID 생성
+              const provider = token.provider as string;
+              const providerBasedUserId = generateUserIdFromEmail(normalizedEmail, provider);
+              
+              // Provider별 기존 사용자 확인
+              const existingUser = await getUser(providerBasedUserId);
+              
+              if (existingUser) {
+                // 기존 사용자가 있으면 그 ID 사용
+                actualUserId = existingUser.id;
+                actualProvider = existingUser.provider || provider;
+                if (existingUser.id !== providerBasedUserId) {
+                  console.log('🔄 [Session] Provider별 기존 사용자 ID 확인:', {
+                    tokenId: token.id,
+                    providerBasedId: providerBasedUserId,
+                    actualUserId: existingUser.id,
+                    email: normalizedEmail,
+                    provider: provider
+                  });
+                } else {
+                  console.log('✅ [Session] 사용자 ID 일치:', {
+                    userId: actualUserId,
+                    email: normalizedEmail,
+                    provider: provider
+                  });
+                }
+              } else {
+                // 기존 사용자가 없으면 Provider 기반 ID 사용
+                actualUserId = providerBasedUserId;
+                actualProvider = provider;
+                console.log('📝 [Session] 새 사용자, Provider 기반 ID 사용:', {
                   tokenId: token.id,
                   providerBasedId: providerBasedUserId,
-                  actualUserId: existingUser.id,
                   email: normalizedEmail,
                   provider: provider
                 });
-              } else {
-                console.log('✅ [Session] 사용자 ID 일치:', {
-                  userId: actualUserId,
-                  email: normalizedEmail,
-                  provider: provider
-                });
+                
+                // 사용자가 DB에 없으면 생성 시도 (signIn 콜백이 실행되지 않은 경우 대비)
+                try {
+                  const createdUserId = await createUser({
+                    id: providerBasedUserId,
+                    email: normalizedEmail,
+                    blogUrl: null,
+                    name: session.user.name || undefined,
+                    image: session.user.image || undefined,
+                    provider: provider,
+                  });
+                  
+                  // createUser가 반환한 실제 사용자 ID 사용
+                  actualUserId = createdUserId || providerBasedUserId;
+                  
+                  console.log('✅ [Session] 사용자 생성 완료:', {
+                    userId: actualUserId,
+                    email: normalizedEmail,
+                    provider: provider
+                  });
+                } catch (error: any) {
+                  console.error('❌ [Session] 사용자 생성 오류:', error);
+                  // 사용자 생성 실패해도 세션은 유지 (Provider 기반 ID 사용)
+                }
               }
             } else {
-              // 기존 사용자가 없으면 Provider 기반 ID 사용
-              actualUserId = providerBasedUserId;
-              console.log('📝 [Session] 새 사용자, Provider 기반 ID 사용:', {
-                tokenId: token.id,
-                providerBasedId: providerBasedUserId,
-                email: normalizedEmail,
-                provider: provider
-              });
-              
-              // 사용자가 DB에 없으면 생성 시도 (signIn 콜백이 실행되지 않은 경우 대비)
+              // Provider가 없으면 이메일로 사용자 찾기 (provider 추론)
               try {
-                const createdUserId = await createUser({
-                  id: providerBasedUserId,
-                  email: normalizedEmail,
-                  blogUrl: null,
-                  name: session.user.name || undefined,
-                  image: session.user.image || undefined,
-                  provider: provider,
-                });
-                
-                // createUser가 반환한 실제 사용자 ID 사용
-                actualUserId = createdUserId || providerBasedUserId;
-                
-                console.log('✅ [Session] 사용자 생성 완료:', {
-                  userId: actualUserId,
-                  email: normalizedEmail,
-                  provider: provider
-                });
-              } catch (error: any) {
-                console.error('❌ [Session] 사용자 생성 오류:', error);
-                // 사용자 생성 실패해도 세션은 유지 (Provider 기반 ID 사용)
+                const emailUser = await getUserByEmail(normalizedEmail);
+                if (emailUser) {
+                  // 이메일로 사용자를 찾았으면 그 ID와 provider 사용
+                  actualUserId = emailUser.id;
+                  actualProvider = emailUser.provider || undefined;
+                  console.log('🔄 [Session] 이메일로 사용자 찾기 (provider 추론):', {
+                    tokenId: token.id,
+                    actualUserId: emailUser.id,
+                    email: normalizedEmail,
+                    inferredProvider: emailUser.provider
+                  });
+                } else {
+                  console.warn('⚠️ [Session] 이메일로 사용자를 찾을 수 없음:', {
+                    tokenId: token.id,
+                    email: normalizedEmail
+                  });
+                }
+              } catch (error) {
+                console.error('❌ [Session] 이메일로 사용자 찾기 오류:', error);
               }
             }
           } catch (error) {
@@ -472,18 +500,19 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         
         session.user.id = actualUserId;
         session.user.email = (token.email as string)?.toLowerCase().trim() || token.email as string;
-        // provider가 없으면 기본값으로 설정하지 않음 (null 유지)
-        // 하지만 token.provider가 있으면 반드시 설정
-        if (token.provider) {
+        // provider 설정 (추론된 provider 포함)
+        if (actualProvider) {
+          session.user.provider = actualProvider;
+        } else if (token.provider) {
           session.user.provider = token.provider as string;
         } else {
-          // token.provider가 없으면 세션에서 provider 정보 제거 (명시적으로 undefined)
-          // 이렇게 하면 analyze API에서 provider가 없을 때를 올바르게 처리할 수 있음
+          // provider가 없으면 undefined로 설정
           session.user.provider = undefined;
-          console.warn('⚠️ [Session] token.provider가 없습니다:', {
+          console.warn('⚠️ [Session] provider를 찾을 수 없습니다:', {
             tokenId: token.id,
             tokenEmail: token.email,
-            hasTokenProvider: !!token.provider
+            hasTokenProvider: !!token.provider,
+            actualUserId: actualUserId
           });
         }
       }
