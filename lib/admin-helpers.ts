@@ -234,21 +234,21 @@ export async function getAuthLogs(
     const values: any[] = [];
     let paramIndex = 1;
 
-    // 날짜 범위 필터
-    conditions.push(`created_at >= $${paramIndex++}`);
+    // 날짜 범위 필터 (auth_logs 테이블의 created_at 사용)
+    conditions.push(`al.created_at >= $${paramIndex++}`);
     values.push(start.toISOString());
-    conditions.push(`created_at <= $${paramIndex++}`);
+    conditions.push(`al.created_at <= $${paramIndex++}`);
     values.push(end.toISOString());
 
     // Provider 필터
     if (provider !== 'all') {
-      conditions.push(`provider = $${paramIndex++}`);
+      conditions.push(`al.provider = $${paramIndex++}`);
       values.push(provider);
     }
 
     // 사용자 필터
     if (userId) {
-      conditions.push(`user_id = $${paramIndex++}`);
+      conditions.push(`al.user_id = $${paramIndex++}`);
       values.push(userId);
     }
 
