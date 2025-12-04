@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { query } from '@/lib/db-postgres';
+import { ensureAnnouncementsTable } from '@/lib/ensure-announcements-table';
 import { v4 as uuidv4 } from 'uuid';
 
 /**
@@ -9,6 +10,9 @@ import { v4 as uuidv4 } from 'uuid';
  */
 export async function GET() {
   try {
+    // 테이블이 없으면 생성
+    await ensureAnnouncementsTable();
+    
     const result = await query(
       `SELECT id, message, created_at, updated_at 
        FROM announcements 
@@ -25,7 +29,10 @@ export async function GET() {
   } catch (error: any) {
     console.error('❌ [Announcements API] 조회 오류:', error);
     return NextResponse.json(
-      { error: '공지사항 조회 실패' },
+      { 
+        error: '공지사항 조회 실패',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      },
       { status: 500 }
     );
   }
@@ -37,6 +44,9 @@ export async function GET() {
  */
 export async function POST(request: NextRequest) {
   try {
+    // 테이블이 없으면 생성
+    await ensureAnnouncementsTable();
+    
     const session = await auth();
     
     if (!session?.user) {
@@ -89,7 +99,10 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('❌ [Announcements API] 생성 오류:', error);
     return NextResponse.json(
-      { error: '공지사항 생성 실패' },
+      { 
+        error: '공지사항 생성 실패',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      },
       { status: 500 }
     );
   }
@@ -101,6 +114,9 @@ export async function POST(request: NextRequest) {
  */
 export async function PUT(request: NextRequest) {
   try {
+    // 테이블이 없으면 생성
+    await ensureAnnouncementsTable();
+    
     const session = await auth();
     
     if (!session?.user) {
@@ -194,7 +210,10 @@ export async function PUT(request: NextRequest) {
   } catch (error: any) {
     console.error('❌ [Announcements API] 수정 오류:', error);
     return NextResponse.json(
-      { error: '공지사항 수정 실패' },
+      { 
+        error: '공지사항 수정 실패',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      },
       { status: 500 }
     );
   }
@@ -206,6 +225,9 @@ export async function PUT(request: NextRequest) {
  */
 export async function DELETE(request: NextRequest) {
   try {
+    // 테이블이 없으면 생성
+    await ensureAnnouncementsTable();
+    
     const session = await auth();
     
     if (!session?.user) {
@@ -244,7 +266,10 @@ export async function DELETE(request: NextRequest) {
   } catch (error: any) {
     console.error('❌ [Announcements API] 삭제 오류:', error);
     return NextResponse.json(
-      { error: '공지사항 삭제 실패' },
+      { 
+        error: '공지사항 삭제 실패',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      },
       { status: 500 }
     );
   }

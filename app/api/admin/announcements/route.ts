@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { query } from '@/lib/db-postgres';
+import { ensureAnnouncementsTable } from '@/lib/ensure-announcements-table';
 
 /**
  * GET /api/admin/announcements
@@ -8,6 +9,9 @@ import { query } from '@/lib/db-postgres';
  */
 export async function GET(request: NextRequest) {
   try {
+    // 테이블이 없으면 생성
+    await ensureAnnouncementsTable();
+    
     const session = await auth();
     
     if (!session?.user) {
@@ -40,7 +44,10 @@ export async function GET(request: NextRequest) {
   } catch (error: any) {
     console.error('❌ [Admin Announcements API] 조회 오류:', error);
     return NextResponse.json(
-      { error: '공지사항 조회 실패' },
+      { 
+        error: '공지사항 조회 실패',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      },
       { status: 500 }
     );
   }
