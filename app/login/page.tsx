@@ -52,19 +52,16 @@ function LoginForm() {
     
     try {
       // 즉시 리디렉션하여 대기 시간 최소화
-      const result = await signIn(provider, {
+      // redirect: true인 경우 리디렉션이 발생하므로 반환값이 없음 (never 타입)
+      await signIn(provider, {
         callbackUrl: '/',
         redirect: true, // 즉시 리디렉션으로 변경하여 속도 개선
       });
-
-      // redirect: true인 경우 result는 반환되지 않지만, 에러 처리를 위해 확인
-      if (result?.error) {
-        console.error(`${provider} 로그인 오류:`, result.error);
-        const providerName = provider === 'google' ? 'Google' : 'GitHub';
-        setError(`${providerName} 로그인 중 오류가 발생했습니다.`);
-        setIsLoading(null);
-      }
+      
+      // redirect: true인 경우 이 코드는 실행되지 않음 (리디렉션 발생)
+      // 하지만 TypeScript 타입 체크를 위해 유지
     } catch (err: any) {
+      // 리디렉션 전에 에러가 발생한 경우에만 실행됨
       console.error(`${provider} 로그인 예외:`, err);
       const providerName = provider === 'google' ? 'Google' : 'GitHub';
       setError(`${providerName} 로그인 중 오류가 발생했습니다.`);
