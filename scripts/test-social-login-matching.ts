@@ -107,7 +107,7 @@ async function runTest(testNumber: number): Promise<TestResult> {
   let loginMatch: TestResult['loginMatch'];
   
   try {
-    createdUserId = createUser({
+    createdUserId = await createUser({
       id: emailBasedUserId,
       email: email,
       name: name,
