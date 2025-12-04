@@ -2049,7 +2049,253 @@ export async function createUser(data: {
       }
       throw error;
     }
-  });
+    });
+  } else {
+    // SQLite: 트랜잭션 없이 직접 실행 (동기 함수만 사용)
+    // 이메일 정규화
+    const normalizedEmail = data.email.toLowerCase().trim();
+    
+    // 필수 컬럼 존재 여부 확인 및 추가
+    try {
+      const tableInfo = db.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
+      const columnNames = tableInfo.map(col => col.name);
+    
+      // provider 컬럼 확인 및 추가
+      if (!columnNames.includes('provider')) {
+        try {
+          db.exec('ALTER TABLE users ADD COLUMN provider TEXT');
+          console.log('✅ [createUser] provider 컬럼 추가 완료');
+        } catch (alterError: any) {
+          if (alterError?.code !== 'SQLITE_ERROR' || !alterError?.message.includes('duplicate column')) {
+            console.warn('⚠️ [createUser] provider 컬럼 추가 실패:', alterError);
+          }
+        }
+      }
+      
+      // name 컬럼 확인 및 추가
+      if (!columnNames.includes('name')) {
+        try {
+          db.exec('ALTER TABLE users ADD COLUMN name TEXT');
+          console.log('✅ [createUser] name 컬럼 추가 완료');
+        } catch (alterError: any) {
+          if (alterError?.code !== 'SQLITE_ERROR' || !alterError?.message.includes('duplicate column')) {
+            console.warn('⚠️ [createUser] name 컬럼 추가 실패:', alterError);
+          }
+        }
+      }
+      
+      // image 컬럼 확인 및 추가
+      if (!columnNames.includes('image')) {
+        try {
+          db.exec('ALTER TABLE users ADD COLUMN image TEXT');
+          console.log('✅ [createUser] image 컬럼 추가 완료');
+        } catch (alterError: any) {
+          if (alterError?.code !== 'SQLITE_ERROR' || !alterError?.message.includes('duplicate column')) {
+            console.warn('⚠️ [createUser] image 컬럼 추가 실패:', alterError);
+          }
+        }
+      }
+      
+      // role 컬럼 확인 및 추가
+      if (!columnNames.includes('role')) {
+        try {
+          db.exec("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'user'");
+          console.log('✅ [createUser] role 컬럼 추가 완료');
+        } catch (alterError: any) {
+          if (alterError?.code !== 'SQLITE_ERROR' || !alterError?.message.includes('duplicate column')) {
+            console.warn('⚠️ [createUser] role 컬럼 추가 실패:', alterError);
+          }
+        }
+      }
+      
+      // is_active 컬럼 확인 및 추가
+      if (!columnNames.includes('is_active')) {
+        try {
+          db.exec('ALTER TABLE users ADD COLUMN is_active INTEGER DEFAULT 1');
+          console.log('✅ [createUser] is_active 컬럼 추가 완료');
+        } catch (alterError: any) {
+          if (alterError?.code !== 'SQLITE_ERROR' || !alterError?.message.includes('duplicate column')) {
+            console.warn('⚠️ [createUser] is_active 컬럼 추가 실패:', alterError);
+          }
+        }
+      }
+      
+      // last_login_at 컬럼 확인 및 추가
+      if (!columnNames.includes('last_login_at')) {
+        try {
+          db.exec('ALTER TABLE users ADD COLUMN last_login_at DATETIME');
+          console.log('✅ [createUser] last_login_at 컬럼 추가 완료');
+        } catch (alterError: any) {
+          if (alterError?.code !== 'SQLITE_ERROR' || !alterError?.message.includes('duplicate column')) {
+            console.warn('⚠️ [createUser] last_login_at 컬럼 추가 실패:', alterError);
+          }
+        }
+      }
+      
+      // updated_at 컬럼 확인 및 추가
+      if (!columnNames.includes('updated_at')) {
+        try {
+          db.exec('ALTER TABLE users ADD COLUMN updated_at DATETIME');
+          // 기존 레코드의 updated_at을 created_at으로 설정
+          db.exec('UPDATE users SET updated_at = created_at WHERE updated_at IS NULL');
+          console.log('✅ [createUser] updated_at 컬럼 추가 완료');
+        } catch (alterError: any) {
+          if (alterError?.code !== 'SQLITE_ERROR' || !alterError?.message.includes('duplicate column')) {
+            console.warn('⚠️ [createUser] updated_at 컬럼 추가 실패:', alterError);
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('⚠️ [createUser] 테이블 정보 확인 실패:', error);
+    }
+    
+    // Provider별 사용자 ID로 존재 여부 확인
+    const existingUserStmt = db.prepare('SELECT id, email, blog_url, name, image, provider, role, is_active, last_login_at, created_at, updated_at FROM users WHERE id = ?');
+    const existingUserRow = existingUserStmt.get(data.id) as any;
+    const existingUser = existingUserRow ? {
+      id: existingUserRow.id,
+      email: existingUserRow.email,
+      blogUrl: existingUserRow.blog_url,
+      name: existingUserRow.name,
+      image: existingUserRow.image,
+      provider: existingUserRow.provider,
+      role: existingUserRow.role,
+      isActive: existingUserRow.is_active,
+      lastLoginAt: existingUserRow.last_login_at,
+      createdAt: existingUserRow.created_at,
+      updatedAt: existingUserRow.updated_at || existingUserRow.created_at,
+    } : null;
+    
+    if (existingUser) {
+      console.log('✅ [createUser] Provider별 사용자 이미 존재:', { 
+        id: data.id, 
+        email: normalizedEmail,
+        provider: data.provider 
+      });
+      
+      // 로그인 시간 및 사용자 정보 업데이트
+      try {
+        const tableInfo = db.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
+        const hasLastLoginAt = tableInfo.some(col => col.name === 'last_login_at');
+        const hasName = tableInfo.some(col => col.name === 'name');
+        const hasImage = tableInfo.some(col => col.name === 'image');
+        
+        if (hasLastLoginAt && hasName && hasImage) {
+          const updateStmt = db.prepare(
+            'UPDATE users SET last_login_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP, name = COALESCE(?, name), image = COALESCE(?, image) WHERE id = ?'
+          );
+          updateStmt.run(data.name || null, data.image || null, data.id);
+        } else if (hasLastLoginAt) {
+          const updateStmt = db.prepare('UPDATE users SET last_login_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
+          updateStmt.run(data.id);
+        } else {
+          const updateStmt = db.prepare('UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = ?');
+          updateStmt.run(data.id);
+        }
+        
+        console.log('✅ [createUser] 사용자 로그인 시간 업데이트 완료:', {
+          userId: data.id,
+          email: normalizedEmail,
+          provider: data.provider
+        });
+      } catch (updateError) {
+        console.error('❌ [createUser] last_login_at 업데이트 실패:', updateError);
+      }
+      return data.id;
+    }
+    
+    // 기존 사용자 확인: 같은 이메일 + provider 조합으로 확인
+    if (data.provider) {
+      const providerUserStmt = db.prepare('SELECT id, email, provider FROM users WHERE LOWER(TRIM(email)) = ? AND provider = ?');
+      const providerUser = providerUserStmt.get(normalizedEmail, data.provider) as { id: string; email: string; provider: string } | undefined;
+      
+      if (providerUser) {
+        if (providerUser.id === data.id) {
+          // Provider 기반 ID와 일치하면 로그인 시간 업데이트
+          try {
+            const tableInfo = db.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
+            const hasLastLoginAt = tableInfo.some(col => col.name === 'last_login_at');
+            
+            if (hasLastLoginAt) {
+              const updateStmt = db.prepare('UPDATE users SET last_login_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
+              updateStmt.run(providerUser.id);
+            } else {
+              const updateStmt = db.prepare('UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = ?');
+              updateStmt.run(providerUser.id);
+            }
+          } catch (updateError) {
+            console.warn('⚠️ [createUser] last_login_at 업데이트 실패:', updateError);
+          }
+          
+          return providerUser.id;
+        }
+      }
+    }
+    
+    // 새 사용자 생성
+    try {
+      const tableInfo = db.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
+      const columnNames = tableInfo.map(col => col.name);
+      
+      const hasProvider = columnNames.includes('provider');
+      const hasName = columnNames.includes('name');
+      const hasImage = columnNames.includes('image');
+      const hasLastLoginAt = columnNames.includes('last_login_at');
+      
+      if (hasProvider && hasName && hasImage) {
+        if (hasLastLoginAt) {
+          const stmt = db.prepare('INSERT INTO users (id, email, blog_url, name, image, provider, last_login_at) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)');
+          stmt.run(
+            data.id, 
+            normalizedEmail,
+            data.blogUrl || null,
+            data.name || null,
+            data.image || null,
+            data.provider || null
+          );
+        } else {
+          const stmt = db.prepare('INSERT INTO users (id, email, blog_url, name, image, provider) VALUES (?, ?, ?, ?, ?, ?)');
+          stmt.run(
+            data.id, 
+            normalizedEmail,
+            data.blogUrl || null,
+            data.name || null,
+            data.image || null,
+            data.provider || null
+          );
+        }
+      } else {
+        const stmt = db.prepare('INSERT INTO users (id, email, blog_url) VALUES (?, ?, ?)');
+        stmt.run(data.id, normalizedEmail, data.blogUrl || null);
+      }
+      
+      console.log('✅ [createUser] SQLite 새 사용자 생성 완료:', {
+        userId: data.id,
+        email: normalizedEmail,
+        provider: data.provider
+      });
+      
+      return data.id;
+    } catch (error: any) {
+      // UNIQUE 제약 조건 오류 처리
+      if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+        const retryUserStmt = db.prepare('SELECT id FROM users WHERE id = ?');
+        const retryUserRow = retryUserStmt.get(data.id) as { id: string } | undefined;
+        if (retryUserRow) {
+          return data.id;
+        }
+        
+        if (data.provider) {
+          const retryProviderUserStmt = db.prepare('SELECT id FROM users WHERE LOWER(TRIM(email)) = ? AND provider = ?');
+          const retryProviderUser = retryProviderUserStmt.get(normalizedEmail, data.provider) as { id: string } | undefined;
+          if (retryProviderUser) {
+            return retryProviderUser.id;
+          }
+        }
+      }
+      throw error;
+    }
+  }
 }
 
 /**
