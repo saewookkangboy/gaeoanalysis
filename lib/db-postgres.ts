@@ -467,15 +467,6 @@ export async function query<T extends Record<string, any> = any>(
         throw new Error(`DATABASE_PUBLIC_URL이 Private URL을 가리키고 있습니다. Public URL을 사용해야 합니다. (hostname: ${publicHostname})`);
       }
       
-      console.warn('⚠️ [PostgreSQL] Private URL 쿼리 실패, Public URL로 재시도...', {
-        environment: isVercel ? 'Vercel' : 'Railway',
-        errorCode: error.code,
-        hostname: error.hostname,
-        publicUrlExists: !!publicUrl,
-        publicUrlHostname: publicHostname,
-        publicUrlPreview: publicUrl ? publicUrl.replace(/:[^:@]+@/, ':****@').substring(0, 50) + '...' : 'N/A'
-      });
-      
       try {
         // 기존 풀 종료 및 전역 풀 초기화
         if (currentPool) {
