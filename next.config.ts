@@ -29,10 +29,6 @@ const nextConfig: NextConfig = {
       exclude: ['error', 'warn'], // 에러와 경고는 유지
     } : false,
   },
-  // CSS 최적화 설정
-  optimizeCss: true,
-  // 정적 파일 최적화
-  optimizeFonts: true,
   // Chunk 로딩 에러 방지 (webpack은 fallback으로 유지)
   webpack: (config, { isServer }) => {
     if (!isServer) {
