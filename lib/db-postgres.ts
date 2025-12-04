@@ -203,19 +203,24 @@ export async function query<T extends Record<string, any> = any>(
     return result;
   } catch (error: any) {
     // Private URL 연결 실패 시 Public URL로 재시도
+    // Vercel 환경에서는 Private URL에 접근할 수 없으므로 항상 Public URL로 재시도
+    const isVercel = !!process.env.VERCEL;
     const isRailway = !!process.env.RAILWAY_ENVIRONMENT || !!process.env.RAILWAY;
     const privateUrl = process.env.DATABASE_URL;
     const publicUrl = process.env.DATABASE_PUBLIC_URL;
     
-    if (
-      isRailway &&
-      privateUrl &&
+    // ENOTFOUND 오류이고 Public URL이 있으면 재시도
+    const shouldRetry = 
       publicUrl &&
       (error.code === 'ENOTFOUND' || error.hostname?.includes('railway.internal')) &&
-      pool &&
-      (await pool.query('SELECT 1').catch(() => null)) === null // 현재 풀이 작동하지 않음
-    ) {
-      console.warn('⚠️ [PostgreSQL] Private URL 쿼리 실패, Public URL로 재시도...');
+      (isVercel || (isRailway && privateUrl));
+    
+    if (shouldRetry) {
+      console.warn('⚠️ [PostgreSQL] Private URL 쿼리 실패, Public URL로 재시도...', {
+        environment: isVercel ? 'Vercel' : 'Railway',
+        errorCode: error.code,
+        hostname: error.hostname
+      });
       
       try {
         // 기존 풀 종료
