@@ -2102,7 +2102,7 @@ export function checkDuplicateAnalysis(userId: string, url: string, hours = 24):
 /**
  * 인증 로그 저장 (로그인/로그아웃 이력)
  */
-export function saveAuthLog(data: {
+export async function saveAuthLog(data: {
   id: string;
   userId?: string | null;
   provider: string;
@@ -2111,84 +2111,166 @@ export function saveAuthLog(data: {
   userAgent?: string | null;
   success?: boolean;
   errorMessage?: string | null;
-}) {
-  // auth_logs 테이블 존재 여부 확인 및 생성 (트랜잭션 외부에서 먼저 확인)
+}): Promise<string | null> {
   try {
-    const tableInfo = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='auth_logs'").get();
-    if (!tableInfo) {
-      console.warn('⚠️ [saveAuthLog] auth_logs 테이블이 존재하지 않습니다. 자동 생성 시도...');
-      // 테이블 자동 생성 (트랜잭션 외부에서 실행)
-      try {
-        db.exec(`
-          CREATE TABLE IF NOT EXISTS auth_logs (
-            id TEXT PRIMARY KEY,
-            user_id TEXT,
-            provider TEXT NOT NULL,
-            action TEXT NOT NULL,
-            ip_address TEXT,
-            user_agent TEXT,
-            success INTEGER DEFAULT 1,
-            error_message TEXT,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+    if (isPostgreSQL()) {
+      // PostgreSQL 사용
+      return await transaction(async (client) => {
+        try {
+          // auth_logs 테이블 존재 여부 확인 및 생성
+          await client.query(`
+            CREATE TABLE IF NOT EXISTS auth_logs (
+              id VARCHAR(255) PRIMARY KEY,
+              user_id VARCHAR(255),
+              provider VARCHAR(50) NOT NULL,
+              action VARCHAR(50) NOT NULL,
+              ip_address VARCHAR(255),
+              user_agent TEXT,
+              success BOOLEAN DEFAULT true,
+              error_message TEXT,
+              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+              CONSTRAINT fk_auth_logs_user_id 
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+            )
+          `);
+
+          // 인덱스 생성 (IF NOT EXISTS는 PostgreSQL 9.5+에서 지원)
+          await client.query(`
+            CREATE INDEX IF NOT EXISTS idx_auth_logs_user_id ON auth_logs(user_id);
+            CREATE INDEX IF NOT EXISTS idx_auth_logs_provider ON auth_logs(provider);
+            CREATE INDEX IF NOT EXISTS idx_auth_logs_action ON auth_logs(action);
+            CREATE INDEX IF NOT EXISTS idx_auth_logs_created_at ON auth_logs(created_at);
+            CREATE INDEX IF NOT EXISTS idx_auth_logs_user_created ON auth_logs(user_id, created_at DESC);
+          `).catch(() => {
+            // 인덱스가 이미 존재하는 경우 무시
+          });
+
+          // 데이터 삽입
+          await client.query(
+            `INSERT INTO auth_logs (
+              id, user_id, provider, action, ip_address, user_agent, 
+              success, error_message
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            ON CONFLICT (id) DO NOTHING`,
+            [
+              data.id,
+              data.userId || null,
+              data.provider,
+              data.action,
+              data.ipAddress || null,
+              data.userAgent || null,
+              data.success !== false,
+              data.errorMessage || null
+            ]
           );
 
-          CREATE INDEX IF NOT EXISTS idx_auth_logs_user_id ON auth_logs(user_id);
-          CREATE INDEX IF NOT EXISTS idx_auth_logs_provider ON auth_logs(provider);
-          CREATE INDEX IF NOT EXISTS idx_auth_logs_action ON auth_logs(action);
-          CREATE INDEX IF NOT EXISTS idx_auth_logs_created_at ON auth_logs(created_at);
-          CREATE INDEX IF NOT EXISTS idx_auth_logs_user_created ON auth_logs(user_id, created_at DESC);
-        `);
-        console.log('✅ [saveAuthLog] auth_logs 테이블 자동 생성 완료');
-      } catch (createError: any) {
-        console.error('❌ [saveAuthLog] auth_logs 테이블 생성 실패:', createError);
+          return data.id;
+        } catch (error: any) {
+          // FOREIGN KEY 오류 처리 (사용자가 없는 경우)
+          if (error.code === '23503') {
+            console.warn('⚠️ [saveAuthLog] 사용자가 존재하지 않아 인증 로그 저장을 건너뜁니다:', {
+              userId: data.userId,
+              provider: data.provider
+            });
+            return null;
+          }
+          console.error('❌ [saveAuthLog] 인증 로그 저장 오류:', error);
+          return null;
+        }
+      });
+    } else {
+      // SQLite 사용
+      // auth_logs 테이블 존재 여부 확인 및 생성 (트랜잭션 외부에서 먼저 확인)
+      try {
+        const tableInfo = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='auth_logs'").get();
+        if (!tableInfo) {
+          console.warn('⚠️ [saveAuthLog] auth_logs 테이블이 존재하지 않습니다. 자동 생성 시도...');
+          // 테이블 자동 생성 (트랜잭션 외부에서 실행)
+          try {
+            db.exec(`
+              CREATE TABLE IF NOT EXISTS auth_logs (
+                id TEXT PRIMARY KEY,
+                user_id TEXT,
+                provider TEXT NOT NULL,
+                action TEXT NOT NULL,
+                ip_address TEXT,
+                user_agent TEXT,
+                success INTEGER DEFAULT 1,
+                error_message TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+              );
+
+              CREATE INDEX IF NOT EXISTS idx_auth_logs_user_id ON auth_logs(user_id);
+              CREATE INDEX IF NOT EXISTS idx_auth_logs_provider ON auth_logs(provider);
+              CREATE INDEX IF NOT EXISTS idx_auth_logs_action ON auth_logs(action);
+              CREATE INDEX IF NOT EXISTS idx_auth_logs_created_at ON auth_logs(created_at);
+              CREATE INDEX IF NOT EXISTS idx_auth_logs_user_created ON auth_logs(user_id, created_at DESC);
+            `);
+            console.log('✅ [saveAuthLog] auth_logs 테이블 자동 생성 완료');
+          } catch (createError: any) {
+            console.error('❌ [saveAuthLog] auth_logs 테이블 생성 실패:', createError);
+            return null;
+          }
+        }
+      } catch (checkError: any) {
+        console.error('❌ [saveAuthLog] 테이블 확인 오류:', checkError);
         return null;
       }
+
+      return dbHelpers.transaction(() => {
+        try {
+          // 테이블이 확실히 존재하는지 다시 확인
+          const tableInfo = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='auth_logs'").get();
+          if (!tableInfo) {
+            console.warn('⚠️ [saveAuthLog] 트랜잭션 내부에서도 auth_logs 테이블이 없습니다.');
+            return null;
+          }
+
+          const stmt = db.prepare(`
+            INSERT INTO auth_logs (
+              id, user_id, provider, action, ip_address, user_agent, 
+              success, error_message
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          `);
+
+          stmt.run(
+            data.id,
+            data.userId || null,
+            data.provider,
+            data.action,
+            data.ipAddress || null,
+            data.userAgent || null,
+            data.success !== false ? 1 : 0,
+            data.errorMessage || null
+          );
+
+          return data.id;
+        } catch (error: any) {
+          // 테이블이 없거나 컬럼이 없는 경우 무시
+          if (error.code === 'SQLITE_ERROR' && error.message.includes('no such table')) {
+            console.warn('⚠️ [saveAuthLog] auth_logs 테이블이 존재하지 않습니다.');
+            return null;
+          }
+          // FOREIGN KEY 오류 처리
+          if (error.code === 'SQLITE_CONSTRAINT_FOREIGNKEY') {
+            console.warn('⚠️ [saveAuthLog] 사용자가 존재하지 않아 인증 로그 저장을 건너뜁니다:', {
+              userId: data.userId,
+              provider: data.provider
+            });
+            return null;
+          }
+          console.error('❌ [saveAuthLog] 인증 로그 저장 오류:', error);
+          return null;
+        }
+      });
     }
-  } catch (checkError: any) {
-    console.error('❌ [saveAuthLog] 테이블 확인 오류:', checkError);
+  } catch (error: any) {
+    console.error('❌ [saveAuthLog] 인증 로그 저장 오류:', error);
     return null;
   }
-
-  return dbHelpers.transaction(() => {
-    try {
-      // 테이블이 확실히 존재하는지 다시 확인
-      const tableInfo = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='auth_logs'").get();
-      if (!tableInfo) {
-        console.warn('⚠️ [saveAuthLog] 트랜잭션 내부에서도 auth_logs 테이블이 없습니다.');
-        return null;
-      }
-
-      const stmt = db.prepare(`
-        INSERT INTO auth_logs (
-          id, user_id, provider, action, ip_address, user_agent, 
-          success, error_message
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      `);
-
-      stmt.run(
-        data.id,
-        data.userId || null,
-        data.provider,
-        data.action,
-        data.ipAddress || null,
-        data.userAgent || null,
-        data.success !== false ? 1 : 0,
-        data.errorMessage || null
-      );
-
-      return data.id;
-    } catch (error: any) {
-      // 테이블이 없거나 컬럼이 없는 경우 무시
-      if (error.code === 'SQLITE_ERROR' && error.message.includes('no such table')) {
-        console.warn('⚠️ [saveAuthLog] auth_logs 테이블이 존재하지 않습니다.');
-        return null;
-      }
-      console.error('❌ [saveAuthLog] 인증 로그 저장 오류:', error);
-      return null;
-    }
-  });
 }
 
 /**

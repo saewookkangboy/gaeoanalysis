@@ -222,9 +222,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           user.email = normalizedEmail; // 정규화된 이메일 사용
           
           // 로그인 이력 저장 (비동기로 처리하여 로그인 속도에 영향 없도록)
-          setImmediate(() => {
+          setImmediate(async () => {
             try {
-              saveAuthLog({
+              await saveAuthLog({
                 id: uuidv4(),
                 userId: actualUserId,
                 provider: account.provider,
@@ -240,9 +240,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           console.error('에러 상세:', error.message);
           
           // 로그인 실패 이력 저장
-          setImmediate(() => {
+          setImmediate(async () => {
             try {
-              saveAuthLog({
+              await saveAuthLog({
                 id: uuidv4(),
                 userId: user.id,
                 provider: account.provider,
