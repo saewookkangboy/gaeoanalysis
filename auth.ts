@@ -326,39 +326,73 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.id = providerBasedUserId;
         token.email = normalizedEmail || user.email;
         token.provider = account?.provider;
-      } else if (token.email && token.provider) {
-        // 사용자 정보가 없지만 토큰에 이메일과 provider가 있는 경우 (기존 세션)
-        // Provider + 이메일 기반으로 사용자 ID 재확인
+      } else if (token.email) {
+        // 사용자 정보가 없지만 토큰에 이메일이 있는 경우 (기존 세션)
         const normalizedEmail = (token.email as string).toLowerCase().trim();
-        const provider = token.provider as string;
-        const providerBasedUserId = generateUserIdFromEmail(normalizedEmail, provider);
         
-        try {
-          const existingUser = await getUser(providerBasedUserId);
-          if (existingUser) {
-            // 기존 사용자가 있으면 그 ID 사용
-            token.id = existingUser.id;
-            console.log('🔄 [JWT] 기존 토큰: Provider별 실제 사용자 ID 확인:', {
-              originalTokenId: token.id,
-              providerBasedId: providerBasedUserId,
-              actualUserId: existingUser.id,
-              email: normalizedEmail,
-              provider: provider
-            });
-          } else {
-            // 기존 사용자가 없으면 Provider 기반 ID 사용
+        if (token.provider) {
+          // Provider가 있으면 Provider + 이메일 기반으로 사용자 ID 재확인
+          const provider = token.provider as string;
+          const providerBasedUserId = generateUserIdFromEmail(normalizedEmail, provider);
+          
+          try {
+            const existingUser = await getUser(providerBasedUserId);
+            if (existingUser) {
+              // 기존 사용자가 있으면 그 ID 사용
+              token.id = existingUser.id;
+              console.log('🔄 [JWT] 기존 토큰: Provider별 실제 사용자 ID 확인:', {
+                originalTokenId: token.id,
+                providerBasedId: providerBasedUserId,
+                actualUserId: existingUser.id,
+                email: normalizedEmail,
+                provider: provider
+              });
+            } else {
+              // 기존 사용자가 없으면 Provider 기반 ID 사용
+              token.id = providerBasedUserId;
+              console.log('📝 [JWT] 기존 토큰: Provider 기반 ID 사용:', {
+                originalTokenId: token.id,
+                providerBasedId: providerBasedUserId,
+                email: normalizedEmail,
+                provider: provider
+              });
+            }
+          } catch (error) {
+            console.error('❌ [JWT] 기존 토큰 사용자 확인 오류:', error);
+            // 오류 발생 시 Provider 기반 ID 사용
             token.id = providerBasedUserId;
-            console.log('📝 [JWT] 기존 토큰: Provider 기반 ID 사용:', {
-              originalTokenId: token.id,
-              providerBasedId: providerBasedUserId,
-              email: normalizedEmail,
-              provider: provider
-            });
           }
-        } catch (error) {
-          console.error('❌ [JWT] 기존 토큰 사용자 확인 오류:', error);
-          // 오류 발생 시 Provider 기반 ID 사용
-          token.id = providerBasedUserId;
+        } else {
+          // Provider가 없으면 이메일로 사용자 찾기 (provider 추론)
+          try {
+            const emailUser = await getUserByEmail(normalizedEmail);
+            if (emailUser) {
+              // 이메일로 사용자를 찾았으면 그 ID와 provider 사용
+              token.id = emailUser.id;
+              if (emailUser.provider) {
+                token.provider = emailUser.provider;
+                console.log('🔄 [JWT] 기존 토큰: 이메일로 사용자 찾기 (provider 추론):', {
+                  originalTokenId: token.id,
+                  actualUserId: emailUser.id,
+                  email: normalizedEmail,
+                  inferredProvider: emailUser.provider
+                });
+              } else {
+                console.log('📝 [JWT] 기존 토큰: 이메일로 사용자 찾기 (provider 없음):', {
+                  originalTokenId: token.id,
+                  actualUserId: emailUser.id,
+                  email: normalizedEmail
+                });
+              }
+            } else {
+              console.warn('⚠️ [JWT] 기존 토큰: 이메일로 사용자를 찾을 수 없음:', {
+                tokenId: token.id,
+                email: normalizedEmail
+              });
+            }
+          } catch (error) {
+            console.error('❌ [JWT] 기존 토큰 이메일로 사용자 찾기 오류:', error);
+          }
         }
       }
       return token;
@@ -438,7 +472,20 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         
         session.user.id = actualUserId;
         session.user.email = (token.email as string)?.toLowerCase().trim() || token.email as string;
-        session.user.provider = token.provider as string;
+        // provider가 없으면 기본값으로 설정하지 않음 (null 유지)
+        // 하지만 token.provider가 있으면 반드시 설정
+        if (token.provider) {
+          session.user.provider = token.provider as string;
+        } else {
+          // token.provider가 없으면 세션에서 provider 정보 제거 (명시적으로 undefined)
+          // 이렇게 하면 analyze API에서 provider가 없을 때를 올바르게 처리할 수 있음
+          session.user.provider = undefined;
+          console.warn('⚠️ [Session] token.provider가 없습니다:', {
+            tokenId: token.id,
+            tokenEmail: token.email,
+            hasTokenProvider: !!token.provider
+          });
+        }
       }
       return session;
     },

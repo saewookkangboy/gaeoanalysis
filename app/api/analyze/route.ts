@@ -177,19 +177,64 @@ async function handleAnalyze(request: NextRequest) {
       }
     } else {
       // Provider가 없으면 세션 ID로 사용자 확인 (하위 호환성)
-      const user = await getUser(userId);
-      if (user) {
-        finalUserId = user.id;
-        console.log('✅ [Analyze API] 세션 ID로 사용자 확인:', { 
-          sessionId: userId, 
-          actualUserId: finalUserId 
-        });
+      // 하지만 provider가 없으면 이메일로 사용자를 찾아서 provider를 추론
+      if (normalizedEmail) {
+        try {
+          // 이메일로 사용자 찾기 (provider별로 여러 사용자가 있을 수 있음)
+          const emailUser = await getUserByEmail(normalizedEmail);
+          if (emailUser) {
+            finalUserId = emailUser.id;
+            console.log('✅ [Analyze API] 이메일로 사용자 확인 (provider 없음):', { 
+              sessionId: userId, 
+              actualUserId: finalUserId,
+              email: normalizedEmail,
+              foundProvider: emailUser.provider
+            });
+          } else {
+            // 이메일로 사용자를 찾을 수 없으면 세션 ID로 확인
+            const user = await getUser(userId);
+            if (user) {
+              finalUserId = user.id;
+              console.log('✅ [Analyze API] 세션 ID로 사용자 확인:', { 
+                sessionId: userId, 
+                actualUserId: finalUserId 
+              });
+            } else {
+              console.warn('⚠️ [Analyze API] 세션 ID로 사용자를 찾을 수 없음:', {
+                sessionId: userId,
+                email: normalizedEmail,
+                provider: provider
+              });
+            }
+          }
+        } catch (error) {
+          console.error('❌ [Analyze API] 이메일로 사용자 찾기 오류:', error);
+          // 오류 발생 시 세션 ID로 확인
+          const user = await getUser(userId);
+          if (user) {
+            finalUserId = user.id;
+            console.log('✅ [Analyze API] 세션 ID로 사용자 확인 (오류 후):', { 
+              sessionId: userId, 
+              actualUserId: finalUserId 
+            });
+          }
+        }
       } else {
-        console.warn('⚠️ [Analyze API] 세션 ID로 사용자를 찾을 수 없음:', {
-          sessionId: userId,
-          email: normalizedEmail,
-          provider: provider
-        });
+        // 이메일도 없으면 세션 ID로 확인
+        const user = await getUser(userId);
+        if (user) {
+          finalUserId = user.id;
+          console.log('✅ [Analyze API] 세션 ID로 사용자 확인:', { 
+            sessionId: userId, 
+            actualUserId: finalUserId 
+          });
+        } else {
+          console.warn('⚠️ [Analyze API] 세션 ID로 사용자를 찾을 수 없음:', {
+            sessionId: userId,
+            email: normalizedEmail,
+            provider: provider
+          });
+        }
       }
     }
 
