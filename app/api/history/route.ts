@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
       const providerBasedUserId = generateUserIdFromEmail(normalizedEmail, provider);
       
       // 2-2. Provider별 사용자 찾기 (기존 사용자 확인)
-      const existingUser = getUser(providerBasedUserId);
+      const existingUser = await getUser(providerBasedUserId);
       if (existingUser) {
         // 기존 사용자가 있으면 그 ID 사용 (분석 이력 유지)
         actualUserId = existingUser.id;
@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
             // 같은 Provider로 등록된 사용자가 있지만 ID가 다른 경우
             // 기존 사용자 ID를 사용 (마이그레이션 전 상태)
             actualUserId = providerUser.id;
-            user = getUser(providerUser.id);
+            user = await getUser(providerUser.id);
             console.log('✅ [History API] 같은 Provider로 등록된 사용자 확인 (기존 ID):', {
               sessionUserId: sessionUserId,
               providerBasedId: providerBasedUserId,
@@ -89,7 +89,7 @@ export async function GET(request: NextRequest) {
     
     // 2-4. 이메일로 찾지 못한 경우, 세션 ID로 확인
     if (!user) {
-      user = getUser(sessionUserId);
+      user = await getUser(sessionUserId);
       if (user) {
         actualUserId = user.id;
         console.log('✅ [History API] 세션 ID로 사용자 확인:', {
@@ -108,7 +108,7 @@ export async function GET(request: NextRequest) {
     
     // 3-1. Provider별 사용자 ID로 분석 이력 조회 (계정별 독립 관리)
     if (actualUserId) {
-      analyses = getUserAnalyses(actualUserId, { limit: 50 });
+      analyses = await getUserAnalyses(actualUserId, { limit: 50 });
       console.log('✅ [History API] Provider별 분석 이력 조회:', {
         userId: actualUserId,
         email: normalizedEmail,
@@ -119,7 +119,7 @@ export async function GET(request: NextRequest) {
     
     // 3-2. 세션 ID와 실제 ID가 다르면 세션 ID로도 조회 (하위 호환성)
     if (analyses.length === 0 && actualUserId !== sessionUserId) {
-      const sessionAnalyses = getUserAnalyses(sessionUserId, { limit: 50 });
+      const sessionAnalyses = await getUserAnalyses(sessionUserId, { limit: 50 });
       if (sessionAnalyses.length > 0) {
         console.log('🔍 [History API] 세션 ID로 조회 결과 (하위 호환성):', {
           sessionUserId: sessionUserId,
@@ -135,7 +135,7 @@ export async function GET(request: NextRequest) {
       try {
         // Provider별 사용자 확인
         const providerBasedUserId = generateUserIdFromEmail(normalizedEmail, provider);
-        const providerUser = getUser(providerBasedUserId);
+        const providerUser = await getUser(providerBasedUserId);
         
         console.log('🔍 [History API] Provider별 분석 이력 확인:', {
           email: normalizedEmail,
@@ -167,7 +167,7 @@ export async function GET(request: NextRequest) {
       
       // Provider별 사용자 ID로 다시 조회
       if (actualUserId) {
-        analyses = getUserAnalyses(actualUserId, { limit: 50 });
+        analyses = await getUserAnalyses(actualUserId, { limit: 50 });
         console.log('🔄 [History API] 재시도: Provider별 사용자 ID로 조회 결과:', {
           userId: actualUserId,
           provider: provider,
@@ -179,7 +179,7 @@ export async function GET(request: NextRequest) {
     // 디버깅: 조회 결과가 0개인 경우 추가 확인
     if (analyses.length === 0) {
       // 사용자 존재 확인
-      const userCheck = getUser(actualUserId);
+      const userCheck = await getUser(actualUserId);
       console.warn('⚠️ [History API] 분석 이력이 0개, 사용자 확인:', {
         userId: actualUserId,
         userExists: !!userCheck,

@@ -1,5 +1,6 @@
 import db, { dbHelpers } from './db';
 import { uploadDbToBlob } from './db-blob';
+import { query, transaction, prepare, isPostgreSQL, isSQLite } from './db-adapter';
 
 // 통계 헬퍼 함수 (순환 참조 방지를 위해 동적 import)
 let statisticsHelpers: any = null;
@@ -23,84 +24,86 @@ export interface QueryOptions {
 
 /**
  * 이메일로 분석 이력 조회 (여러 사용자 ID에 걸쳐 조회)
+ * PostgreSQL 및 SQLite 모두 지원
  */
-export function getAnalysesByEmail(email: string, options: QueryOptions = {}) {
+export async function getAnalysesByEmail(email: string, options: QueryOptions = {}) {
   const { limit = 10, offset = 0, orderBy = 'created_at', orderDirection = 'DESC' } = options;
   const normalizedEmail = email.toLowerCase().trim();
   
-  // 이메일로 사용자 찾기
-  const userStmt = db.prepare('SELECT id FROM users WHERE LOWER(TRIM(email)) = ?');
-  const users = userStmt.all(normalizedEmail) as Array<{ id: string }>;
-  
-  let userIds = users.map(u => u.id);
-  
-  // 이메일로 사용자를 찾지 못한 경우, 유사한 이메일(같은 사용자명) 찾기
-  if (userIds.length === 0) {
-    try {
-      const emailPrefix = normalizedEmail.split('@')[0]; // @ 앞부분 (사용자명)
-      if (emailPrefix) {
-        const similarEmailStmt = db.prepare(`
-          SELECT id, email FROM users 
-          WHERE LOWER(TRIM(email)) LIKE ? 
-          LIMIT 10
-        `);
-        const similarUsers = similarEmailStmt.all(`%${emailPrefix}%`) as Array<{ id: string; email: string }>;
-        
-        if (similarUsers.length > 0) {
-          console.log('🔍 [getAnalysesByEmail] 유사한 이메일 사용자 발견:', {
-            searchEmail: normalizedEmail,
-            similarUsers: similarUsers.map(u => ({ id: u.id, email: u.email }))
-          });
-          
-          // 유사한 이메일의 사용자 ID도 포함
-          userIds = similarUsers.map(u => u.id);
-        }
-      }
-    } catch (error) {
-      console.warn('⚠️ [getAnalysesByEmail] 유사한 이메일 검색 오류:', error);
-    }
-  }
-  
-  if (userIds.length === 0) {
-    console.warn('⚠️ [getAnalysesByEmail] 이메일로 등록된 사용자가 없음:', {
-      email: normalizedEmail
-    });
-    return [];
-  }
-  
-  const placeholders = userIds.map(() => '?').join(',');
-  
-  // 모든 사용자 ID로 분석 이력 조회
-  const stmt = db.prepare(`
-    SELECT 
-      id, url, aeo_score, geo_score, seo_score, overall_score, 
-      insights, chatgpt_score, perplexity_score, gemini_score, claude_score, 
-      created_at, user_id
-    FROM analyses
-    WHERE user_id IN (${placeholders})
-    ORDER BY ${orderBy} ${orderDirection}
-    LIMIT ? OFFSET ?
-  `);
-  
   try {
-    const results = stmt.all(...userIds, limit, offset);
+    // 이메일로 사용자 찾기
+    const userStmt = prepare('SELECT id FROM users WHERE LOWER(TRIM(email)) = $1');
+    const users = await userStmt.all([normalizedEmail]) as Array<{ id: string }>;
+    
+    let userIds = users.map(u => u.id);
+    
+    // 이메일로 사용자를 찾지 못한 경우, 유사한 이메일(같은 사용자명) 찾기
+    if (userIds.length === 0) {
+      try {
+        const emailPrefix = normalizedEmail.split('@')[0]; // @ 앞부분 (사용자명)
+        if (emailPrefix) {
+          const similarEmailStmt = prepare(`
+            SELECT id, email FROM users 
+            WHERE LOWER(TRIM(email)) LIKE $1 
+            LIMIT 10
+          `);
+          const similarUsers = await similarEmailStmt.all([`%${emailPrefix}%`]) as Array<{ id: string; email: string }>;
+          
+          if (similarUsers.length > 0) {
+            console.log('🔍 [getAnalysesByEmail] 유사한 이메일 사용자 발견:', {
+              searchEmail: normalizedEmail,
+              similarUsers: similarUsers.map(u => ({ id: u.id, email: u.email }))
+            });
+            
+            // 유사한 이메일의 사용자 ID도 포함
+            userIds = similarUsers.map(u => u.id);
+          }
+        }
+      } catch (error) {
+        console.warn('⚠️ [getAnalysesByEmail] 유사한 이메일 검색 오류:', error);
+      }
+    }
+    
+    if (userIds.length === 0) {
+      console.warn('⚠️ [getAnalysesByEmail] 이메일로 등록된 사용자가 없음:', {
+        email: normalizedEmail
+      });
+      return [];
+    }
+    
+    // PostgreSQL과 SQLite 모두 지원하는 IN 절 생성
+    const placeholders = userIds.map((_, i) => `$${i + 1}`).join(',');
+    
+    // 모든 사용자 ID로 분석 이력 조회
+    const queryText = `
+      SELECT 
+        id, url, aeo_score, geo_score, seo_score, overall_score, 
+        insights, chatgpt_score, perplexity_score, gemini_score, claude_score, 
+        created_at, user_id
+      FROM analyses
+      WHERE user_id IN (${placeholders})
+      ORDER BY ${orderBy} ${orderDirection}
+      LIMIT $${userIds.length + 1} OFFSET $${userIds.length + 2}
+    `;
+    
+    const results = await query(queryText, [...userIds, limit, offset]);
     
     console.log('🔍 [getAnalysesByEmail] 조회 결과:', {
       email: normalizedEmail,
       userIds: userIds,
-      resultCount: results.length,
+      resultCount: results.rows.length,
       limit: limit,
       offset: offset
     });
     
-    return results.map((row: any) => ({
+    return results.rows.map((row: any) => ({
       id: row.id,
       url: row.url,
       aeoScore: row.aeo_score,
       geoScore: row.geo_score,
       seoScore: row.seo_score,
       overallScore: row.overall_score,
-      insights: JSON.parse(row.insights),
+      insights: typeof row.insights === 'string' ? JSON.parse(row.insights) : row.insights,
       aioScores: {
         chatgpt: row.chatgpt_score,
         perplexity: row.perplexity_score,
@@ -112,7 +115,6 @@ export function getAnalysesByEmail(email: string, options: QueryOptions = {}) {
   } catch (error) {
     console.error('❌ [getAnalysesByEmail] 쿼리 실행 오류:', {
       email: normalizedEmail,
-      userIds: userIds,
       error: error
     });
     return [];
@@ -121,91 +123,96 @@ export function getAnalysesByEmail(email: string, options: QueryOptions = {}) {
 
 /**
  * 사용자별 분석 이력 조회 (최적화된 쿼리)
+ * PostgreSQL 및 SQLite 모두 지원
  */
-export function getUserAnalyses(userId: string, options: QueryOptions = {}) {
+export async function getUserAnalyses(userId: string, options: QueryOptions = {}) {
   const { limit = 10, offset = 0, orderBy = 'created_at', orderDirection = 'DESC' } = options;
   
-  // Vercel 서버리스 환경에서는 DELETE 모드를 사용하므로 체크포인트 불필요
-  // 하지만 동기화를 보장하기 위해 명시적으로 동기화 확인
+  // SQLite 전용 코드 (PostgreSQL에서는 무시)
+  if (isSQLite()) {
+    try {
+      if (process.env.VERCEL) {
+        db.pragma('synchronous = FULL');
+      } else {
+        const journalMode = db.prepare('PRAGMA journal_mode').get() as { journal_mode: string };
+        if (journalMode.journal_mode === 'wal') {
+          db.pragma('wal_checkpoint(PASSIVE)');
+        }
+      }
+    } catch (error) {
+      console.warn('⚠️ [getUserAnalyses] 동기화 경고:', error);
+    }
+  }
+
   try {
-    if (process.env.VERCEL) {
-      // Vercel 환경에서는 DELETE 모드이지만, 동기화를 보장하기 위해 명시적으로 동기화 확인
-      db.pragma('synchronous = FULL');
-    } else {
-      // 로컬 환경에서 WAL 모드인 경우에만 체크포인트 실행
-      const journalMode = db.prepare('PRAGMA journal_mode').get() as { journal_mode: string };
-      if (journalMode.journal_mode === 'wal') {
-        db.pragma('wal_checkpoint(PASSIVE)');
+    // 디버깅: 사용자 ID 확인
+    if (process.env.NODE_ENV === 'development' || process.env.DEBUG_DB) {
+      const userExists = await getUser(userId);
+      if (!userExists) {
+        console.warn('⚠️ [getUserAnalyses] 사용자가 존재하지 않음:', { userId });
+      }
+      
+      // 전체 분석 이력 개수 확인 (디버깅용)
+      const totalResult = await query('SELECT COUNT(*) as count FROM analyses WHERE user_id = $1', [userId]);
+      const totalCount = parseInt(totalResult.rows[0]?.count as string, 10) || 0;
+      if (totalCount === 0) {
+        // 다른 사용자 ID로 저장되었는지 확인 (디버깅용)
+        const allResult = await query('SELECT user_id, COUNT(*) as count FROM analyses GROUP BY user_id LIMIT 10');
+        if (allResult.rows.length > 0) {
+          console.warn('🔍 [getUserAnalyses] 다른 사용자 ID로 저장된 분석 이력:', {
+            requestedUserId: userId,
+            otherUserCounts: allResult.rows
+          });
+        }
       }
     }
-  } catch (error) {
-    // 체크포인트 실패는 무시
-    console.warn('⚠️ [getUserAnalyses] 동기화 경고:', error);
-  }
 
-  // 디버깅: 사용자 ID 확인
-  if (process.env.NODE_ENV === 'development' || process.env.DEBUG_DB) {
-    // 해당 사용자가 존재하는지 확인
-    const userExists = getUser(userId);
-    if (!userExists) {
-      console.warn('⚠️ [getUserAnalyses] 사용자가 존재하지 않음:', { userId });
-    }
+    const queryText = `
+      SELECT 
+        id, url, aeo_score, geo_score, seo_score, overall_score, 
+        insights, chatgpt_score, perplexity_score, gemini_score, claude_score, 
+        created_at, user_id
+      FROM analyses
+      WHERE user_id = $1
+      ORDER BY ${orderBy} ${orderDirection}
+      LIMIT $2 OFFSET $3
+    `;
+
+    const results = await query(queryText, [userId, limit, offset]);
     
-    // 전체 분석 이력 개수 확인 (디버깅용)
-    const totalStmt = db.prepare('SELECT COUNT(*) as count FROM analyses WHERE user_id = ?');
-    const totalCount = (totalStmt.get(userId) as { count: number })?.count || 0;
-    if (totalCount === 0) {
-      // 다른 사용자 ID로 저장되었는지 확인 (디버깅용)
-      const allAnalysesStmt = db.prepare('SELECT user_id, COUNT(*) as count FROM analyses GROUP BY user_id LIMIT 10');
-      const allUserCounts = allAnalysesStmt.all() as Array<{ user_id: string; count: number }>;
-      if (allUserCounts.length > 0) {
-        console.warn('🔍 [getUserAnalyses] 다른 사용자 ID로 저장된 분석 이력:', {
-          requestedUserId: userId,
-          otherUserCounts: allUserCounts
-        });
+    // 디버깅: 조회 결과 확인
+    if ((process.env.NODE_ENV === 'development' || process.env.DEBUG_DB) && results.rows.length === 0) {
+      // user_id가 NULL인 분석 이력 확인
+      const nullResult = await query('SELECT COUNT(*) as count FROM analyses WHERE user_id IS NULL');
+      const nullCount = parseInt(nullResult.rows[0]?.count as string, 10) || 0;
+      if (nullCount > 0) {
+        console.warn('⚠️ [getUserAnalyses] user_id가 NULL인 분석 이력 발견:', { count: nullCount });
       }
     }
+
+    return results.rows.map((row: any) => ({
+      id: row.id,
+      url: row.url,
+      aeoScore: row.aeo_score,
+      geoScore: row.geo_score,
+      seoScore: row.seo_score,
+      overallScore: row.overall_score,
+      insights: typeof row.insights === 'string' ? JSON.parse(row.insights) : row.insights,
+      aioScores: {
+        chatgpt: row.chatgpt_score,
+        perplexity: row.perplexity_score,
+        gemini: row.gemini_score,
+        claude: row.claude_score,
+      },
+      createdAt: row.created_at,
+    }));
+  } catch (error) {
+    console.error('❌ [getUserAnalyses] 쿼리 실행 오류:', {
+      userId,
+      error: error
+    });
+    return [];
   }
-
-  const stmt = db.prepare(`
-    SELECT 
-      id, url, aeo_score, geo_score, seo_score, overall_score, 
-      insights, chatgpt_score, perplexity_score, gemini_score, claude_score, 
-      created_at, user_id
-    FROM analyses
-    WHERE user_id = ?
-    ORDER BY ${orderBy} ${orderDirection}
-    LIMIT ? OFFSET ?
-  `);
-
-  const results = stmt.all(userId, limit, offset);
-  
-  // 디버깅: 조회 결과 확인
-  if ((process.env.NODE_ENV === 'development' || process.env.DEBUG_DB) && results.length === 0) {
-    // user_id가 NULL인 분석 이력 확인
-    const nullUserIdStmt = db.prepare('SELECT COUNT(*) as count FROM analyses WHERE user_id IS NULL');
-    const nullCount = (nullUserIdStmt.get() as { count: number })?.count || 0;
-    if (nullCount > 0) {
-      console.warn('⚠️ [getUserAnalyses] user_id가 NULL인 분석 이력 발견:', { count: nullCount });
-    }
-  }
-
-  return results.map((row: any) => ({
-    id: row.id,
-    url: row.url,
-    aeoScore: row.aeo_score,
-    geoScore: row.geo_score,
-    seoScore: row.seo_score,
-    overallScore: row.overall_score,
-    insights: JSON.parse(row.insights),
-    aioScores: {
-      chatgpt: row.chatgpt_score,
-      perplexity: row.perplexity_score,
-      gemini: row.gemini_score,
-      claude: row.claude_score,
-    },
-    createdAt: row.created_at,
-  }));
 }
 
 /**
@@ -1076,93 +1083,116 @@ export function saveOrUpdateChatConversation(data: {
 
 /**
  * 사용자 정보 조회
+ * PostgreSQL 및 SQLite 모두 지원
  */
-export function getUser(userId: string) {
-  // updated_at 컬럼 존재 여부 확인
-  const tableInfo = db.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
-  const hasUpdatedAt = tableInfo.some(col => col.name === 'updated_at');
-  
-  const columns = hasUpdatedAt 
-    ? 'id, email, blog_url, created_at, updated_at'
-    : 'id, email, blog_url, created_at';
-  
-  const stmt = db.prepare(`SELECT ${columns} FROM users WHERE id = ?`);
-  const row = stmt.get(userId) as any;
-  
-  if (!row) return null;
-
-  return {
-    id: row.id,
-    email: row.email,
-    blogUrl: row.blog_url,
-    createdAt: row.created_at,
-    updatedAt: hasUpdatedAt ? row.updated_at : row.created_at, // updated_at이 없으면 created_at 사용
-  };
+export async function getUser(userId: string) {
+  try {
+    // PostgreSQL과 SQLite 모두 updated_at 컬럼이 있으므로 항상 포함
+    const queryText = 'SELECT id, email, blog_url, name, image, provider, role, is_active, last_login_at, created_at, updated_at FROM users WHERE id = $1';
+    const result = await query(queryText, [userId]);
+    
+    if (result.rows.length === 0) return null;
+    
+    const row = result.rows[0];
+    
+    return {
+      id: row.id,
+      email: row.email,
+      blogUrl: row.blog_url,
+      name: row.name,
+      image: row.image,
+      provider: row.provider,
+      role: row.role,
+      isActive: row.is_active,
+      lastLoginAt: row.last_login_at,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at || row.created_at,
+    };
+  } catch (error) {
+    console.error('❌ [getUser] 쿼리 실행 오류:', { userId, error });
+    return null;
+  }
 }
 
 /**
  * 이메일로 사용자 정보 조회
  * 이메일은 정규화(소문자, 트림)하여 검색
- * 여러 방법으로 시도하여 안정성 향상
+ * PostgreSQL 및 SQLite 모두 지원
  */
-export function getUserByEmail(email: string) {
+export async function getUserByEmail(email: string) {
   // 이메일 정규화 (소문자, 트림) - 일관된 사용자 식별을 위해 중요
   const normalizedEmail = email.toLowerCase().trim();
   
-  // updated_at 컬럼 존재 여부 확인
-  const tableInfo = db.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
-  const hasUpdatedAt = tableInfo.some(col => col.name === 'updated_at');
-  
-  const columns = hasUpdatedAt 
-    ? 'id, email, blog_url, created_at, updated_at'
-    : 'id, email, blog_url, created_at';
-  
-  // 방법 1: LOWER(TRIM(email))로 검색 (가장 안정적)
-  let stmt = db.prepare(`SELECT ${columns} FROM users WHERE LOWER(TRIM(email)) = ?`);
-  let row = stmt.get(normalizedEmail) as any;
-  
-  // 방법 2: 정규화된 이메일로 직접 검색 (대소문자 차이 대비)
-  if (!row) {
-    stmt = db.prepare(`SELECT ${columns} FROM users WHERE email = ?`);
-    row = stmt.get(normalizedEmail) as any;
-  }
-  
-  // 방법 3: 원본 이메일로도 검색 (정규화되지 않은 경우 대비)
-  if (!row && email !== normalizedEmail) {
-    stmt = db.prepare(`SELECT ${columns} FROM users WHERE email = ?`);
-    row = stmt.get(email) as any;
-  }
-  
-  // 방법 4: LIKE로 검색 (공백 차이 대비)
-  if (!row) {
-    stmt = db.prepare(`SELECT ${columns} FROM users WHERE LOWER(TRIM(email)) LIKE ?`);
-    row = stmt.get(`%${normalizedEmail}%`) as any;
-  }
-  
-  if (!row) {
-    // 디버깅: 해당 이메일과 유사한 사용자 찾기 (로그 레벨 낮춤)
-    try {
-      const debugStmt = db.prepare(`SELECT id, email FROM users WHERE email LIKE ? LIMIT 5`);
-      const similarUsers = debugStmt.all(`%${normalizedEmail.split('@')[0]}%`) as Array<{ id: string; email: string }>;
-      if (similarUsers.length > 0 && process.env.DEBUG_EMAIL_MATCHING) {
-        console.log('🔍 [getUserByEmail] 유사한 이메일 발견 (디버그 모드):', {
-          searchEmail: normalizedEmail,
-          similarEmails: similarUsers.map(u => ({ id: u.id, email: u.email }))
-        });
-      }
-    } catch (error) {
-      // 디버깅 실패는 무시
+  try {
+    // 방법 1: LOWER(TRIM(email))로 검색 (가장 안정적)
+    let result = await query(
+      'SELECT id, email, blog_url, name, image, provider, role, is_active, last_login_at, created_at, updated_at FROM users WHERE LOWER(TRIM(email)) = $1',
+      [normalizedEmail]
+    );
+    
+    // 방법 2: 정규화된 이메일로 직접 검색 (대소문자 차이 대비)
+    if (result.rows.length === 0) {
+      result = await query(
+        'SELECT id, email, blog_url, name, image, provider, role, is_active, last_login_at, created_at, updated_at FROM users WHERE email = $1',
+        [normalizedEmail]
+      );
     }
+    
+    // 방법 3: 원본 이메일로도 검색 (정규화되지 않은 경우 대비)
+    if (result.rows.length === 0 && email !== normalizedEmail) {
+      result = await query(
+        'SELECT id, email, blog_url, name, image, provider, role, is_active, last_login_at, created_at, updated_at FROM users WHERE email = $1',
+        [email]
+      );
+    }
+    
+    // 방법 4: LIKE로 검색 (공백 차이 대비)
+    if (result.rows.length === 0) {
+      result = await query(
+        'SELECT id, email, blog_url, name, image, provider, role, is_active, last_login_at, created_at, updated_at FROM users WHERE LOWER(TRIM(email)) LIKE $1',
+        [`%${normalizedEmail}%`]
+      );
+    }
+    
+    if (result.rows.length === 0) {
+      // 디버깅: 해당 이메일과 유사한 사용자 찾기
+      if (process.env.DEBUG_EMAIL_MATCHING) {
+        try {
+          const debugResult = await query(
+            'SELECT id, email FROM users WHERE email LIKE $1 LIMIT 5',
+            [`%${normalizedEmail.split('@')[0]}%`]
+          );
+          if (debugResult.rows.length > 0) {
+            console.log('🔍 [getUserByEmail] 유사한 이메일 발견 (디버그 모드):', {
+              searchEmail: normalizedEmail,
+              similarEmails: debugResult.rows
+            });
+          }
+        } catch (error) {
+          // 디버깅 실패는 무시
+        }
+      }
+      return null;
+    }
+
+    const row = result.rows[0];
+    return {
+      id: row.id,
+      email: row.email,
+      blogUrl: row.blog_url,
+      name: row.name,
+      image: row.image,
+      provider: row.provider,
+      role: row.role,
+      isActive: row.is_active,
+      lastLoginAt: row.last_login_at,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at || row.created_at,
+    };
+  } catch (error) {
+    console.error('❌ [getUserByEmail] 쿼리 실행 오류:', { email: normalizedEmail, error });
     return null;
   }
-
-  return {
-    id: row.id,
-    email: row.email,
-    blogUrl: row.blog_url,
-    createdAt: row.created_at,
-    updatedAt: hasUpdatedAt ? row.updated_at : row.created_at,
-  };
 }
 
 /**
