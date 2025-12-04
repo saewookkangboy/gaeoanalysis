@@ -94,6 +94,22 @@ export async function initializePostgresSchema(): Promise<void> {
       );
     `);
 
+    // admin_logs 테이블 생성
+    await query(`
+      CREATE TABLE IF NOT EXISTS admin_logs (
+        id TEXT PRIMARY KEY,
+        admin_user_id TEXT NOT NULL,
+        action TEXT NOT NULL,
+        target_type TEXT,
+        target_id TEXT,
+        details TEXT,
+        ip_address TEXT,
+        user_agent TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (admin_user_id) REFERENCES users(id) ON DELETE CASCADE
+      );
+    `);
+
     // ai_agent_usage 테이블 생성
     await query(`
       CREATE TABLE IF NOT EXISTS ai_agent_usage (
@@ -122,6 +138,8 @@ export async function initializePostgresSchema(): Promise<void> {
       CREATE INDEX IF NOT EXISTS idx_chat_analysis_id ON chat_conversations(analysis_id);
       CREATE INDEX IF NOT EXISTS idx_auth_logs_user_id ON auth_logs(user_id);
       CREATE INDEX IF NOT EXISTS idx_auth_logs_created_at ON auth_logs(created_at);
+      CREATE INDEX IF NOT EXISTS idx_admin_logs_admin_user_id ON admin_logs(admin_user_id);
+      CREATE INDEX IF NOT EXISTS idx_admin_logs_created_at ON admin_logs(created_at);
       CREATE INDEX IF NOT EXISTS idx_ai_agent_usage_user_id ON ai_agent_usage(user_id);
       CREATE INDEX IF NOT EXISTS idx_ai_agent_usage_created_at ON ai_agent_usage(created_at);
     `);
