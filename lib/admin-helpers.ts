@@ -1675,7 +1675,8 @@ export async function triggerAlgorithmLearning(
 
           // 실제 점수와 예상 점수 비교 (현재는 예상 점수 = 실제 점수로 가정)
           // 향후 HTML 저장 시 실제 특징 추출 및 학습 수행
-          const actualScore = learningData.scores[type as 'aeo' | 'geo' | 'seo'];
+          const typeKey = type as 'aeo' | 'geo' | 'seo';
+          const actualScore = learningData.scores[typeKey];
           const predictedScore = actualScore; // 현재는 동일하게 가정
 
           // 성능 업데이트만 수행 (가중치 학습은 HTML이 필요)
@@ -1713,7 +1714,8 @@ export async function triggerAlgorithmLearning(
             try {
               const version = getActiveAlgorithmVersion(type);
               if (version) {
-                const actualScore = learningData.scores[type as 'aeo' | 'geo' | 'seo'];
+                const typeKey = type as 'aeo' | 'geo' | 'seo';
+                const actualScore = learningData.scores[typeKey];
                 const predictedScore = actualScore;
                 updateAlgorithmPerformance(version.id, actualScore, predictedScore);
               }
