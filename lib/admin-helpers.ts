@@ -1659,7 +1659,7 @@ export async function triggerAlgorithmLearning(
       // 알고리즘 학습 시스템 연동
       const { getActiveAlgorithmVersion, updateAlgorithmPerformance } = await import('./algorithm-learning');
 
-      const types = algorithmType ? [algorithmType] : ['aeo', 'geo', 'seo'];
+      const types: Array<'aeo' | 'geo' | 'seo' | 'aio'> = algorithmType ? [algorithmType] : ['aeo', 'geo', 'seo'];
       
       for (const type of types) {
         try {
@@ -1708,7 +1708,7 @@ export async function triggerAlgorithmLearning(
           // 각 분석에 대해 학습 수행 (간단한 성능 업데이트만)
           const { getActiveAlgorithmVersion, updateAlgorithmPerformance } = await import('./algorithm-learning');
           
-          const types = algorithmType ? [algorithmType] : ['aeo', 'geo', 'seo'];
+          const types: Array<'aeo' | 'geo' | 'seo' | 'aio'> = algorithmType ? [algorithmType] : ['aeo', 'geo', 'seo'];
           
           for (const type of types) {
             try {
