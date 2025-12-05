@@ -106,10 +106,6 @@ export interface PaginationResult {
 
 /**
  * 페이지네이션 계산
- * 
- * @param params 페이지네이션 파라미터
- * @param total 총 레코드 수
- * @returns 페이지네이션 결과
  */
 export function calculatePagination(
   params: PaginationParams,
@@ -138,40 +134,43 @@ export interface DateRangeParams {
 }
 
 /**
- * 날짜 범위 유효성 검사 및 정규화
- * 
- * @param params 날짜 범위 파라미터
- * @returns 정규화된 날짜 범위
+ * 날짜 범위 정규화
  */
 export function normalizeDateRange(params: DateRangeParams): {
   startDate: Date;
   endDate: Date;
 } {
   const now = new Date();
-  const endDate = params.endDate ? new Date(params.endDate) : now;
-  
-  // startDate가 없으면 30일 전을 기본값으로 설정
-  let startDate = params.startDate
-    ? new Date(params.startDate)
-    : new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  let start: Date;
+  let end: Date;
+
+  if (params.startDate) {
+    start = new Date(params.startDate);
+  } else {
+    // 기본값: 30일 전
+    start = new Date(now);
+    start.setDate(start.getDate() - 30);
+    start.setHours(0, 0, 0, 0);
+  }
+
+  if (params.endDate) {
+    end = new Date(params.endDate);
+    end.setHours(23, 59, 59, 999);
+  } else {
+    end = now;
+  }
 
   // 날짜 유효성 검사
-  if (isNaN(startDate.getTime())) {
-    startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  if (isNaN(start.getTime())) {
+    start = new Date(now);
+    start.setDate(start.getDate() - 30);
+    start.setHours(0, 0, 0, 0);
   }
-  if (isNaN(endDate.getTime())) {
-    return {
-      startDate,
-      endDate: now,
-    };
-  }
-
-  // startDate가 endDate보다 늦으면 교정
-  if (startDate > endDate) {
-    startDate = new Date(endDate.getTime() - 30 * 24 * 60 * 60 * 1000);
+  if (isNaN(end.getTime())) {
+    end = now;
   }
 
-  return { startDate, endDate };
+  return { startDate: start, endDate: end };
 }
 
 /**
@@ -182,7 +181,7 @@ export interface AuthLog {
   userId: string | null;
   userEmail: string | null;
   provider: 'google' | 'github';
-  action: 'login' | 'logout' | 'signup';
+  action: 'login' | 'logout' | 'register';
   ipAddress: string | null;
   userAgent: string | null;
   success: boolean;
@@ -200,9 +199,6 @@ export interface AuthLogFilterParams extends PaginationParams, DateRangeParams {
 
 /**
  * 로그인 이력 조회
- * 
- * @param params 필터 파라미터
- * @returns 로그인 이력 목록과 페이지네이션 정보
  */
 export async function getAuthLogs(
   params: AuthLogFilterParams = {}
@@ -301,7 +297,7 @@ export async function getAuthLogs(
       action: row.action,
       ipAddress: row.ip_address,
       userAgent: row.user_agent,
-      success: row.success === 1 || row.success === true,
+      success: row.success,
       errorMessage: row.error_message,
       createdAt: row.created_at,
     }));
@@ -321,7 +317,7 @@ export async function getAuthLogs(
     if (error.code === '42P01' || error.message?.includes('does not exist') || error.message?.includes('no such table')) {
       console.error('❌ [getAuthLogs] auth_logs 테이블이 존재하지 않습니다. 스키마를 초기화해주세요.');
     }
-    
+
     return {
       logs: [],
       pagination: {
@@ -488,42 +484,45 @@ export async function getUsers(
   try {
     const { provider = 'all', role = 'all', search } = params;
 
+    // WHERE 조건 빌드
     const conditions: string[] = [];
     const values: any[] = [];
     let paramIndex = 1;
 
+    // Provider 필터
     if (provider !== 'all') {
       conditions.push(`u.provider = $${paramIndex++}`);
       values.push(provider);
     }
 
+    // Role 필터
     if (role !== 'all') {
       conditions.push(`u.role = $${paramIndex++}`);
       values.push(role);
     }
 
+    // 이메일 검색
     if (search) {
-      const searchNormalized = search.toLowerCase().trim();
-      conditions.push(`LOWER(TRIM(u.email)) LIKE $${paramIndex++}`);
-      values.push(`%${searchNormalized}%`);
+      conditions.push(`LOWER(u.email) LIKE $${paramIndex++}`);
+      values.push(`%${search.toLowerCase()}%`);
     }
 
     const whereClause =
       conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
+    // 총 개수 조회
     const countQuery = `
-      SELECT COUNT(DISTINCT u.id) as total
+      SELECT COUNT(*) as total
       FROM users u
       ${whereClause}
     `;
     const countResult = await query(countQuery, values);
     const total = parseInt(countResult.rows[0]?.total as string, 10) || 0;
 
+    // 페이지네이션 계산
     const pagination = calculatePagination(params, total);
 
-    // PostgreSQL과 SQLite 모두 지원하기 위해 boolean 비교 처리
-    const successCondition = isPostgreSQL() ? 'al.success = true' : 'al.success = 1';
-
+    // 사용자 목록 조회 (통계 포함)
     const usersQuery = `
       SELECT 
         u.id,
@@ -540,7 +539,7 @@ export async function getUsers(
       FROM users u
       LEFT JOIN analyses a ON u.id = a.user_id
       LEFT JOIN chat_conversations c ON u.id = c.user_id
-      LEFT JOIN auth_logs al ON u.id = al.user_id AND al.action = 'login' AND ${successCondition}
+      LEFT JOIN auth_logs al ON u.id = al.user_id AND al.action = 'login' AND al.success = true
       ${whereClause}
       GROUP BY u.id, u.email, u.name, u.provider, u.role, u.is_active, u.last_login_at, u.created_at
       ORDER BY u.created_at DESC
@@ -558,8 +557,8 @@ export async function getUsers(
       email: row.email,
       name: row.name,
       provider: row.provider,
-      role: row.role || 'user',
-      isActive: row.is_active === 1 || row.is_active === true,
+      role: row.role,
+      isActive: row.is_active,
       lastLoginAt: row.last_login_at,
       createdAt: row.created_at,
       totalAnalyses: parseInt(row.total_analyses as string, 10) || 0,
@@ -803,6 +802,234 @@ export async function getAnalyses(
         offset: 0,
         total: 0,
         totalPages: 0,
+      },
+    };
+  }
+}
+
+/**
+ * 통계 정보 타입
+ */
+export interface StatisticsData {
+  overview: {
+    totalUsers: number;
+    totalAnalyses: number;
+    totalLogins: number;
+    totalChats: number;
+  };
+  today: {
+    newUsers: number;
+    analyses: number;
+    logins: number;
+    chats: number;
+  };
+  averages: {
+    aeoScore: number;
+    geoScore: number;
+    seoScore: number;
+    overallScore: number;
+  };
+  trends: {
+    dailyUsers: Array<{ date: string; count: number }>;
+    dailyAnalyses: Array<{ date: string; count: number }>;
+    dailyLogins: Array<{ date: string; count: number }>;
+  };
+}
+
+/**
+ * 통계 데이터 조회
+ * 
+ * @param startDate 시작 날짜 (선택)
+ * @param endDate 종료 날짜 (선택)
+ * @returns 통계 데이터
+ */
+export async function getStatistics(
+  startDate?: string,
+  endDate?: string
+): Promise<StatisticsData> {
+  try {
+    // PostgreSQL 스키마 초기화 보장
+    if (isPostgreSQL()) {
+      try {
+        const { ensurePostgresSchema } = await import('./db-postgres-schema');
+        await ensurePostgresSchema();
+      } catch (schemaError) {
+        console.warn('⚠️ [getStatistics] 스키마 초기화 스킵:', schemaError);
+      }
+    }
+
+    const now = new Date();
+    const todayStart = new Date(now);
+    todayStart.setHours(0, 0, 0, 0);
+
+    // 날짜 범위 설정
+    let start: Date;
+    let end: Date;
+
+    if (startDate) {
+      start = new Date(startDate);
+    } else {
+      // 기본값: 30일 전
+      start = new Date(now);
+      start.setDate(start.getDate() - 30);
+      start.setHours(0, 0, 0, 0);
+    }
+
+    if (endDate) {
+      end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+    } else {
+      end = now;
+    }
+
+    // 1. 전체 통계
+    const totalUsersResult = await query('SELECT COUNT(*) as count FROM users', []);
+    const totalAnalysesResult = await query('SELECT COUNT(*) as count FROM analyses', []);
+    
+    const successCondition = isPostgreSQL() ? "success = true" : "success = 1";
+    const totalLoginsResult = await query(
+      `SELECT COUNT(*) as count FROM auth_logs WHERE action = 'login' AND ${successCondition}`,
+      []
+    );
+    const totalChatsResult = await query('SELECT COUNT(*) as count FROM chat_conversations', []);
+
+    // 2. 오늘 통계
+    const todayUsersResult = await query(
+      'SELECT COUNT(*) as count FROM users WHERE created_at >= $1',
+      [todayStart.toISOString()]
+    );
+    const todayAnalysesResult = await query(
+      'SELECT COUNT(*) as count FROM analyses WHERE created_at >= $1',
+      [todayStart.toISOString()]
+    );
+    const todayLoginsResult = await query(
+      `SELECT COUNT(*) as count FROM auth_logs WHERE action = 'login' AND ${successCondition} AND created_at >= $1`,
+      [todayStart.toISOString()]
+    );
+    const todayChatsResult = await query(
+      'SELECT COUNT(*) as count FROM chat_conversations WHERE created_at >= $1',
+      [todayStart.toISOString()]
+    );
+
+    // 3. 평균 점수
+    const averagesResult = await query(
+      `SELECT 
+        AVG(aeo_score) as avg_aeo,
+        AVG(geo_score) as avg_geo,
+        AVG(seo_score) as avg_seo,
+        AVG(overall_score) as avg_overall
+      FROM analyses
+      WHERE created_at >= $1`,
+      [start.toISOString()]
+    );
+
+    // 4. 일별 트렌드 (날짜별 그룹화)
+    const dateFormat = isPostgreSQL()
+      ? "TO_CHAR(created_at, 'YYYY-MM-DD')"
+      : "DATE(created_at)";
+
+    const dailyUsersResult = await query(
+      `SELECT ${dateFormat} as date, COUNT(*) as count
+       FROM users
+       WHERE created_at >= $1 AND created_at <= $2
+       GROUP BY ${dateFormat}
+       ORDER BY date ASC`,
+      [start.toISOString(), end.toISOString()]
+    );
+
+    const dailyAnalysesResult = await query(
+      `SELECT ${dateFormat} as date, COUNT(*) as count
+       FROM analyses
+       WHERE created_at >= $1 AND created_at <= $2
+       GROUP BY ${dateFormat}
+       ORDER BY date ASC`,
+      [start.toISOString(), end.toISOString()]
+    );
+
+    const dailyLoginsResult = await query(
+      `SELECT ${dateFormat} as date, COUNT(*) as count
+       FROM auth_logs
+       WHERE action = 'login' AND ${successCondition}
+         AND created_at >= $1 AND created_at <= $2
+       GROUP BY ${dateFormat}
+       ORDER BY date ASC`,
+      [start.toISOString(), end.toISOString()]
+    );
+
+    const overview = {
+      totalUsers: parseInt(totalUsersResult.rows[0]?.count as string, 10) || 0,
+      totalAnalyses: parseInt(totalAnalysesResult.rows[0]?.count as string, 10) || 0,
+      totalLogins: parseInt(totalLoginsResult.rows[0]?.count as string, 10) || 0,
+      totalChats: parseInt(totalChatsResult.rows[0]?.count as string, 10) || 0,
+    };
+
+    const today = {
+      newUsers: parseInt(todayUsersResult.rows[0]?.count as string, 10) || 0,
+      analyses: parseInt(todayAnalysesResult.rows[0]?.count as string, 10) || 0,
+      logins: parseInt(todayLoginsResult.rows[0]?.count as string, 10) || 0,
+      chats: parseInt(todayChatsResult.rows[0]?.count as string, 10) || 0,
+    };
+
+    const avgRow = averagesResult.rows[0];
+    const averages = {
+      aeoScore: parseFloat(avgRow?.avg_aeo as string) || 0,
+      geoScore: parseFloat(avgRow?.avg_geo as string) || 0,
+      seoScore: parseFloat(avgRow?.avg_seo as string) || 0,
+      overallScore: parseFloat(avgRow?.avg_overall as string) || 0,
+    };
+
+    const trends = {
+      dailyUsers: dailyUsersResult.rows.map((row: any) => ({
+        date: row.date,
+        count: parseInt(row.count as string, 10) || 0,
+      })),
+      dailyAnalyses: dailyAnalysesResult.rows.map((row: any) => ({
+        date: row.date,
+        count: parseInt(row.count as string, 10) || 0,
+      })),
+      dailyLogins: dailyLoginsResult.rows.map((row: any) => ({
+        date: row.date,
+        count: parseInt(row.count as string, 10) || 0,
+      })),
+    };
+
+    return {
+      overview,
+      today,
+      averages,
+      trends,
+    };
+  } catch (error: any) {
+    console.error('❌ [getStatistics] 통계 조회 오류:', {
+      error: error.message,
+      code: error.code,
+      stack: error.stack,
+    });
+
+    // 기본값 반환
+    return {
+      overview: {
+        totalUsers: 0,
+        totalAnalyses: 0,
+        totalLogins: 0,
+        totalChats: 0,
+      },
+      today: {
+        newUsers: 0,
+        analyses: 0,
+        logins: 0,
+        chats: 0,
+      },
+      averages: {
+        aeoScore: 0,
+        geoScore: 0,
+        seoScore: 0,
+        overallScore: 0,
+      },
+      trends: {
+        dailyUsers: [],
+        dailyAnalyses: [],
+        dailyLogins: [],
       },
     };
   }
