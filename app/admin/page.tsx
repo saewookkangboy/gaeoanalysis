@@ -92,6 +92,18 @@ export default function AdminDashboardPage() {
             서비스 전체에 표시될 공지사항을 관리합니다.
           </p>
         </Link>
+
+        <Link
+          href="/admin/reports"
+          className="block bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow"
+        >
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            AI 리포트
+          </h3>
+          <p className="text-sm text-gray-600">
+            사용자 데이터를 종합적으로 분석하여 AI 리포트를 생성합니다.
+          </p>
+        </Link>
       </div>
     </div>
   );

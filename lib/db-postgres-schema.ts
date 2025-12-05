@@ -93,6 +93,28 @@ export async function initializePostgresSchema(): Promise<void> {
       );
     `);
 
+    // ai_reports 테이블 생성
+    await query(`
+      CREATE TABLE IF NOT EXISTS ai_reports (
+        id TEXT PRIMARY KEY,
+        admin_user_id TEXT NOT NULL,
+        user_id TEXT,
+        report_type TEXT NOT NULL CHECK(report_type IN ('summary', 'detailed', 'trend')),
+        report_content TEXT NOT NULL,
+        metadata TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (admin_user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+      );
+    `);
+
+    // ai_reports 인덱스 생성
+    await query(`
+      CREATE INDEX IF NOT EXISTS idx_ai_reports_admin_user_id ON ai_reports(admin_user_id);
+      CREATE INDEX IF NOT EXISTS idx_ai_reports_user_id ON ai_reports(user_id);
+      CREATE INDEX IF NOT EXISTS idx_ai_reports_created_at ON ai_reports(created_at);
+    `);
+
     // ai_agent_usage 테이블 생성
     await query(`
       CREATE TABLE IF NOT EXISTS ai_agent_usage (
@@ -123,6 +145,10 @@ export async function initializePostgresSchema(): Promise<void> {
       CREATE INDEX IF NOT EXISTS idx_auth_logs_created_at ON auth_logs(created_at);
       CREATE INDEX IF NOT EXISTS idx_admin_logs_admin_user_id ON admin_logs(admin_user_id);
       CREATE INDEX IF NOT EXISTS idx_admin_logs_created_at ON admin_logs(created_at);
+      
+      CREATE INDEX IF NOT EXISTS idx_ai_reports_admin_user_id ON ai_reports(admin_user_id);
+      CREATE INDEX IF NOT EXISTS idx_ai_reports_user_id ON ai_reports(user_id);
+      CREATE INDEX IF NOT EXISTS idx_ai_reports_created_at ON ai_reports(created_at);
       CREATE INDEX IF NOT EXISTS idx_ai_agent_usage_user_id ON ai_agent_usage(user_id);
       CREATE INDEX IF NOT EXISTS idx_ai_agent_usage_created_at ON ai_agent_usage(created_at);
     `);

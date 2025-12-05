@@ -7,6 +7,7 @@
 import { query, prepare, isPostgreSQL } from './db-adapter';
 import { v4 as uuidv4 } from 'uuid';
 import { NextRequest } from 'next/server';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 /**
  * 관리자 활동 로그 타입
@@ -1030,6 +1031,490 @@ export async function getStatistics(
         dailyUsers: [],
         dailyAnalyses: [],
         dailyLogins: [],
+      },
+    };
+  }
+}
+
+// ============================================
+// AI 리포트 관련 함수
+// ============================================
+
+/**
+ * 리포트 데이터 타입
+ */
+export interface ReportData {
+  overview: {
+    totalUsers: number;
+    totalAnalyses: number;
+    totalLogins: number;
+    totalChats: number;
+  };
+  averages: {
+    aeoScore: number;
+    geoScore: number;
+    seoScore: number;
+    overallScore: number;
+  };
+  trends: {
+    dailyUsers: Array<{ date: string; count: number }>;
+    dailyAnalyses: Array<{ date: string; count: number }>;
+    dailyLogins: Array<{ date: string; count: number }>;
+  };
+  userStats?: {
+    userId: string;
+    userEmail: string;
+    provider: string | null;
+    totalAnalyses: number;
+    avgOverallScore: number;
+    avgAeoScore: number;
+    avgGeoScore: number;
+    avgSeoScore: number;
+  };
+}
+
+/**
+ * 리포트 데이터 수집
+ * 
+ * @param userId 특정 사용자 ID (선택적, 없으면 전체 데이터)
+ * @param startDate 시작 날짜 (선택적)
+ * @param endDate 종료 날짜 (선택적)
+ * @returns 리포트 데이터
+ */
+export async function collectReportData(
+  userId?: string,
+  startDate?: string,
+  endDate?: string
+): Promise<ReportData> {
+  try {
+    // PostgreSQL 스키마 초기화 보장
+    if (isPostgreSQL()) {
+      try {
+        const { ensurePostgresSchema } = await import('./db-postgres-schema');
+        await ensurePostgresSchema();
+      } catch (schemaError) {
+        console.warn('⚠️ [collectReportData] 스키마 초기화 스킵:', schemaError);
+      }
+    }
+
+    // 전체 통계 조회
+    const statistics = await getStatistics(startDate, endDate);
+
+    // 사용자별 통계 (특정 사용자가 지정된 경우)
+    let userStats = undefined;
+    if (userId) {
+      // 사용자 정보 조회
+      const userResult = await query(
+        'SELECT id, email, provider FROM users WHERE id = $1',
+        [userId]
+      );
+      const user = userResult.rows[0];
+
+      if (user) {
+        // 사용자별 분석 통계
+        const userAnalysesResult = await query(
+          `SELECT 
+            COUNT(*) as total_analyses,
+            AVG(overall_score) as avg_overall,
+            AVG(aeo_score) as avg_aeo,
+            AVG(geo_score) as avg_geo,
+            AVG(seo_score) as avg_seo
+          FROM analyses
+          WHERE user_id = $1
+            ${startDate ? 'AND created_at >= $2' : ''}
+            ${endDate ? `AND created_at <= $${startDate ? '3' : '2'}` : ''}`,
+          startDate && endDate
+            ? [userId, startDate, endDate]
+            : startDate
+            ? [userId, startDate]
+            : endDate
+            ? [userId, endDate]
+            : [userId]
+        );
+
+        const analysisRow = userAnalysesResult.rows[0];
+        userStats = {
+          userId: user.id,
+          userEmail: user.email,
+          provider: user.provider,
+          totalAnalyses: parseInt(analysisRow?.total_analyses as string, 10) || 0,
+          avgOverallScore: parseFloat(analysisRow?.avg_overall as string) || 0,
+          avgAeoScore: parseFloat(analysisRow?.avg_aeo as string) || 0,
+          avgGeoScore: parseFloat(analysisRow?.avg_geo as string) || 0,
+          avgSeoScore: parseFloat(analysisRow?.avg_seo as string) || 0,
+        };
+      }
+    }
+
+    return {
+      overview: statistics.overview,
+      averages: statistics.averages,
+      trends: statistics.trends,
+      userStats,
+    };
+  } catch (error: any) {
+    console.error('❌ [collectReportData] 리포트 데이터 수집 오류:', {
+      error: error.message,
+      code: error.code,
+    });
+
+    // 기본값 반환
+    return {
+      overview: {
+        totalUsers: 0,
+        totalAnalyses: 0,
+        totalLogins: 0,
+        totalChats: 0,
+      },
+      averages: {
+        aeoScore: 0,
+        geoScore: 0,
+        seoScore: 0,
+        overallScore: 0,
+      },
+      trends: {
+        dailyUsers: [],
+        dailyAnalyses: [],
+        dailyLogins: [],
+      },
+      userStats: userId ? undefined : undefined,
+    };
+  }
+}
+
+/**
+ * 리포트 프롬프트 생성
+ * 
+ * @param reportData 리포트 데이터
+ * @param reportType 리포트 타입 ('summary' | 'detailed' | 'trend')
+ * @returns 리포트 프롬프트
+ */
+export function buildReportPrompt(
+  reportData: ReportData,
+  reportType: 'summary' | 'detailed' | 'trend'
+): string {
+  const { overview, averages, trends, userStats } = reportData;
+
+  let prompt = `GAEO 분석 서비스의 관리자 리포트를 생성해주세요.
+
+**리포트 타입**: ${reportType === 'summary' ? '요약 리포트' : reportType === 'detailed' ? '상세 리포트' : '트렌드 리포트'}
+
+**서비스 통계**:
+- 총 사용자 수: ${overview.totalUsers}명
+- 총 분석 수: ${overview.totalAnalyses}건
+- 총 로그인 수: ${overview.totalLogins}회
+- 총 채팅 수: ${overview.totalChats}회
+
+**평균 점수**:
+- AEO 점수: ${averages.aeoScore.toFixed(1)}/100
+- GEO 점수: ${averages.geoScore.toFixed(1)}/100
+- SEO 점수: ${averages.seoScore.toFixed(1)}/100
+- 종합 점수: ${averages.overallScore.toFixed(1)}/100
+
+`;
+
+  if (userStats) {
+    prompt += `**사용자별 통계** (${userStats.userEmail}):
+- 총 분석 수: ${userStats.totalAnalyses}건
+- 평균 종합 점수: ${userStats.avgOverallScore.toFixed(1)}/100
+- 평균 AEO 점수: ${userStats.avgAeoScore.toFixed(1)}/100
+- 평균 GEO 점수: ${userStats.avgGeoScore.toFixed(1)}/100
+- 평균 SEO 점수: ${userStats.avgSeoScore.toFixed(1)}/100
+
+`;
+  }
+
+  if (trends.dailyUsers.length > 0) {
+    prompt += `**일별 트렌드** (최근 ${trends.dailyUsers.length}일):
+- 일별 신규 사용자: ${trends.dailyUsers.slice(-7).map(d => `${d.date}: ${d.count}명`).join(', ')}
+- 일별 분석 수: ${trends.dailyAnalyses.slice(-7).map(d => `${d.date}: ${d.count}건`).join(', ')}
+- 일별 로그인 수: ${trends.dailyLogins.slice(-7).map(d => `${d.date}: ${d.count}회`).join(', ')}
+
+`;
+  }
+
+  prompt += `**요구사항**:
+- 마크다운 형식으로 작성
+- ${reportType === 'summary' ? '핵심 요약과 주요 인사이트를 간결하게 제공' : reportType === 'detailed' ? '상세한 분석과 개선 제안을 포함' : '트렌드 분석과 예측을 포함'}
+- 한국어로 작성
+- 데이터 기반의 객관적인 분석
+- 구체적인 개선 제안 포함
+
+**리포트 작성**:`;
+
+  return prompt;
+}
+
+/**
+ * AI 리포트 생성
+ * 
+ * @param reportData 리포트 데이터
+ * @param reportType 리포트 타입
+ * @returns 생성된 리포트 (마크다운 형식)
+ */
+export async function generateAIReport(
+  reportData: ReportData,
+  reportType: 'summary' | 'detailed' | 'trend'
+): Promise<string> {
+  try {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      throw new Error('Gemini API 키가 설정되지 않았습니다.');
+    }
+
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({
+      model: 'gemini-2.5-flash',
+      generationConfig: {
+        temperature: 0.7,
+        topK: 40,
+        topP: 0.95,
+        maxOutputTokens: 8192, // 리포트는 더 긴 응답 필요
+      },
+    });
+
+    const prompt = buildReportPrompt(reportData, reportType);
+
+    console.log('🔄 [generateAIReport] 리포트 생성 시작...', {
+      reportType,
+      hasUserStats: !!reportData.userStats,
+    });
+
+    const result = await model.generateContent(prompt);
+    const response = result.response;
+    const text = response.text();
+
+    console.log('✅ [generateAIReport] 리포트 생성 완료');
+
+    return text;
+  } catch (error: any) {
+    console.error('❌ [generateAIReport] 리포트 생성 오류:', {
+      error: error.message,
+      reportType,
+    });
+    throw error;
+  }
+}
+
+/**
+ * 리포트 저장
+ * 
+ * @param data 리포트 데이터
+ * @returns 저장된 리포트 ID
+ */
+export async function saveReport(data: {
+  id: string;
+  adminUserId: string;
+  userId?: string;
+  reportType: 'summary' | 'detailed' | 'trend';
+  reportContent: string;
+  metadata?: Record<string, any>;
+}): Promise<string> {
+  try {
+    // PostgreSQL 스키마 초기화 보장
+    if (isPostgreSQL()) {
+      try {
+        const { ensurePostgresSchema } = await import('./db-postgres-schema');
+        await ensurePostgresSchema();
+      } catch (schemaError) {
+        console.warn('⚠️ [saveReport] 스키마 초기화 스킵:', schemaError);
+      }
+    }
+
+    const metadataJson = data.metadata ? JSON.stringify(data.metadata) : null;
+
+    await query(
+      `INSERT INTO ai_reports 
+       (id, admin_user_id, user_id, report_type, report_content, metadata, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)`,
+      [
+        data.id,
+        data.adminUserId,
+        data.userId || null,
+        data.reportType,
+        data.reportContent,
+        metadataJson,
+      ]
+    );
+
+    console.log('✅ [saveReport] 리포트 저장 완료:', {
+      id: data.id,
+      reportType: data.reportType,
+    });
+
+    return data.id;
+  } catch (error: any) {
+    console.error('❌ [saveReport] 리포트 저장 오류:', {
+      error: error.message,
+      code: error.code,
+    });
+    throw error;
+  }
+}
+
+/**
+ * 리포트 조회
+ * 
+ * @param reportId 리포트 ID
+ * @returns 리포트 정보
+ */
+export async function getReport(reportId: string): Promise<{
+  id: string;
+  adminUserId: string;
+  userId: string | null;
+  reportType: 'summary' | 'detailed' | 'trend';
+  reportContent: string;
+  metadata: Record<string, any> | null;
+  createdAt: string;
+} | null> {
+  try {
+    // PostgreSQL 스키마 초기화 보장
+    if (isPostgreSQL()) {
+      try {
+        const { ensurePostgresSchema } = await import('./db-postgres-schema');
+        await ensurePostgresSchema();
+      } catch (schemaError) {
+        console.warn('⚠️ [getReport] 스키마 초기화 스킵:', schemaError);
+      }
+    }
+
+    const result = await query(
+      `SELECT 
+        id, admin_user_id, user_id, report_type, report_content, metadata, created_at
+      FROM ai_reports
+      WHERE id = $1`,
+      [reportId]
+    );
+
+    if (result.rows.length === 0) {
+      return null;
+    }
+
+    const row = result.rows[0];
+    return {
+      id: row.id,
+      adminUserId: row.admin_user_id,
+      userId: row.user_id,
+      reportType: row.report_type as 'summary' | 'detailed' | 'trend',
+      reportContent: row.report_content,
+      metadata: row.metadata ? JSON.parse(row.metadata) : null,
+      createdAt: row.created_at,
+    };
+  } catch (error: any) {
+    console.error('❌ [getReport] 리포트 조회 오류:', {
+      error: error.message,
+      code: error.code,
+    });
+    return null;
+  }
+}
+
+/**
+ * 리포트 목록 조회
+ * 
+ * @param params 조회 파라미터
+ * @returns 리포트 목록 및 페이지네이션
+ */
+export async function getReports(params: {
+  adminUserId?: string;
+  userId?: string;
+  page?: number;
+  limit?: number;
+}): Promise<{
+  reports: Array<{
+    id: string;
+    adminUserId: string;
+    userId: string | null;
+    reportType: 'summary' | 'detailed' | 'trend';
+    createdAt: string;
+  }>;
+  pagination: PaginationResult;
+}> {
+  try {
+    // PostgreSQL 스키마 초기화 보장
+    if (isPostgreSQL()) {
+      try {
+        const { ensurePostgresSchema } = await import('./db-postgres-schema');
+        await ensurePostgresSchema();
+      } catch (schemaError) {
+        console.warn('⚠️ [getReports] 스키마 초기화 스킵:', schemaError);
+      }
+    }
+
+    const { adminUserId, userId, page = 1, limit = 50 } = params;
+
+    // WHERE 조건 빌드
+    const conditions: string[] = [];
+    const values: any[] = [];
+    let paramIndex = 1;
+
+    if (adminUserId) {
+      conditions.push(`admin_user_id = $${paramIndex++}`);
+      values.push(adminUserId);
+    }
+
+    if (userId) {
+      conditions.push(`user_id = $${paramIndex++}`);
+      values.push(userId);
+    }
+
+    const whereClause =
+      conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    // 총 개수 조회
+    const countQuery = `
+      SELECT COUNT(*) as total
+      FROM ai_reports
+      ${whereClause}
+    `;
+    const countResult = await query(countQuery, values);
+    const total = parseInt(countResult.rows[0]?.total as string, 10) || 0;
+
+    // 페이지네이션 계산
+    const pagination = calculatePagination({ page, limit }, total);
+
+    // 리포트 목록 조회
+    const reportsQuery = `
+      SELECT 
+        id, admin_user_id, user_id, report_type, created_at
+      FROM ai_reports
+      ${whereClause}
+      ORDER BY created_at DESC
+      LIMIT $${paramIndex++} OFFSET $${paramIndex++}
+    `;
+
+    const reportsResult = await query(reportsQuery, [
+      ...values,
+      pagination.limit,
+      pagination.offset,
+    ]);
+
+    const reports = reportsResult.rows.map((row: any) => ({
+      id: row.id,
+      adminUserId: row.admin_user_id,
+      userId: row.user_id,
+      reportType: row.report_type as 'summary' | 'detailed' | 'trend',
+      createdAt: row.created_at,
+    }));
+
+    return {
+      reports,
+      pagination,
+    };
+  } catch (error: any) {
+    console.error('❌ [getReports] 리포트 목록 조회 오류:', {
+      error: error.message,
+      code: error.code,
+    });
+
+    return {
+      reports: [],
+      pagination: {
+        page: 1,
+        limit: 50,
+        offset: 0,
+        total: 0,
+        totalPages: 0,
       },
     };
   }

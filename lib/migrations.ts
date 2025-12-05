@@ -839,6 +839,37 @@ const migrations: Migration[] = [
       }
     },
   },
+  // AI 리포트 테이블 추가
+  {
+    version: 16,
+    name: 'add_ai_reports_table',
+    up: () => {
+      console.log('🔄 [Migration v16] ai_reports 테이블 생성 시작...');
+      try {
+        db.exec(`
+          CREATE TABLE IF NOT EXISTS ai_reports (
+            id TEXT PRIMARY KEY,
+            admin_user_id TEXT NOT NULL,
+            user_id TEXT,
+            report_type TEXT NOT NULL CHECK(report_type IN ('summary', 'detailed', 'trend')),
+            report_content TEXT NOT NULL,
+            metadata TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (admin_user_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+          );
+
+          CREATE INDEX IF NOT EXISTS idx_ai_reports_admin_user_id ON ai_reports(admin_user_id);
+          CREATE INDEX IF NOT EXISTS idx_ai_reports_user_id ON ai_reports(user_id);
+          CREATE INDEX IF NOT EXISTS idx_ai_reports_created_at ON ai_reports(created_at);
+        `);
+        console.log('✅ [Migration v16] ai_reports 테이블 생성 완료');
+      } catch (error: any) {
+        console.error('❌ [Migration v16] ai_reports 테이블 생성 실패:', error);
+        throw error;
+      }
+    },
+  },
   // 알고리즘 초기화 (마이그레이션 후 자동 실행)
   {
     version: 13,
