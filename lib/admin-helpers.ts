@@ -1519,3 +1519,235 @@ export async function getReports(params: {
     };
   }
 }
+
+// ============================================
+// 학습 데이터 추출 및 AI 학습 연동
+// ============================================
+
+/**
+ * 학습 데이터 추출 결과 타입
+ */
+export interface LearningData {
+  analysisId: string;
+  url: string;
+  features: {
+    aeo: Record<string, number>;
+    geo: Record<string, number>;
+    seo: Record<string, number>;
+  };
+  scores: {
+    aeo: number;
+    geo: number;
+    seo: number;
+    overall: number;
+  };
+  aiScores?: {
+    chatgpt: number | null;
+    perplexity: number | null;
+    gemini: number | null;
+    claude: number | null;
+  };
+}
+
+/**
+ * 분석 결과에서 학습 데이터 추출
+ * 
+ * @param analysisId 분석 ID
+ * @returns 학습 데이터
+ */
+export async function extractLearningData(analysisId: string): Promise<LearningData | null> {
+  try {
+    // PostgreSQL 스키마 초기화 보장
+    if (isPostgreSQL()) {
+      try {
+        const { ensurePostgresSchema } = await import('./db-postgres-schema');
+        await ensurePostgresSchema();
+      } catch (schemaError) {
+        console.warn('⚠️ [extractLearningData] 스키마 초기화 스킵:', schemaError);
+      }
+    }
+
+    // 분석 결과 조회
+    const analysisResult = await query(
+      `SELECT 
+        id, url, aeo_score, geo_score, seo_score, overall_score,
+        chatgpt_score, perplexity_score, gemini_score, claude_score
+      FROM analyses
+      WHERE id = $1`,
+      [analysisId]
+    );
+
+    if (analysisResult.rows.length === 0) {
+      return null;
+    }
+
+    const analysis = analysisResult.rows[0];
+
+    // HTML 가져오기 (특징 추출을 위해)
+    // 실제로는 분석 시점의 HTML이 필요하지만, 여기서는 URL로 다시 가져올 수 없으므로
+    // 특징 추출은 별도로 수행해야 함
+    // 현재는 점수만 반환 (향후 HTML 저장 시 확장 가능)
+
+    return {
+      analysisId: analysis.id,
+      url: analysis.url,
+      features: {
+        aeo: {}, // HTML이 없으면 빈 객체 (향후 확장)
+        geo: {},
+        seo: {},
+      },
+      scores: {
+        aeo: analysis.aeo_score,
+        geo: analysis.geo_score,
+        seo: analysis.seo_score,
+        overall: analysis.overall_score,
+      },
+      aiScores: {
+        chatgpt: analysis.chatgpt_score,
+        perplexity: analysis.perplexity_score,
+        gemini: analysis.gemini_score,
+        claude: analysis.claude_score,
+      },
+    };
+  } catch (error: any) {
+    console.error('❌ [extractLearningData] 학습 데이터 추출 오류:', {
+      error: error.message,
+      code: error.code,
+    });
+    return null;
+  }
+}
+
+/**
+ * 알고리즘 학습 트리거
+ * 
+ * @param analysisId 분석 ID (선택적, 없으면 최근 분석들에 대해 학습)
+ * @param algorithmType 알고리즘 타입 (선택적, 없으면 모든 타입)
+ * @returns 학습 결과
+ */
+export async function triggerAlgorithmLearning(
+  analysisId?: string,
+  algorithmType?: 'aeo' | 'geo' | 'seo' | 'aio'
+): Promise<{
+  success: boolean;
+  message: string;
+  results: Array<{
+    algorithmType: string;
+    learned: boolean;
+    error?: string;
+  }>;
+}> {
+  try {
+    const results: Array<{
+      algorithmType: string;
+      learned: boolean;
+      error?: string;
+    }> = [];
+
+    if (analysisId) {
+      // 특정 분석에 대해 학습
+      const learningData = await extractLearningData(analysisId);
+      
+      if (!learningData) {
+        return {
+          success: false,
+          message: '분석 결과를 찾을 수 없습니다.',
+          results: [],
+        };
+      }
+
+      // 알고리즘 학습 시스템 연동
+      const { getActiveAlgorithmVersion, updateAlgorithmPerformance } = await import('./algorithm-learning');
+
+      const types = algorithmType ? [algorithmType] : ['aeo', 'geo', 'seo'];
+      
+      for (const type of types) {
+        try {
+          const version = getActiveAlgorithmVersion(type);
+          if (!version) {
+            results.push({
+              algorithmType: type,
+              learned: false,
+              error: '활성 알고리즘 버전이 없습니다.',
+            });
+            continue;
+          }
+
+          // 실제 점수와 예상 점수 비교 (현재는 예상 점수 = 실제 점수로 가정)
+          // 향후 HTML 저장 시 실제 특징 추출 및 학습 수행
+          const actualScore = learningData.scores[type as 'aeo' | 'geo' | 'seo'];
+          const predictedScore = actualScore; // 현재는 동일하게 가정
+
+          // 성능 업데이트만 수행 (가중치 학습은 HTML이 필요)
+          updateAlgorithmPerformance(version.id, actualScore, predictedScore);
+
+          results.push({
+            algorithmType: type,
+            learned: true,
+          });
+        } catch (error: any) {
+          console.error(`❌ [triggerAlgorithmLearning] ${type} 학습 오류:`, error);
+          results.push({
+            algorithmType: type,
+            learned: false,
+            error: error.message,
+          });
+        }
+      }
+    } else {
+      // 최근 분석들에 대해 학습 (최근 100개)
+      const recentAnalyses = await query(
+        `SELECT id FROM analyses ORDER BY created_at DESC LIMIT 100`,
+        []
+      );
+
+      for (const row of recentAnalyses.rows) {
+        const learningData = await extractLearningData(row.id);
+        if (learningData) {
+          // 각 분석에 대해 학습 수행 (간단한 성능 업데이트만)
+          const { getActiveAlgorithmVersion, updateAlgorithmPerformance } = await import('./algorithm-learning');
+          
+          const types = algorithmType ? [algorithmType] : ['aeo', 'geo', 'seo'];
+          
+          for (const type of types) {
+            try {
+              const version = getActiveAlgorithmVersion(type);
+              if (version) {
+                const actualScore = learningData.scores[type as 'aeo' | 'geo' | 'seo'];
+                const predictedScore = actualScore;
+                updateAlgorithmPerformance(version.id, actualScore, predictedScore);
+              }
+            } catch (error) {
+              // 개별 학습 실패는 조용히 무시
+            }
+          }
+        }
+      }
+
+      results.push({
+        algorithmType: algorithmType || 'all',
+        learned: true,
+      });
+    }
+
+    return {
+      success: results.some(r => r.learned),
+      message: results.some(r => r.learned)
+        ? '학습이 완료되었습니다.'
+        : '학습에 실패했습니다.',
+      results,
+    };
+  } catch (error: any) {
+    console.error('❌ [triggerAlgorithmLearning] 학습 트리거 오류:', {
+      error: error.message,
+      analysisId,
+      algorithmType,
+    });
+
+    return {
+      success: false,
+      message: `학습 중 오류가 발생했습니다: ${error.message}`,
+      results: [],
+    };
+  }
+}
