@@ -9,7 +9,7 @@ import { v4 as uuidv4 } from 'uuid';
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { reportId: string } }
+  context: { params: Promise<any> }
 ) {
   try {
     // 관리자 권한 확인
@@ -18,7 +18,8 @@ export async function GET(
     // 요청 정보 추출 (로그용)
     const { ipAddress, userAgent } = extractRequestInfo(request);
 
-    const { reportId } = params;
+    const params = await context.params;
+    const { reportId } = params as { reportId: string };
 
     // 리포트 조회
     const report = await getReport(reportId);
