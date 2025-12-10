@@ -18,6 +18,7 @@ import ShareButton from '@/components/ShareButton';
 import ComprehensiveChecklistModal from '@/components/ComprehensiveChecklistModal';
 import Tooltip from '@/components/Tooltip';
 import NetworkStatus from '@/components/NetworkStatus';
+import LoginRequiredModal from '@/components/LoginRequiredModal';
 import { storage } from '@/lib/storage';
 import { fetchWithRetry } from '@/lib/fetch-with-retry';
 
