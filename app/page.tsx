@@ -756,3 +756,17 @@ function HomeContent() {
     </div>
   );
 }
+
+export default function Home() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-center">
+          <div className="mb-4 text-2xl">로딩 중...</div>
+        </div>
+      </div>
+    }>
+      <HomeContent />
+    </Suspense>
+  );
+}
