@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, lazy, Suspense, useRef } from 'react';
+import React, { useState, useEffect, lazy, Suspense, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AnalysisResult } from '@/lib/analyzer';
@@ -757,7 +757,7 @@ function HomeContent() {
   );
 }
 
-export default function Home() {
+export default function Home(): React.ReactElement {
   return (
     <Suspense fallback={
       <div className="flex min-h-screen items-center justify-center">
