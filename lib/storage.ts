@@ -7,6 +7,7 @@ const STORAGE_KEYS = {
   ANALYSIS_URL: 'gaeo_analysis_url',
   URL_HISTORY: 'gaeo_url_history',
   THEME: 'theme',
+  PENDING_LOGIN_URL: 'gaeo_pending_login_url', // 로그인 전 임시 저장 URL
 } as const;
 
 export const storage = {
@@ -97,6 +98,44 @@ export const storage = {
       return true;
     } catch (error) {
       console.error('URL 히스토리 삭제 실패:', error);
+      return false;
+    }
+  },
+
+  /**
+   * 로그인 전 URL 임시 저장
+   */
+  savePendingLoginUrl(url: string) {
+    try {
+      localStorage.setItem(STORAGE_KEYS.PENDING_LOGIN_URL, url);
+      return true;
+    } catch (error) {
+      console.error('로그인 전 URL 저장 실패:', error);
+      return false;
+    }
+  },
+
+  /**
+   * 로그인 전 URL 불러오기
+   */
+  getPendingLoginUrl(): string | null {
+    try {
+      return localStorage.getItem(STORAGE_KEYS.PENDING_LOGIN_URL);
+    } catch (error) {
+      console.error('로그인 전 URL 불러오기 실패:', error);
+      return null;
+    }
+  },
+
+  /**
+   * 로그인 전 URL 삭제
+   */
+  clearPendingLoginUrl() {
+    try {
+      localStorage.removeItem(STORAGE_KEYS.PENDING_LOGIN_URL);
+      return true;
+    } catch (error) {
+      console.error('로그인 전 URL 삭제 실패:', error);
       return false;
     }
   },

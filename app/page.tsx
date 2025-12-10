@@ -16,7 +16,6 @@ import SkeletonLoader from '@/components/SkeletonLoader';
 import UrlInput from '@/components/UrlInput';
 import ShareButton from '@/components/ShareButton';
 import ComprehensiveChecklistModal from '@/components/ComprehensiveChecklistModal';
-import LoginRequiredModal from '@/components/LoginRequiredModal';
 import Tooltip from '@/components/Tooltip';
 import NetworkStatus from '@/components/NetworkStatus';
 import { storage } from '@/lib/storage';
@@ -43,6 +42,17 @@ const AIAgent = lazy(() => {
           </div>
         </div>
       )
+    };
+  });
+});
+
+// 코드 스플리팅: LoginRequiredModal은 필요할 때만 로드 (성능 최적화)
+const LoginRequiredModal = lazy(() => {
+  return import('@/components/LoginRequiredModal').catch((error) => {
+    console.error('LoginRequiredModal chunk 로드 실패:', error);
+    // 에러 발생 시 빈 컴포넌트 반환
+    return { 
+      default: () => null
     };
   });
 });
@@ -116,29 +126,42 @@ function HomeContent() {
     return total;
   };
 
-  // 로그인 완료 후 자동 분석 시작 (URL 파라미터 확인)
+  // 로그인 완료 후 자동 분석 시작 (URL 파라미터 확인 및 localStorage 복원)
   useEffect(() => {
     const handleAutoAnalyze = async () => {
       const intent = searchParams?.get('intent');
       const urlParam = searchParams?.get('url');
+      const pendingUrl = storage.getPendingLoginUrl();
 
-      // 로그인 상태이고 분석 의도가 있으며 URL이 있는 경우
-      if (session?.user && intent === 'analyze' && urlParam) {
-        const decodedUrl = decodeURIComponent(urlParam);
+      // 로그인 상태이고 분석 의도가 있는 경우
+      if (session?.user && intent === 'analyze') {
+        let targetUrl = '';
         
-        // URL 설정
-        setUrl(decodedUrl);
-        
-        // URL 파라미터 정리 (히스토리 정리)
-        const newUrl = new URL(window.location.href);
-        newUrl.searchParams.delete('intent');
-        newUrl.searchParams.delete('url');
-        window.history.replaceState({}, '', newUrl.toString());
-        
-        // 약간의 지연 후 분석 시작 (URL 설정이 완료된 후)
-        setTimeout(() => {
-          handleAnalyze();
-        }, 100);
+        // 우선순위: URL 파라미터 > localStorage
+        if (urlParam) {
+          targetUrl = decodeURIComponent(urlParam);
+        } else if (pendingUrl) {
+          targetUrl = pendingUrl;
+        }
+
+        if (targetUrl) {
+          // URL 설정
+          setUrl(targetUrl);
+          
+          // 임시 저장된 URL 삭제
+          storage.clearPendingLoginUrl();
+          
+          // URL 파라미터 정리 (히스토리 정리)
+          const newUrl = new URL(window.location.href);
+          newUrl.searchParams.delete('intent');
+          newUrl.searchParams.delete('url');
+          window.history.replaceState({}, '', newUrl.toString());
+          
+          // 약간의 지연 후 분석 시작 (URL 설정이 완료된 후)
+          setTimeout(() => {
+            handleAnalyze();
+          }, 100);
+        }
       }
     };
 
@@ -294,6 +317,8 @@ function HomeContent() {
 
     // 로그인 상태 확인
     if (!session?.user) {
+      // 로그인 전 URL 임시 저장
+      storage.savePendingLoginUrl(url.trim());
       setIsLoginModalOpen(true);
       return;
     }
@@ -738,21 +763,41 @@ function HomeContent() {
       )}
 
       {/* 로그인 안내 모달 */}
-      <LoginRequiredModal
-        isOpen={isLoginModalOpen}
-        onClose={() => setIsLoginModalOpen(false)}
-        onLogin={(provider) => {
-          setIsLoginModalOpen(false);
-          // 로그인 페이지로 리디렉션 (URL 파라미터 포함)
-          const params = new URLSearchParams();
-          params.set('intent', 'analyze');
-          if (url.trim()) {
-            params.set('url', encodeURIComponent(url.trim()));
-          }
-          router.push(`/login?${params.toString()}`);
-        }}
-        url={url}
-      />
+      {isLoginModalOpen && (
+        <Suspense fallback={
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+            <div className="rounded-lg bg-white dark:bg-gray-800 p-4">
+              <div className="text-sm text-gray-600 dark:text-gray-400">로딩 중...</div>
+            </div>
+          </div>
+        }>
+          <LoginRequiredModal
+            isOpen={isLoginModalOpen}
+            onClose={() => {
+              setIsLoginModalOpen(false);
+              // 모달 닫을 때 임시 저장된 URL 유지 (사용자가 취소한 경우)
+            }}
+            onLogin={(provider) => {
+              setIsLoginModalOpen(false);
+              try {
+                // 로그인 페이지로 리디렉션 (URL 파라미터 포함)
+                const params = new URLSearchParams();
+                params.set('intent', 'analyze');
+                // URL 파라미터는 선택적 (localStorage에 저장되어 있으므로)
+                if (url.trim()) {
+                  params.set('url', encodeURIComponent(url.trim()));
+                }
+                router.push(`/login?${params.toString()}`);
+              } catch (error) {
+                // 네트워크 에러 처리
+                console.error('로그인 페이지 이동 실패:', error);
+                showToast('로그인 페이지로 이동하는 중 오류가 발생했습니다. 다시 시도해주세요.', 'error');
+              }
+            }}
+            url={url}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

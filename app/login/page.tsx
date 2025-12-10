@@ -18,24 +18,39 @@ function LoginForm() {
       const intent = searchParams?.get('intent');
       const url = searchParams?.get('url');
 
-      // 분석 의도가 있고 URL이 있으면 파라미터와 함께 메인 페이지로 리디렉션
-      if (intent === 'analyze' && url) {
+      // 분석 의도가 있으면 파라미터와 함께 메인 페이지로 리디렉션
+      // URL은 파라미터 또는 localStorage에서 가져올 수 있음
+      if (intent === 'analyze') {
         const params = new URLSearchParams();
         params.set('intent', 'analyze');
-        params.set('url', url);
+        // URL 파라미터가 있으면 포함 (없어도 localStorage에서 복원 가능)
+        if (url) {
+          params.set('url', url);
+        }
         try {
           window.location.href = `/?${params.toString()}`;
         } catch (error) {
-          console.warn('리디렉션 중 오류 발생 (무시됨):', error);
-          router.push(`/?${params.toString()}`);
+          console.error('리디렉션 중 오류 발생:', error);
+          // 에러 발생 시 router.push로 대체 시도
+          try {
+            router.push(`/?${params.toString()}`);
+          } catch (routerError) {
+            console.error('Router push 실패:', routerError);
+            // 최후의 수단: 일반 페이지로 이동
+            window.location.href = '/';
+          }
         }
       } else {
         // 일반 로그인은 기존대로 메인 페이지로 리디렉션
         try {
           window.location.href = '/';
         } catch (error) {
-          console.warn('리디렉션 중 오류 발생 (무시됨):', error);
-          router.push('/');
+          console.error('리디렉션 중 오류 발생:', error);
+          try {
+            router.push('/');
+          } catch (routerError) {
+            console.error('Router push 실패:', routerError);
+          }
         }
       }
     }
