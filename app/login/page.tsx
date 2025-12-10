@@ -105,9 +105,19 @@ function LoginForm() {
         return;
       }
       
+      // 네트워크 에러 처리
+      if (err?.message?.includes('network') || err?.message?.includes('fetch')) {
+        console.error(`${provider} 로그인 네트워크 에러:`, err);
+        const providerName = provider === 'google' ? 'Google' : 'GitHub';
+        setError(`네트워크 연결에 실패했습니다. 인터넷 연결을 확인하고 다시 시도해주세요.`);
+        setIsLoading(null);
+        return;
+      }
+      
+      // 기타 에러 처리
       console.error(`${provider} 로그인 예외:`, err);
       const providerName = provider === 'google' ? 'Google' : 'GitHub';
-      setError(`${providerName} 로그인 중 오류가 발생했습니다.`);
+      setError(`${providerName} 로그인 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.`);
       setIsLoading(null);
     }
   };

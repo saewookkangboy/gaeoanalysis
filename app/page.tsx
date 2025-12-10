@@ -83,8 +83,17 @@ function HomeContent() {
     // 새로고침 시 항상 새로운 세션으로 시작
     storage.clearAnalysisResult();
     setAnalysisData(null);
-    setUrl('');
     setError(null);
+    
+    // 로그인 상태이고 임시 저장된 URL이 있으면 복원 (로그인 취소 후 복귀 시)
+    if (session?.user) {
+      const pendingUrl = storage.getPendingLoginUrl();
+      if (pendingUrl && !url) {
+        setUrl(pendingUrl);
+        storage.clearPendingLoginUrl();
+      }
+    }
+    // 비로그인 상태에서는 URL 초기화하지 않음 (사용자가 입력한 URL 유지)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
