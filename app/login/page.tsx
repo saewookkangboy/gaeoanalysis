@@ -14,18 +14,32 @@ function LoginForm() {
   // 로그인 성공 후 세션 확인 및 리디렉션 (즉시 처리)
   useEffect(() => {
     if (status === 'authenticated' && session?.user) {
-      // 로그인 성공 시 즉시 메인 페이지로 리디렉션 (대기 시간 없음)
-      // router.push 대신 window.location.href 사용하여 더 빠른 전환
-      try {
-        window.location.href = '/';
-      } catch (error) {
-        // 브라우저 확장 프로그램 관련 오류 무시
-        console.warn('리디렉션 중 오류 발생 (무시됨):', error);
-        // 대체 방법으로 리디렉션 시도
-        router.push('/');
+      // URL 파라미터에서 분석 의도 확인
+      const intent = searchParams?.get('intent');
+      const url = searchParams?.get('url');
+
+      // 분석 의도가 있고 URL이 있으면 파라미터와 함께 메인 페이지로 리디렉션
+      if (intent === 'analyze' && url) {
+        const params = new URLSearchParams();
+        params.set('intent', 'analyze');
+        params.set('url', url);
+        try {
+          window.location.href = `/?${params.toString()}`;
+        } catch (error) {
+          console.warn('리디렉션 중 오류 발생 (무시됨):', error);
+          router.push(`/?${params.toString()}`);
+        }
+      } else {
+        // 일반 로그인은 기존대로 메인 페이지로 리디렉션
+        try {
+          window.location.href = '/';
+        } catch (error) {
+          console.warn('리디렉션 중 오류 발생 (무시됨):', error);
+          router.push('/');
+        }
       }
     }
-  }, [status, session, router]);
+  }, [status, session, router, searchParams]);
 
   // 에러 메시지 표시
   useEffect(() => {

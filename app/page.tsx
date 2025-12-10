@@ -2,7 +2,7 @@
 
 import { useState, useEffect, lazy, Suspense, useRef } from 'react';
 import { useSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { AnalysisResult } from '@/lib/analyzer';
 import ScoreCard from '@/components/ScoreCard';
 // import ScoreChart from '@/components/ScoreChart'; // 숨김 처리
@@ -16,6 +16,7 @@ import SkeletonLoader from '@/components/SkeletonLoader';
 import UrlInput from '@/components/UrlInput';
 import ShareButton from '@/components/ShareButton';
 import ComprehensiveChecklistModal from '@/components/ComprehensiveChecklistModal';
+import LoginRequiredModal from '@/components/LoginRequiredModal';
 import Tooltip from '@/components/Tooltip';
 import NetworkStatus from '@/components/NetworkStatus';
 import { storage } from '@/lib/storage';
@@ -51,6 +52,7 @@ type AnalysisStep = 'idle' | 'fetching' | 'parsing' | 'analyzing' | 'complete';
 export default function Home() {
   const { data: session } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { showToast } = useToast();
   const [url, setUrl] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -59,6 +61,7 @@ export default function Home() {
   const [currentStep, setCurrentStep] = useState<AnalysisStep>('idle');
   const [retryCount, setRetryCount] = useState(0);
   const [isChecklistModalOpen, setIsChecklistModalOpen] = useState(false);
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [estimatedTime, setEstimatedTime] = useState<number>(0);
   const [elapsedTime, setElapsedTime] = useState<number>(0);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -113,9 +116,45 @@ export default function Home() {
     return total;
   };
 
+  // 로그인 완료 후 자동 분석 시작 (URL 파라미터 확인)
+  useEffect(() => {
+    const handleAutoAnalyze = async () => {
+      const intent = searchParams?.get('intent');
+      const urlParam = searchParams?.get('url');
+
+      // 로그인 상태이고 분석 의도가 있으며 URL이 있는 경우
+      if (session?.user && intent === 'analyze' && urlParam) {
+        const decodedUrl = decodeURIComponent(urlParam);
+        
+        // URL 설정
+        setUrl(decodedUrl);
+        
+        // URL 파라미터 정리 (히스토리 정리)
+        const newUrl = new URL(window.location.href);
+        newUrl.searchParams.delete('intent');
+        newUrl.searchParams.delete('url');
+        window.history.replaceState({}, '', newUrl.toString());
+        
+        // 약간의 지연 후 분석 시작 (URL 설정이 완료된 후)
+        setTimeout(() => {
+          handleAnalyze();
+        }, 100);
+      }
+    };
+
+    handleAutoAnalyze();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.user, searchParams]);
+
   // 로그인 시 등록된 블로그 URL 자동 로드 및 분석
   useEffect(() => {
     const loadBlogUrlAndAnalyze = async () => {
+      // URL 파라미터가 있으면 자동 분석 로직이 처리하므로 스킵
+      const intent = searchParams?.get('intent');
+      if (intent === 'analyze') {
+        return;
+      }
+
       if (session?.user?.id && !url) {
         try {
           const response = await fetch('/api/user/blog-url', {
@@ -250,6 +289,12 @@ export default function Home() {
       const errorMsg = 'URL을 입력해주세요.';
       setError(errorMsg);
       showToast(errorMsg, 'warning');
+      return;
+    }
+
+    // 로그인 상태 확인
+    if (!session?.user) {
+      setIsLoginModalOpen(true);
       return;
     }
 
@@ -691,6 +736,23 @@ export default function Home() {
           analysisData={analysisData}
         />
       )}
+
+      {/* 로그인 안내 모달 */}
+      <LoginRequiredModal
+        isOpen={isLoginModalOpen}
+        onClose={() => setIsLoginModalOpen(false)}
+        onLogin={(provider) => {
+          setIsLoginModalOpen(false);
+          // 로그인 페이지로 리디렉션 (URL 파라미터 포함)
+          const params = new URLSearchParams();
+          params.set('intent', 'analyze');
+          if (url.trim()) {
+            params.set('url', encodeURIComponent(url.trim()));
+          }
+          router.push(`/login?${params.toString()}`);
+        }}
+        url={url}
+      />
     </div>
   );
 }
