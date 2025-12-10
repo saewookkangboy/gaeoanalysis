@@ -49,7 +49,7 @@ const AIAgent = lazy(() => {
 
 type AnalysisStep = 'idle' | 'fetching' | 'parsing' | 'analyzing' | 'complete';
 
-export default function Home() {
+function HomeContent() {
   const { data: session } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
