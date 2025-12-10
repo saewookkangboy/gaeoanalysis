@@ -198,21 +198,6 @@ export default function ContentGuidelines({ analysisData }: ContentGuidelinesPro
         </div>
       </div>
 
-      {/* 참고 자료 */}
-      <div className="rounded-lg border border-gray-300 bg-gray-50 p-4">
-        <p className="text-xs text-gray-600">
-          📖 참고 자료:{' '}
-          <a
-            href="https://github.com/saewookkangboy/ai-seo-blogger"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sky-600 hover:underline"
-          >
-            AI SEO Blogger GitHub 저장소
-          </a>
-        </p>
-      </div>
-
       {/* 가이드라인 모달들 */}
       <GuidelineModal
         isOpen={openModal === 'content'}
