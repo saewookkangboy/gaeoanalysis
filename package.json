@@ -8,7 +8,7 @@
     "cleanup": "bash scripts/cleanup-dev.sh",
     "cleanup:all": "bash scripts/cleanup-dev.sh --clean",
     "build": "next build --webpack",
-    "start": "next start -p ${PORT:-3000}",
+    "start": "next start",
     "lint": "eslint",
     "db:migrate": "npx tsx scripts/migrate-db.ts",
     "db:migrate-to-postgres": "npx tsx scripts/migrate-sqlite-to-postgres.ts",
