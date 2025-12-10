@@ -1,6 +1,5 @@
 /**
  * AI SEO, AEO, GEO, AIO 가이드라인 및 개선 가이드
- * 참고: https://github.com/saewookkangboy/ai-seo-blogger
  */
 
 export interface ContentGuideline {
