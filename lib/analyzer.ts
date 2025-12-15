@@ -4,11 +4,11 @@ import { calculateAIVisibilityScore, generateAIVisibilityRecommendations } from 
 import { extractCitationSources, CitationExtractionResult, calculateDomainStatistics, DomainStatistics } from './citation-extractor';
 import { 
   calculateAllDomainAuthorities, 
-  type DomainAuthority, 
+  DomainAuthority, 
   findCitationOpportunities, 
-  type CitationOpportunity, 
+  CitationOpportunity, 
   detectQualityIssues, 
-  type QualityIssue 
+  QualityIssue 
 } from './citation-analyzer';
 import { SEO_GUIDELINES, getImprovementPriority, getContentWritingGuidelines } from './seo-guidelines';
 import { withRetry } from './retry';
