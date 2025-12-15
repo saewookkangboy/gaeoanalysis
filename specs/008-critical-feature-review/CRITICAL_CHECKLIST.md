@@ -504,6 +504,10 @@
 
 ### Day 7 진행 상황
 - [x] 통합 테스트 (빌드 성공 확인)
+- [x] API 엔드포인트 테스트 (Health Check, 인증 보안)
+- [x] 페이지 접근 테스트 (메인, About, Admin)
+- [x] 코드 검증 테스트 (Admin 구독 관리, 소셜 로그인, AI Visibility)
+- [x] 데이터베이스 스키마 검증 (AI Visibility 필드)
 - [x] 배포 준비 (Git 커밋 및 푸시 완료)
 - [x] 배포 실행 (Git 푸시 완료, 자동 배포 대기 중)
 
