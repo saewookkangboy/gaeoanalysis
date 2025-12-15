@@ -136,6 +136,20 @@ if (!isBuildTime && dbPath) {
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   );
 
+  CREATE TABLE IF NOT EXISTS citations (
+    id TEXT PRIMARY KEY,
+    analysis_id TEXT NOT NULL,
+    url TEXT NOT NULL,
+    domain TEXT NOT NULL,
+    anchor_text TEXT,
+    position INTEGER CHECK(position >= 0 AND position <= 100),
+    is_target_url BOOLEAN DEFAULT 0,
+    link_type TEXT CHECK(link_type IN ('internal', 'external', 'citation', 'reference')),
+    context TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (analysis_id) REFERENCES analyses(id) ON DELETE CASCADE
+  );
+
   CREATE TABLE IF NOT EXISTS chat_conversations (
     id TEXT PRIMARY KEY,
     user_id TEXT,
@@ -159,6 +173,10 @@ if (!isBuildTime && dbPath) {
 db.exec(`
   CREATE INDEX IF NOT EXISTS idx_analyses_user_id ON analyses(user_id);
   CREATE INDEX IF NOT EXISTS idx_analyses_created_at ON analyses(created_at);
+  CREATE INDEX IF NOT EXISTS idx_citations_analysis_id ON citations(analysis_id);
+  CREATE INDEX IF NOT EXISTS idx_citations_domain ON citations(domain);
+  CREATE INDEX IF NOT EXISTS idx_citations_is_target_url ON citations(is_target_url);
+  CREATE INDEX IF NOT EXISTS idx_citations_link_type ON citations(link_type);
   CREATE INDEX IF NOT EXISTS idx_chat_user_id ON chat_conversations(user_id);
   CREATE INDEX IF NOT EXISTS idx_chat_analysis_id ON chat_conversations(analysis_id);
 `);

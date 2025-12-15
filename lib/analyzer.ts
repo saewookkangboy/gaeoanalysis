@@ -1,6 +1,7 @@
 import * as cheerio from 'cheerio';
 import { calculateAIOCitationScores, generateAIOCitationAnalysis, AIOCitationAnalysis } from './ai-citation-analyzer';
 import { calculateAIVisibilityScore, generateAIVisibilityRecommendations } from './ai-visibility-calculator';
+import { extractCitationSources, CitationExtractionResult, calculateDomainStatistics, DomainStatistics } from './citation-extractor';
 import { SEO_GUIDELINES, getImprovementPriority, getContentWritingGuidelines } from './seo-guidelines';
 import { withRetry } from './retry';
 import { FRESHNESS_OPTIMIZATION, STATISTICS_QUOTATIONS_GUIDE, CONTENT_STRUCTURE_GUIDE } from './seo-guidelines-enhanced';
@@ -14,6 +15,8 @@ export interface AnalysisResult {
   aioAnalysis?: AIOCitationAnalysis;
   aiVisibilityScore?: number;
   aiVisibilityRecommendations?: string[];
+  citationSources?: CitationExtractionResult;
+  domainStatistics?: DomainStatistics[];
   improvementPriorities?: Array<{ 
     category: string; 
     priority: number; 
@@ -194,6 +197,21 @@ export async function analyzeContent(url: string): Promise<AnalysisResult> {
       freshnessScore
     );
 
+    // 인용 소스 추출
+    const citationSources = extractCitationSources(html, url);
+    
+    // 타겟 도메인 추출
+    let targetDomain = '';
+    try {
+      const targetUrlObj = new URL(url);
+      targetDomain = targetUrlObj.hostname.replace('www.', '');
+    } catch (error) {
+      console.warn('⚠️ [Analyzer] 타겟 URL 파싱 실패:', error);
+    }
+    
+    // 도메인별 통계 계산
+    const domainStatistics = calculateDomainStatistics(citationSources.sources, targetDomain);
+
     // 인사이트 생성 (개선 우선순위에 사용)
     const insights = generateInsights($, aeoScore, geoScore, seoScore);
 
@@ -210,6 +228,8 @@ export async function analyzeContent(url: string): Promise<AnalysisResult> {
       aioAnalysis,
       aiVisibilityScore,
       aiVisibilityRecommendations,
+      citationSources,
+      domainStatistics,
       improvementPriorities,
       contentGuidelines,
     };

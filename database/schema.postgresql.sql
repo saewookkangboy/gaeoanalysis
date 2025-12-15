@@ -63,7 +63,29 @@ CREATE TABLE IF NOT EXISTS analyses (
 );
 
 -- ============================================
--- 4. 채팅 대화 (Chat Conversations)
+-- 4. 인용 소스 (Citations)
+-- ============================================
+CREATE TABLE IF NOT EXISTS citations (
+  id TEXT PRIMARY KEY,
+  analysis_id TEXT NOT NULL,
+  url TEXT NOT NULL,
+  domain TEXT NOT NULL,
+  anchor_text TEXT,
+  position INTEGER CHECK(position >= 0 AND position <= 100),
+  is_target_url BOOLEAN DEFAULT false,
+  link_type TEXT CHECK(link_type IN ('internal', 'external', 'citation', 'reference')),
+  context TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (analysis_id) REFERENCES analyses(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_citations_analysis_id ON citations(analysis_id);
+CREATE INDEX IF NOT EXISTS idx_citations_domain ON citations(domain);
+CREATE INDEX IF NOT EXISTS idx_citations_is_target_url ON citations(is_target_url);
+CREATE INDEX IF NOT EXISTS idx_citations_link_type ON citations(link_type);
+
+-- ============================================
+-- 5. 채팅 대화 (Chat Conversations)
 -- ============================================
 CREATE TABLE IF NOT EXISTS chat_conversations (
   id VARCHAR(255) PRIMARY KEY,

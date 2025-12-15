@@ -283,6 +283,24 @@ async function handleAnalyze(request: NextRequest) {
         aioScores: result.aioAnalysis?.scores,
         aiVisibilityScore: result.aiVisibilityScore,
       });
+
+      // 인용 소스 저장
+      if (result.citationSources && result.citationSources.sources.length > 0) {
+        try {
+          const { saveCitations } = await import('@/lib/citation-helpers');
+          await saveCitations(savedId, result.citationSources.sources);
+          console.log('✅ [Analyze API] 인용 소스 저장 완료:', {
+            analysisId: savedId,
+            citationCount: result.citationSources.sources.length,
+          });
+        } catch (citationError: any) {
+          console.warn('⚠️ [Analyze API] 인용 소스 저장 실패 (계속 진행):', {
+            analysisId: savedId,
+            error: citationError.message,
+          });
+          // 인용 소스 저장 실패해도 분석 결과는 반환
+        }
+      }
       
       console.log('💾 [Analyze API] saveAnalysis 반환값:', {
         requestedId: analysisId,

@@ -186,6 +186,34 @@ const migrations: Migration[] = [
     },
   },
   {
+    version: 13,
+    name: 'add_citations_table',
+    up: () => {
+      // citations 테이블 생성
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS citations (
+          id TEXT PRIMARY KEY,
+          analysis_id TEXT NOT NULL,
+          url TEXT NOT NULL,
+          domain TEXT NOT NULL,
+          anchor_text TEXT,
+          position INTEGER CHECK(position >= 0 AND position <= 100),
+          is_target_url BOOLEAN DEFAULT 0,
+          link_type TEXT CHECK(link_type IN ('internal', 'external', 'citation', 'reference')),
+          context TEXT,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (analysis_id) REFERENCES analyses(id) ON DELETE CASCADE
+        );
+        
+        CREATE INDEX IF NOT EXISTS idx_citations_analysis_id ON citations(analysis_id);
+        CREATE INDEX IF NOT EXISTS idx_citations_domain ON citations(domain);
+        CREATE INDEX IF NOT EXISTS idx_citations_is_target_url ON citations(is_target_url);
+        CREATE INDEX IF NOT EXISTS idx_citations_link_type ON citations(link_type);
+      `);
+      console.log('✅ [Migration] citations 테이블 생성 완료');
+    },
+  },
+  {
     version: 2,
     name: 'add_users_updated_at',
     up: () => {
