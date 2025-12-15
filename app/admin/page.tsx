@@ -104,6 +104,18 @@ export default function AdminDashboardPage() {
             사용자 데이터를 종합적으로 분석하여 AI 리포트를 생성합니다.
           </p>
         </Link>
+
+        <Link
+          href="/admin/subscriptions"
+          className="block bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow"
+        >
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            구독 관리
+          </h3>
+          <p className="text-sm text-gray-600">
+            사용자 구독 정보 및 사용량을 관리합니다.
+          </p>
+        </Link>
       </div>
     </div>
   );

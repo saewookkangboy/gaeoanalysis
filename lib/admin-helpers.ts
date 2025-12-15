@@ -8,6 +8,7 @@ import { query, prepare, isPostgreSQL } from './db-adapter';
 import { v4 as uuidv4 } from 'uuid';
 import { NextRequest } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { Subscription, PlanType } from './subscription-helpers';
 
 /**
  * 관리자 활동 로그 타입
@@ -1751,5 +1752,258 @@ export async function triggerAlgorithmLearning(
       message: `학습 중 오류가 발생했습니다: ${error.message}`,
       results: [],
     };
+  }
+}
+
+/**
+ * 모든 구독 정보 조회 (관리자용)
+ */
+export interface SubscriptionWithUser extends Subscription {
+  userEmail: string | null;
+}
+
+export async function getAllSubscriptions(): Promise<SubscriptionWithUser[]> {
+  try {
+    if (isPostgreSQL()) {
+      // PostgreSQL
+      const result = await query(
+        `SELECT 
+          s.id, s.user_id, s.plan_type, s.status,
+          s.current_period_start, s.current_period_end,
+          s.cancel_at_period_end, s.created_at, s.updated_at,
+          u.email as user_email
+        FROM subscriptions s
+        LEFT JOIN users u ON s.user_id = u.id
+        ORDER BY s.created_at DESC`,
+        []
+      );
+      
+      return result.rows.map((row: any) => ({
+        id: row.id,
+        userId: row.user_id,
+        planType: row.plan_type,
+        status: row.status,
+        currentPeriodStart: row.current_period_start,
+        currentPeriodEnd: row.current_period_end,
+        cancelAtPeriodEnd: row.cancel_at_period_end === true || row.cancel_at_period_end === 1,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+        userEmail: row.user_email,
+      }));
+    } else {
+      // SQLite
+      const stmt = prepare(`
+        SELECT 
+          s.id, s.user_id, s.plan_type, s.status,
+          s.current_period_start, s.current_period_end,
+          s.cancel_at_period_end, s.created_at, s.updated_at,
+          u.email as user_email
+        FROM subscriptions s
+        LEFT JOIN users u ON s.user_id = u.id
+        ORDER BY s.created_at DESC
+      `);
+      
+      const rows = stmt.all() as any[];
+      
+      return rows.map((row: any) => ({
+        id: row.id,
+        userId: row.user_id,
+        planType: row.plan_type,
+        status: row.status,
+        currentPeriodStart: row.current_period_start,
+        currentPeriodEnd: row.current_period_end,
+        cancelAtPeriodEnd: row.cancel_at_period_end === 1,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+        userEmail: row.user_email,
+      }));
+    }
+  } catch (error: any) {
+    console.error('❌ [getAllSubscriptions] 구독 목록 조회 실패:', error);
+    return [];
+  }
+}
+
+/**
+ * 구독 정보 업데이트 (관리자용)
+ */
+export async function updateSubscription(
+  subscriptionId: string,
+  data: {
+    planType?: PlanType;
+    cancelAtPeriodEnd?: boolean;
+  }
+): Promise<SubscriptionWithUser | null> {
+  try {
+    if (isPostgreSQL()) {
+      // PostgreSQL
+      const updates: string[] = [];
+      const values: any[] = [];
+      let paramIndex = 1;
+
+      if (data.planType) {
+        updates.push(`plan_type = $${paramIndex}`);
+        values.push(data.planType);
+        paramIndex++;
+      }
+
+      if (data.cancelAtPeriodEnd !== undefined) {
+        updates.push(`cancel_at_period_end = $${paramIndex}`);
+        values.push(data.cancelAtPeriodEnd);
+        paramIndex++;
+      }
+
+      if (updates.length === 0) {
+        // 업데이트할 내용이 없으면 조회만
+        const result = await query(
+          `SELECT 
+            s.id, s.user_id, s.plan_type, s.status,
+            s.current_period_start, s.current_period_end,
+            s.cancel_at_period_end, s.created_at, s.updated_at,
+            u.email as user_email
+          FROM subscriptions s
+          LEFT JOIN users u ON s.user_id = u.id
+          WHERE s.id = $1`,
+          [subscriptionId]
+        );
+        
+        if (result.rows.length === 0) return null;
+        
+        const row = result.rows[0] as any;
+        return {
+          id: row.id,
+          userId: row.user_id,
+          planType: row.plan_type,
+          status: row.status,
+          currentPeriodStart: row.current_period_start,
+          currentPeriodEnd: row.current_period_end,
+          cancelAtPeriodEnd: row.cancel_at_period_end === true || row.cancel_at_period_end === 1,
+          createdAt: row.created_at,
+          updatedAt: row.updated_at,
+          userEmail: row.user_email,
+        };
+      }
+
+      updates.push(`updated_at = CURRENT_TIMESTAMP`);
+      values.push(subscriptionId);
+
+      const updateQuery = `
+        UPDATE subscriptions
+        SET ${updates.join(', ')}
+        WHERE id = $${paramIndex}
+        RETURNING 
+          id, user_id, plan_type, status,
+          current_period_start, current_period_end,
+          cancel_at_period_end, created_at, updated_at
+      `;
+
+      const result = await query(updateQuery, values);
+      
+      if (result.rows.length === 0) return null;
+
+      // 사용자 이메일 조회
+      const row = result.rows[0] as any;
+      const userResult = await query('SELECT email FROM users WHERE id = $1', [row.user_id]);
+      const userEmail = userResult.rows[0]?.email || null;
+
+      return {
+        id: row.id,
+        userId: row.user_id,
+        planType: row.plan_type,
+        status: row.status,
+        currentPeriodStart: row.current_period_start,
+        currentPeriodEnd: row.current_period_end,
+        cancelAtPeriodEnd: row.cancel_at_period_end === true || row.cancel_at_period_end === 1,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+        userEmail,
+      };
+    } else {
+      // SQLite
+      const updates: string[] = [];
+      const values: any[] = [];
+
+      if (data.planType) {
+        updates.push('plan_type = ?');
+        values.push(data.planType);
+      }
+
+      if (data.cancelAtPeriodEnd !== undefined) {
+        updates.push('cancel_at_period_end = ?');
+        values.push(data.cancelAtPeriodEnd ? 1 : 0);
+      }
+
+      if (updates.length === 0) {
+        // 업데이트할 내용이 없으면 조회만
+        const stmt = prepare(`
+          SELECT 
+            s.id, s.user_id, s.plan_type, s.status,
+            s.current_period_start, s.current_period_end,
+            s.cancel_at_period_end, s.created_at, s.updated_at,
+            u.email as user_email
+          FROM subscriptions s
+          LEFT JOIN users u ON s.user_id = u.id
+          WHERE s.id = ?
+        `);
+        
+        const row = stmt.get([subscriptionId]) as any;
+        if (!row) return null;
+        
+        return {
+          id: row.id,
+          userId: row.user_id,
+          planType: row.plan_type,
+          status: row.status,
+          currentPeriodStart: row.current_period_start,
+          currentPeriodEnd: row.current_period_end,
+          cancelAtPeriodEnd: row.cancel_at_period_end === 1,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+        userEmail: row.user_email,
+      };
+    }
+
+      updates.push('updated_at = CURRENT_TIMESTAMP');
+      values.push(subscriptionId);
+
+      const updateStmt = prepare(`
+        UPDATE subscriptions
+        SET ${updates.join(', ')}
+        WHERE id = ?
+      `);
+
+      updateStmt.run(...values);
+
+      // 업데이트된 구독 조회
+      const selectStmt = prepare(`
+        SELECT 
+          s.id, s.user_id, s.plan_type, s.status,
+          s.current_period_start, s.current_period_end,
+          s.cancel_at_period_end, s.created_at, s.updated_at,
+          u.email as user_email
+        FROM subscriptions s
+        LEFT JOIN users u ON s.user_id = u.id
+        WHERE s.id = ?
+      `);
+      
+      const row = selectStmt.get([subscriptionId]) as any;
+      if (!row) return null;
+
+      return {
+        id: row.id,
+        userId: row.user_id,
+        planType: row.plan_type,
+        status: row.status,
+        currentPeriodStart: row.current_period_start,
+        currentPeriodEnd: row.current_period_end,
+        cancelAtPeriodEnd: row.cancel_at_period_end === 1,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+        userEmail: row.user_email,
+      };
+    }
+  } catch (error: any) {
+    console.error('❌ [updateSubscription] 구독 업데이트 실패:', error);
+    return null;
   }
 }
