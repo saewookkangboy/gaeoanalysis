@@ -1,5 +1,6 @@
 import * as cheerio from 'cheerio';
 import { calculateAIOCitationScores, generateAIOCitationAnalysis, AIOCitationAnalysis } from './ai-citation-analyzer';
+import { calculateAIVisibilityScore, generateAIVisibilityRecommendations } from './ai-visibility-calculator';
 import { SEO_GUIDELINES, getImprovementPriority, getContentWritingGuidelines } from './seo-guidelines';
 import { withRetry } from './retry';
 import { FRESHNESS_OPTIMIZATION, STATISTICS_QUOTATIONS_GUIDE, CONTENT_STRUCTURE_GUIDE } from './seo-guidelines-enhanced';
@@ -11,6 +12,8 @@ export interface AnalysisResult {
   overallScore: number;
   insights: Insight[];
   aioAnalysis?: AIOCitationAnalysis;
+  aiVisibilityScore?: number;
+  aiVisibilityRecommendations?: string[];
   improvementPriorities?: Array<{ 
     category: string; 
     priority: number; 
@@ -159,6 +162,38 @@ export async function analyzeContent(url: string): Promise<AnalysisResult> {
     const aioScores = calculateAIOCitationScores($, aeoScore, geoScore, seoScore);
     const aioAnalysis = generateAIOCitationAnalysis(aioScores);
 
+    // AI Visibility 점수 계산
+    const aiVisibilityScore = calculateAIVisibilityScore($, aioScores, aeoScore, geoScore, seoScore);
+    
+    // 구조화된 데이터 점수 계산 (추천사항 생성용)
+    const structuredDataText = $('script[type="application/ld+json"]').text();
+    const hasStructuredData = $('script[type="application/ld+json"]').length > 0;
+    const structuredDataScore = hasStructuredData ? 
+      (structuredDataText.includes('FAQPage') ? 90 :
+       structuredDataText.includes('"Article"') || structuredDataText.includes('"BlogPosting"') ? 70 :
+       50) : 0;
+    
+    const text = $('body').text();
+    const wordCount = text.split(/\s+/).length;
+    const qualityScore = Math.min(100, 
+      ((aeoScore + geoScore + seoScore) / 3) * 0.5 +
+      (wordCount >= 2000 ? 20 : wordCount >= 1500 ? 15 : wordCount >= 1000 ? 10 : wordCount >= 500 ? 5 : 0) +
+      (structuredDataText.includes('author') && /자격|credential|전문가/i.test(text) ? 15 : 0)
+    );
+    
+    const hasDate = $('time, [datetime], [class*="date"]').length > 0;
+    const hasRecentYear = /(202[4-9]|최근|recent|updated)/i.test(text);
+    const freshnessScore = (hasDate ? 30 : 0) + (hasRecentYear ? 25 : 0) + 
+                          (/업데이트|update/i.test(text) ? 20 : 0);
+    
+    const aiVisibilityRecommendations = generateAIVisibilityRecommendations(
+      aiVisibilityScore,
+      aioScores,
+      structuredDataScore,
+      qualityScore,
+      freshnessScore
+    );
+
     // 인사이트 생성 (개선 우선순위에 사용)
     const insights = generateInsights($, aeoScore, geoScore, seoScore);
 
@@ -173,6 +208,8 @@ export async function analyzeContent(url: string): Promise<AnalysisResult> {
       overallScore,
       insights,
       aioAnalysis,
+      aiVisibilityScore,
+      aiVisibilityRecommendations,
       improvementPriorities,
       contentGuidelines,
     };

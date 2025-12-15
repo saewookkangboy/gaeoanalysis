@@ -79,7 +79,7 @@ export async function getAnalysesByEmail(email: string, options: QueryOptions = 
       SELECT 
         id, url, aeo_score, geo_score, seo_score, overall_score, 
         insights, chatgpt_score, perplexity_score, gemini_score, claude_score, 
-        created_at, user_id
+        ai_visibility_score, created_at, user_id
       FROM analyses
       WHERE user_id IN (${placeholders})
       ORDER BY ${orderBy} ${orderDirection}
@@ -110,6 +110,7 @@ export async function getAnalysesByEmail(email: string, options: QueryOptions = 
         gemini: row.gemini_score,
         claude: row.claude_score,
       },
+      aiVisibilityScore: row.ai_visibility_score,
       createdAt: row.created_at,
     }));
   } catch (error) {
@@ -250,6 +251,7 @@ export async function getUserAnalyses(userId: string, options: QueryOptions = {}
         gemini: row.gemini_score,
         claude: row.claude_score,
       },
+      aiVisibilityScore: row.ai_visibility_score,
       createdAt: row.created_at,
     }));
   } catch (error) {
@@ -285,6 +287,7 @@ export async function saveAnalysis(data: {
     gemini?: number;
     claude?: number;
   };
+  aiVisibilityScore?: number;
 }) {
   // 저장 전 DB 상태 확인 (디버깅용)
   if (process.env.NODE_ENV === 'development' || process.env.DEBUG_DB || process.env.VERCEL) {
@@ -373,9 +376,9 @@ export async function saveAnalysis(data: {
           INSERT INTO analyses (
             id, user_id, url, aeo_score, geo_score, seo_score, 
             overall_score, insights, chatgpt_score, perplexity_score, 
-            gemini_score, claude_score
+            gemini_score, claude_score, ai_visibility_score
           )
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
         `;
         const insertQueryResult = await client.query(insertQuery, [
           data.id,
@@ -389,7 +392,8 @@ export async function saveAnalysis(data: {
           data.aioScores?.chatgpt || null,
           data.aioScores?.perplexity || null,
           data.aioScores?.gemini || null,
-          data.aioScores?.claude || null
+          data.aioScores?.claude || null,
+          data.aiVisibilityScore || null
         ]);
         insertResult = { changes: insertQueryResult.rowCount || 0 };
       } else {
@@ -397,9 +401,9 @@ export async function saveAnalysis(data: {
           INSERT INTO analyses (
             id, user_id, url, aeo_score, geo_score, seo_score, 
             overall_score, insights, chatgpt_score, perplexity_score, 
-            gemini_score, claude_score
+            gemini_score, claude_score, ai_visibility_score
           )
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
         insertResult = stmt.run(
           data.id,
@@ -413,7 +417,8 @@ export async function saveAnalysis(data: {
           data.aioScores?.chatgpt || null,
           data.aioScores?.perplexity || null,
           data.aioScores?.gemini || null,
-          data.aioScores?.claude || null
+          data.aioScores?.claude || null,
+          data.aiVisibilityScore || null
         ) as { changes: number; lastInsertRowid?: number };
       }
 

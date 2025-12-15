@@ -169,6 +169,23 @@ const migrations: Migration[] = [
     },
   },
   {
+    version: 12,
+    name: 'add_ai_visibility_score',
+    up: () => {
+      const tableInfo = db.prepare("PRAGMA table_info(analyses)").all() as Array<{ name: string }>;
+      const columnNames = tableInfo.map(col => col.name);
+
+      if (!columnNames.includes('ai_visibility_score')) {
+        db.exec(`
+          ALTER TABLE analyses ADD COLUMN ai_visibility_score INTEGER CHECK(ai_visibility_score IS NULL OR (ai_visibility_score >= 0 AND ai_visibility_score <= 100));
+        `);
+        console.log('✅ [Migration] ai_visibility_score 필드 추가 완료');
+      } else {
+        console.log('ℹ️ [Migration] ai_visibility_score 필드가 이미 존재합니다.');
+      }
+    },
+  },
+  {
     version: 2,
     name: 'add_users_updated_at',
     up: () => {

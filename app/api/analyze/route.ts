@@ -281,6 +281,7 @@ async function handleAnalyze(request: NextRequest) {
         overallScore: result.overallScore,
         insights: result.insights,
         aioScores: result.aioAnalysis?.scores,
+        aiVisibilityScore: result.aiVisibilityScore,
       });
       
       console.log('💾 [Analyze API] saveAnalysis 반환값:', {
