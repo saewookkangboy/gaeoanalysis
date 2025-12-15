@@ -24,13 +24,62 @@
 3. 응답 데이터 수집 및 분석
 4. 대시보드에서 결과 시각화 및 추적
 
-### 2. Citation Sources Analysis (인용 소스 분석)
+### 2. Citation Sources Analysis (인용 소스 분석) ⭐
 
 #### 핵심 기능
-- **인용 URL 추출**: AI 응답에서 인용된 모든 URL 추출
-- **인용 위치 추적**: 각 인용이 응답의 어느 위치에 나타나는지 추적
-- **인용 품질 분석**: 인용의 관련성, 신뢰성 평가
-- **브랜드 인용 추적**: 특정 브랜드/도메인이 인용되는 빈도 및 위치
+- **Source Tracking (소스 추적)**: AI 응답에서 인용된 모든 웹사이트, 아티클, 도메인 자동 식별 및 카탈로그화
+- **인용 위치 추적 (Citation Position)**: 각 인용이 응답의 어느 위치에 나타나는지 추적 (1st, 2nd, 3rd 등)
+  - **첫 번째 위치의 중요성**: 첫 번째 인용은 더 많은 클릭과 신뢰를 가져오며, 브랜드를 해당 주제의 권위 있는 소스로 확립
+- **Domain Analysis (도메인 분석)**: 
+  - 가장 자주 인용되는 도메인 식별
+  - 도메인 권위성 평가 (Domain Authority)
+  - AI 응답에서의 신뢰도 평가
+- **Quality Control (품질 관리)**: 
+  - 오래된 소스 감지 (Outdated sources)
+  - 부정확한 정보 소스 식별 (Inaccurate sources)
+  - 브랜드에 대한 부정적 소스 감지 (Negative sources)
+- **Opportunity Discovery (기회 발견)**: 
+  - 높은 권위를 가진 도메인 중 아직 사용자를 인용하지 않은 도메인 식별
+  - 인용 획득 전략 수립을 위한 타겟 도메인 제시
+- **Competitive Intelligence (경쟁 정보)**: 
+  - 경쟁사가 인용되는 소스 분석
+  - 경쟁사의 인용 우위 이해
+  - 경쟁사가 인용되지만 사용자는 인용되지 않는 고가치 도메인 식별
+- **Content Strategy (콘텐츠 전략)**: 
+  - 어떤 유형의 콘텐츠가 인용되는지 분석
+  - 인용 가능한 콘텐츠 형식 및 주제 파악
+  - 콘텐츠 전략 최적화 제안
+
+#### 작동 방식
+1. **자동 인용 추출**: AI 응답에서 모든 인용 URL 자동 식별 및 카탈로그화
+2. **분류 및 분석**: 
+   - 사용자 도메인 vs 경쟁사 vs 제3자 참조로 분류
+   - 인용 위치 기록 (1st, 2nd, 3rd 등)
+   - 도메인별 인용 빈도 계산
+3. **패턴 분석**: 
+   - 인용 빈도, 도메인 권위, 콘텐츠 품질, 시간에 따른 트렌드 분석
+4. **액션 가능한 인사이트**: 
+   - 더 나은 콘텐츠 생성
+   - 인용 도메인과의 관계 구축
+   - 인용 프로필 개선 전략
+
+#### 주요 사용 사례
+- **PR 전략**: AI가 신뢰하는 출판물 파악 및 고인용 도메인에 대한 PR 우선순위 설정
+- **콘텐츠 기획**: AI 모델이 가장 인용할 가능성이 높은 형식 및 주제의 콘텐츠 생성
+- **평판 보호**: 더 많은 AI 응답에 영향을 미치기 전에 부정적이거나 부정확한 소스 식별 및 대응
+- **SEO & AEO 전략**: 전통적인 검색 순위와 AI 인용을 모두 구동하는 소스에 최적화
+
+#### 인용 위치의 중요성
+- **첫 번째 위치 인용**: 사용자가 경쟁사보다 먼저 콘텐츠를 보게 되며, 더 많은 클릭과 브랜드를 해당 주제의 권위 있는 소스로 확립
+- **위치별 클릭률**: 일반적으로 첫 번째 인용이 가장 높은 클릭률을 보임
+- **신뢰도**: 응답 상단에 인용된 소스는 더 신뢰할 수 있는 것으로 인식됨
+
+#### AI가 일반적으로 인용하는 소스 유형
+- 주요 출판물 (Major publications)
+- 공식 문서 (Official documentation)
+- 업계 리포트 (Industry reports)
+- 잘 구축된 블로그 (Well-established blogs)
+- 높은 E-E-A-T 신호를 가진 페이지 (Experience, Expertise, Authoritativeness, Trustworthiness)
 
 ### 3. Brand Visibility (브랜드 가시성)
 
@@ -186,15 +235,49 @@ CREATE TABLE prompt_executions (
   FOREIGN KEY (prompt_tracking_id) REFERENCES prompt_tracking(id)
 );
 
--- 인용 소스
+-- 인용 소스 (강화된 스키마)
 CREATE TABLE citations (
   id INTEGER PRIMARY KEY,
   execution_id INTEGER,
   url TEXT NOT NULL,
-  citation_position INTEGER, -- 응답 내 위치
-  domain TEXT,
-  is_brand_related BOOLEAN DEFAULT 0,
+  citation_position INTEGER NOT NULL, -- 응답 내 위치 (1st, 2nd, 3rd 등)
+  domain TEXT NOT NULL,
+  domain_authority INTEGER, -- 도메인 권위 점수 (0-100)
+  is_target_url BOOLEAN DEFAULT 0, -- 추적 중인 URL인지
+  is_competitor BOOLEAN DEFAULT 0, -- 경쟁사 URL인지
+  is_negative BOOLEAN DEFAULT 0, -- 부정적 소스인지
+  is_outdated BOOLEAN DEFAULT 0, -- 오래된 소스인지
+  citation_context TEXT, -- 인용된 맥락
+  citation_frequency INTEGER DEFAULT 1, -- 인용 빈도
+  eeat_score REAL, -- E-E-A-T 점수 (0-1)
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (execution_id) REFERENCES prompt_executions(id)
+);
+
+-- 도메인 분석
+CREATE TABLE domain_analysis (
+  id INTEGER PRIMARY KEY,
+  domain TEXT UNIQUE NOT NULL,
+  total_citations INTEGER DEFAULT 0,
+  average_position REAL, -- 평균 인용 위치
+  domain_authority INTEGER,
+  citation_trend TEXT, -- 'increasing', 'decreasing', 'stable'
+  is_high_authority BOOLEAN DEFAULT 0,
+  is_opportunity BOOLEAN DEFAULT 0, -- 인용 기회 도메인인지
+  last_analyzed DATETIME,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 경쟁사 인용 비교
+CREATE TABLE competitor_citations (
+  id INTEGER PRIMARY KEY,
+  target_url TEXT NOT NULL,
+  competitor_url TEXT NOT NULL,
+  citation_count INTEGER DEFAULT 0,
+  competitor_citation_count INTEGER DEFAULT 0,
+  gap INTEGER, -- 인용 빈도 차이
+  high_value_domains TEXT, -- 경쟁사가 인용되지만 타겟은 아닌 고가치 도메인
+  analysis_date DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
 -- 브랜드 언급
@@ -348,40 +431,262 @@ async function executeOnPerplexity(
 }
 ```
 
-#### 2. 인용 소스 분석 강화
+#### 2. 인용 소스 분석 강화 ⭐ (Citation Sources Analysis)
 
 **현재 상태:**
-- AI 모델별 인용 확률 계산만 수행
+- AI 모델별 인용 확률을 **시뮬레이션**으로 계산
 - 실제 인용된 URL 추적 없음
+- 인용 위치, 도메인 권위성, 품질 평가 없음
 
 **개선 방안:**
 ```typescript
-// 인용 소스 분석 강화
-interface CitationAnalysis {
+// 강화된 인용 소스 분석
+interface CitationSourcesAnalysis {
+  // 기본 인용 정보
   url: string;
+  domain: string;
+  citationPosition: number; // 1st, 2nd, 3rd 등 (매우 중요!)
+  citationContext: string; // 인용된 맥락
+  
+  // 도메인 분석
+  domainAuthority: number; // 0-100
   citationFrequency: number; // 얼마나 자주 인용되는지
-  citationPosition: number[]; // 응답 내 위치
-  citationContext: string[]; // 인용된 맥락
+  averagePosition: number; // 평균 인용 위치
+  
+  // 분류
   isTargetUrl: boolean; // 추적 중인 URL인지
-  competitorUrls: CompetitorCitation[]; // 경쟁사 URL 인용 정보
+  isCompetitor: boolean; // 경쟁사 URL인지
+  isThirdParty: boolean; // 제3자 참조인지
+  
+  // 품질 평가
+  isNegative: boolean; // 부정적 소스인지
+  isOutdated: boolean; // 오래된 소스인지
+  isInaccurate: boolean; // 부정확한 소스인지
+  eeatScore: number; // E-E-A-T 점수 (0-1)
+  
+  // 기회 발견
+  isOpportunity: boolean; // 높은 권위 도메인 중 미인용 도메인인지
+  opportunityScore: number; // 인용 획득 가능성 점수
+  
+  // 경쟁 분석
+  competitorCitations: CompetitorCitation[];
+  gap: number; // 경쟁사와의 인용 빈도 차이
+  highValueDomains: string[]; // 경쟁사가 인용되지만 타겟은 아닌 도메인
+}
+
+interface CompetitorCitation {
+  competitorUrl: string;
+  citationCount: number;
+  averagePosition: number;
+  topDomains: string[]; // 경쟁사가 가장 많이 인용되는 도메인
 }
 ```
 
 **접목 방법:**
-1. **실제 인용 추적**
-   - AI 응답에서 인용된 모든 URL 추출
+
+1. **Source Tracking (소스 추적)**
+   - AI 응답에서 인용된 모든 URL 자동 추출
    - 사용자의 콘텐츠 URL이 인용되었는지 확인
-   - 인용 위치 및 맥락 분석
+   - 인용 위치 정확히 기록 (1st, 2nd, 3rd 등)
+   - 인용 맥락(context) 추출 및 저장
 
-2. **경쟁 분석**
-   - 같은 주제에 대한 경쟁 콘텐츠의 인용 빈도 비교
-   - 경쟁사가 더 자주 인용되는 이유 분석
-   - 개선 기회 식별
+2. **Domain Analysis (도메인 분석)**
+   - 도메인별 인용 빈도 집계
+   - 도메인 권위성 점수 계산 (Domain Authority)
+   - 평균 인용 위치 계산
+   - 인용 트렌드 분석 (증가/감소/안정)
 
-3. **인용 품질 분석**
-   - 인용의 관련성 평가
-   - 신뢰할 수 있는 출처인지 확인
-   - 인용 맥락의 긍정/부정 분석
+3. **Quality Control (품질 관리)**
+   - **오래된 소스 감지**: 콘텐츠 업데이트 날짜 확인
+   - **부정확한 소스 식별**: 신뢰할 수 없는 출처 감지
+   - **부정적 소스 감지**: 브랜드에 대한 부정적 언급 포함 소스 식별
+   - **E-E-A-T 평가**: Experience, Expertise, Authoritativeness, Trustworthiness 점수 계산
+
+4. **Opportunity Discovery (기회 발견)**
+   - 높은 권위를 가진 도메인 목록 생성
+   - 사용자가 아직 인용되지 않은 고권위 도메인 식별
+   - 인용 획득 가능성 점수 계산
+   - PR 및 콘텐츠 전략 제안
+
+5. **Competitive Intelligence (경쟁 정보)**
+   - 경쟁사 URL 등록 및 추적
+   - 경쟁사가 인용되는 소스 분석
+   - 경쟁사가 인용되지만 사용자는 아닌 고가치 도메인 식별
+   - 인용 빈도 차이(gap) 계산 및 개선 제안
+
+6. **Content Strategy (콘텐츠 전략)**
+   - 어떤 유형의 콘텐츠가 가장 많이 인용되는지 분석
+   - 인용 가능한 콘텐츠 형식 및 주제 파악
+   - 콘텐츠 최적화 제안 생성
+
+**기술 구현:**
+```typescript
+// lib/citation-analyzer.ts
+export interface CitationExtractionResult {
+  citations: Citation[];
+  domainAnalysis: DomainAnalysis;
+  opportunities: Opportunity[];
+  competitorComparison: CompetitorComparison;
+}
+
+export async function analyzeCitations(
+  executionId: number,
+  responseText: string,
+  targetUrl: string,
+  competitorUrls: string[]
+): Promise<CitationExtractionResult> {
+  // 1. 인용 URL 추출
+  const citations = extractCitations(responseText);
+  
+  // 2. 인용 위치 계산
+  const positionedCitations = calculateCitationPositions(citations, responseText);
+  
+  // 3. 도메인 분석
+  const domainAnalysis = await analyzeDomains(positionedCitations);
+  
+  // 4. 품질 평가
+  const qualityChecked = await checkCitationQuality(positionedCitations);
+  
+  // 5. 기회 발견
+  const opportunities = await findOpportunities(domainAnalysis, targetUrl);
+  
+  // 6. 경쟁사 비교
+  const competitorComparison = await compareCompetitors(
+    positionedCitations,
+    targetUrl,
+    competitorUrls
+  );
+  
+  return {
+    citations: qualityChecked,
+    domainAnalysis,
+    opportunities,
+    competitorComparison
+  };
+}
+
+// 인용 위치 계산 (매우 중요!)
+function calculateCitationPositions(
+  citations: Citation[],
+  responseText: string
+): PositionedCitation[] {
+  // 응답 텍스트에서 각 인용의 첫 번째 등장 위치 찾기
+  return citations.map((citation, index) => {
+    const position = responseText.indexOf(citation.url);
+    const relativePosition = calculateRelativePosition(position, responseText.length);
+    
+    return {
+      ...citation,
+      position: index + 1, // 1st, 2nd, 3rd 등
+      relativePosition, // 0-1 사이 값
+      isFirst: index === 0 // 첫 번째 인용인지
+    };
+  });
+}
+
+// 도메인 권위성 평가
+async function analyzeDomains(
+  citations: PositionedCitation[]
+): Promise<DomainAnalysis> {
+  const domainMap = new Map<string, DomainStats>();
+  
+  for (const citation of citations) {
+    const domain = extractDomain(citation.url);
+    const stats = domainMap.get(domain) || {
+      domain,
+      totalCitations: 0,
+      positions: [],
+      averagePosition: 0
+    };
+    
+    stats.totalCitations++;
+    stats.positions.push(citation.position);
+    domainMap.set(domain, stats);
+  }
+  
+  // 평균 위치 계산
+  for (const [domain, stats] of domainMap) {
+    stats.averagePosition = 
+      stats.positions.reduce((a, b) => a + b, 0) / stats.positions.length;
+    
+    // 도메인 권위성 점수 계산 (외부 API 또는 내부 알고리즘)
+    stats.domainAuthority = await calculateDomainAuthority(domain);
+  }
+  
+  return Array.from(domainMap.values());
+}
+
+// 기회 발견
+async function findOpportunities(
+  domainAnalysis: DomainAnalysis[],
+  targetUrl: string
+): Promise<Opportunity[]> {
+  const targetDomain = extractDomain(targetUrl);
+  const opportunities: Opportunity[] = [];
+  
+  // 높은 권위 도메인 중 타겟이 인용되지 않은 도메인 찾기
+  for (const domain of domainAnalysis) {
+    if (
+      domain.domainAuthority >= 70 && // 높은 권위
+      domain.domain !== targetDomain && // 타겟 도메인이 아님
+      !isTargetCited(domain.domain, targetUrl) // 타겟이 인용되지 않음
+    ) {
+      opportunities.push({
+        domain: domain.domain,
+        authority: domain.domainAuthority,
+        citationFrequency: domain.totalCitations,
+        opportunityScore: calculateOpportunityScore(domain),
+        recommendations: generateRecommendations(domain)
+      });
+    }
+  }
+  
+  return opportunities.sort((a, b) => b.opportunityScore - a.opportunityScore);
+}
+```
+
+**UI/UX 개선:**
+```typescript
+// components/CitationSourcesDashboard.tsx
+// 인용 소스 분석 전용 대시보드 컴포넌트
+
+interface CitationSourcesDashboardProps {
+  analysis: CitationSourcesAnalysis;
+  targetUrl: string;
+  competitorUrls: string[];
+}
+
+export default function CitationSourcesDashboard({
+  analysis,
+  targetUrl,
+  competitorUrls
+}: CitationSourcesDashboardProps) {
+  return (
+    <div className="space-y-6">
+      {/* 인용 위치 시각화 */}
+      <CitationPositionChart citations={analysis.citations} />
+      
+      {/* 도메인 분석 */}
+      <DomainAnalysisTable domains={analysis.domainAnalysis} />
+      
+      {/* 품질 관리 알림 */}
+      <QualityAlerts 
+        negativeSources={analysis.citations.filter(c => c.isNegative)}
+        outdatedSources={analysis.citations.filter(c => c.isOutdated)}
+      />
+      
+      {/* 기회 발견 */}
+      <OpportunityList opportunities={analysis.opportunities} />
+      
+      {/* 경쟁사 비교 */}
+      <CompetitorComparison 
+        comparison={analysis.competitorComparison}
+        competitorUrls={competitorUrls}
+      />
+    </div>
+  );
+}
+```
 
 #### 3. 브랜드 가시성 모니터링
 
@@ -529,24 +834,48 @@ interface CompetitorAnalysis {
 - 프론트엔드: 2주
 - 테스트: 1주
 
-### Phase 2: 인용 및 브랜드 분석 (1개월)
+### Phase 2: 인용 소스 분석 강화 (2-3주) ⭐
 
-**목표:** 인용 소스 분석 및 브랜드 가시성 추적
+**목표:** LLM Pulse 수준의 고급 인용 소스 분석 구현
 
 **구현 항목:**
-1. ✅ 인용 URL 추출 및 분석
-2. ✅ 브랜드 언급 감지
-3. ✅ 인용 위치 추적
-4. ✅ 브랜드 가시성 대시보드
+1. ✅ 인용 URL 추출 및 위치 추적 (1st, 2nd, 3rd 등)
+2. ✅ 도메인 분석 (권위성, 인용 빈도, 평균 위치)
+3. ✅ 품질 관리 (오래된/부정확한/부정적 소스 감지)
+4. ✅ 기회 발견 (고권위 미인용 도메인 식별)
+5. ✅ 경쟁사 비교 (경쟁사 인용 분석 및 gap 계산)
+6. ✅ 콘텐츠 전략 제안 (인용 가능한 콘텐츠 형식 분석)
+7. ✅ 인용 소스 분석 대시보드
 
 **기술 스택:**
 - Cheerio: HTML 파싱 (이미 사용 중)
 - 정규표현식: 패턴 매칭
 - Natural: NLP (선택적)
+- 외부 API: 도메인 권위성 평가 (선택적, Moz, Ahrefs 등)
+
+**상세 작업 분해:**
+
+**Week 1: 기본 인용 추출 및 위치 추적**
+- 인용 URL 추출 로직 구현
+- 인용 위치 계산 알고리즘
+- 데이터베이스 스키마 확장
+- 기본 API 엔드포인트
+
+**Week 2: 도메인 분석 및 품질 관리**
+- 도메인 권위성 평가 시스템
+- 품질 체크 로직 (오래된/부정확한/부정적 소스)
+- E-E-A-T 점수 계산
+- 도메인 분석 API
+
+**Week 3: 기회 발견 및 경쟁사 분석**
+- 기회 발견 알고리즘
+- 경쟁사 비교 로직
+- 콘텐츠 전략 제안 생성
+- 대시보드 UI 구현
 
 **예상 작업량:**
-- 백엔드: 2주
-- 프론트엔드: 1주
+- 백엔드: 2-3주
+- 프론트엔드: 1-2주
 - 테스트: 1주
 
 ### Phase 3: 감정 분석 및 알림 (1개월)
@@ -646,14 +975,17 @@ interface CompetitorAnalysis {
 
 ### 즉시 시작 가능한 작업
 
-1. **프롬프트 추적 기본 기능** (Phase 1)
-   - 가장 핵심적인 기능
-   - 사용자 가치가 명확함
-   - 기술적 난이도 중간
+1. **인용 소스 분석 강화** (Phase 2) ⭐ **최우선 추천**
+   - **가장 높은 가치**: LLM Pulse의 핵심 차별화 기능
+   - **현재 서비스와 완벽한 통합**: 기존 AI 모델별 인용 확률 시뮬레이션을 실제 데이터로 보완
+   - **즉시 활용 가능**: 프롬프트 추적 없이도 기존 분석 결과에 적용 가능
+   - **명확한 ROI**: 인용 위치, 도메인 분석, 기회 발견 등 실용적 인사이트 제공
+   - **기술적 난이도**: 중간 (프롬프트 추적보다 낮음)
 
-2. **인용 소스 분석 강화** (Phase 2)
-   - 현재 시뮬레이션을 실제 데이터로 보완
-   - 기존 기능과 자연스럽게 통합 가능
+2. **프롬프트 추적 기본 기능** (Phase 1)
+   - 인용 소스 분석의 데이터 소스
+   - 사용자 가치가 명확함
+   - 기술적 난이도 중간-높음 (브라우저 자동화 필요)
 
 ### 단계적 접근 권장
 
@@ -670,13 +1002,111 @@ interface CompetitorAnalysis {
 
 ### 비즈니스 모델 통합
 
+#### 프롬프트 추적
 - **Free 플랜**: 월 5개 프롬프트 추적, 주간 실행
 - **Pro 플랜**: 무제한 프롬프트, 일일 실행, 고급 분석
 - **Business 플랜**: 실시간 모니터링, 경쟁사 분석, 커스텀 리포트
 
+#### 인용 소스 분석
+- **Free 플랜**: 기본 인용 추출, 도메인 분석 (제한적)
+- **Pro 플랜**: 전체 인용 분석, 품질 관리, 기회 발견, 경쟁사 비교
+- **Business 플랜**: 고급 경쟁 분석, 커스텀 리포트, API 액세스
+
+### 추가 권장사항
+
+#### 인용 소스 분석을 먼저 구현하는 이유
+
+1. **독립적 가치**: 프롬프트 추적 없이도 기존 분석 결과에 적용 가능
+   - 사용자가 분석한 콘텐츠 URL을 기반으로 수동 프롬프트 실행 결과 입력 가능
+   - 또는 외부에서 수집한 AI 응답 데이터를 업로드하여 분석 가능
+
+2. **빠른 시장 진입**: 
+   - 프롬프트 추적은 기술적 복잡도가 높음 (브라우저 자동화, 캡차 등)
+   - 인용 소스 분석은 상대적으로 구현이 간단하고 즉시 가치 제공
+
+3. **점진적 확장**:
+   - Phase 2 (인용 소스 분석) 완료 후
+   - Phase 1 (프롬프트 추적)을 통해 자동화된 데이터 수집 추가
+
+4. **사용자 피드백 수집**:
+   - 먼저 인용 소스 분석 기능을 출시하여 사용자 반응 확인
+   - 실제 사용 패턴을 바탕으로 프롬프트 추적 기능 설계
+
+---
+
+## Citation Sources Analysis 핵심 요약
+
+### 왜 중요한가?
+
+1. **인용 위치의 중요성**
+   - 첫 번째 위치 인용은 더 많은 클릭과 신뢰를 가져옴
+   - 브랜드를 해당 주제의 권위 있는 소스로 확립
+   - 사용자가 경쟁사보다 먼저 콘텐츠를 보게 됨
+
+2. **도메인 권위성 분석**
+   - AI가 신뢰하는 도메인 파악
+   - 높은 권위 도메인과의 관계 구축 전략 수립
+   - PR 및 콘텐츠 전략의 우선순위 설정
+
+3. **품질 관리**
+   - 부정적, 오래된, 부정확한 소스 조기 감지
+   - 평판 보호 및 대응 전략 수립
+   - 콘텐츠 품질 개선 기회 식별
+
+4. **경쟁 우위**
+   - 경쟁사가 인용되는 소스 분석
+   - 경쟁사가 인용되지만 사용자는 아닌 고가치 도메인 식별
+   - 명확한 개선 목표 설정
+
+5. **콘텐츠 전략 최적화**
+   - 어떤 유형의 콘텐츠가 인용되는지 데이터 기반 파악
+   - 인용 가능한 콘텐츠 형식 및 주제 식별
+   - 검증된 콘텐츠 전략 수립
+
+### 구현 우선순위 재조정 권장
+
+**기존 계획:**
+1. Phase 1: 프롬프트 추적
+2. Phase 2: 인용 소스 분석
+
+**권장 계획:**
+1. **Phase 1: 인용 소스 분석** (2-3주) ⭐
+   - 독립적으로 가치 제공
+   - 기존 분석 결과에 즉시 적용 가능
+   - 기술적 난이도 중간
+   - 명확한 ROI
+
+2. **Phase 2: 프롬프트 추적** (1-2개월)
+   - 인용 소스 분석의 자동화된 데이터 소스
+   - 사용자 피드백 기반으로 설계
+   - 기술적 난이도 높음
+
+### 핵심 기능 체크리스트
+
+#### 필수 기능 (MVP)
+- [ ] 인용 URL 추출
+- [ ] 인용 위치 추적 (1st, 2nd, 3rd)
+- [ ] 도메인별 인용 빈도 집계
+- [ ] 타겟 URL 인용 여부 확인
+
+#### 고급 기능 (Pro)
+- [ ] 도메인 권위성 평가
+- [ ] 품질 관리 (오래된/부정확한/부정적 소스)
+- [ ] 기회 발견 (고권위 미인용 도메인)
+- [ ] 경쟁사 비교
+- [ ] E-E-A-T 점수 계산
+
+#### 프리미엄 기능 (Business)
+- [ ] 실시간 모니터링
+- [ ] 커스텀 리포트 생성
+- [ ] API 액세스
+- [ ] 예측 분석
+
 ---
 
 **작성일:** 2025-01-15  
+**최종 업데이트:** 2025-01-15 (Citation Sources Analysis 추가)  
 **작성자:** AI Assistant  
-**상태:** 분석 완료, 구현 준비
+**상태:** 분석 완료, 구현 준비  
+**참고:** [LLM Pulse Citation Sources Analysis](https://llmpulse.ai/features/citation-sources-analysis)
 
