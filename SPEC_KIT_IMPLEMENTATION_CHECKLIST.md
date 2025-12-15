@@ -244,6 +244,28 @@ So that [이유].
   - [ ] A/B 테스트 명세
   - [ ] 성능 모니터링 명세
 
+#### 2.4 LLM Pulse 기반 신규 기능 명세서 작성 ⭐
+
+- [ ] **인용 소스 분석 (Citation Sources Analysis)** - 최우선
+  - [ ] `specs/010-citation-sources-analysis/spec.md` 작성
+  - [ ] Source Tracking (소스 추적) 명세
+  - [ ] 인용 위치 추적 (1st, 2nd, 3rd) 명세
+  - [ ] Domain Analysis (도메인 분석) 명세
+  - [ ] Quality Control (품질 관리) 명세
+  - [ ] Opportunity Discovery (기회 발견) 명세
+  - [ ] Competitive Intelligence (경쟁 정보) 명세
+  - [ ] Content Strategy (콘텐츠 전략) 명세
+  - [ ] 참고: [LLMPULSE_ANALYSIS.md](./LLMPULSE_ANALYSIS.md)
+
+- [ ] **프롬프트 추적 (Prompt Tracking)**
+  - [ ] `specs/009-prompt-tracking/spec.md` 작성
+  - [ ] 실제 AI 플랫폼 프롬프트 실행 명세
+  - [ ] 자동 모니터링 및 스케줄링 명세
+  - [ ] 응답 데이터 수집 및 저장 명세
+  - [ ] 브랜드 가시성 추적 명세
+  - [ ] 감정 분석 통합 명세
+  - [ ] 참고: [LLMPULSE_ANALYSIS.md](./LLMPULSE_ANALYSIS.md)
+
 ---
 
 ## Phase 3: Plan (구현 계획) 작성
@@ -380,6 +402,25 @@ So that [이유].
   - [ ] 프롬프트 엔지니어링 기법
   - [ ] Agent Lightning 통합 연구
   - [ ] 토큰 최적화 기법
+
+#### 4.4 LLM Pulse 기반 기능 기술 연구 ⭐
+
+- [ ] **인용 소스 분석 기술 연구**
+  - [ ] `specs/010-citation-sources-analysis/research.md` 작성
+  - [ ] 인용 URL 추출 기술 (Cheerio, 정규표현식)
+  - [ ] 도메인 권위성 평가 방법 (Moz, Ahrefs API 또는 자체 알고리즘)
+  - [ ] E-E-A-T 점수 계산 방법
+  - [ ] 경쟁사 비교 알고리즘
+  - [ ] 참고: [LLMPULSE_ANALYSIS.md](./LLMPULSE_ANALYSIS.md) - 기술 스펙 섹션
+
+- [ ] **프롬프트 추적 기술 연구**
+  - [ ] `specs/009-prompt-tracking/research.md` 작성
+  - [ ] 브라우저 자동화 도구 비교 (Puppeteer vs Playwright vs Selenium)
+  - [ ] AI 플랫폼 접근 방법 (API vs 브라우저 자동화)
+  - [ ] 캡차 우회 기법 및 대안
+  - [ ] 스케줄링 시스템 (node-cron vs Bull vs Agenda)
+  - [ ] Rate Limiting 및 IP 차단 대응
+  - [ ] 참고: [LLMPULSE_ANALYSIS.md](./LLMPULSE_ANALYSIS.md) - 기술 스펙 섹션
 
 ---
 
@@ -592,8 +633,20 @@ gaeo-analysis/
 │   │   └── ...
 │   ├── 003-freemium-model/
 │   │   └── ...
-│   └── 004-algorithm-learning/
-│       └── ...
+│   ├── 004-algorithm-learning/
+│   │   └── ...
+│   ├── 009-prompt-tracking/      # LLM Pulse 기반 기능
+│   │   ├── spec.md              # 프롬프트 추적 명세서
+│   │   ├── plan.md              # 구현 계획
+│   │   ├── research.md           # 기술 연구
+│   │   ├── tasks.md             # 작업 분해
+│   │   └── validation.md        # 검증 체크리스트
+│   └── 010-citation-sources-analysis/  # LLM Pulse 기반 기능 (최우선)
+│       ├── spec.md              # 인용 소스 분석 명세서
+│       ├── plan.md              # 구현 계획
+│       ├── research.md           # 기술 연구
+│       ├── tasks.md             # 작업 분해
+│       └── validation.md        # 검증 체크리스트
 ├── templates/                    # 템플릿 파일
 │   ├── spec-template.md
 │   ├── plan-template.md
@@ -626,6 +679,23 @@ gaeo-analysis/
 - [x] Freemium 모델 명세서 작성
 - [x] 알고리즘 자동 학습 명세서 작성
 
+#### Step 2-1: LLM Pulse 기반 신규 기능 명세서 작성 (우선순위 높음)
+- [ ] **인용 소스 분석 명세서 작성** (최우선, 2-3주 예상)
+  - [ ] `specs/010-citation-sources-analysis/spec.md` 작성
+  - [ ] `specs/010-citation-sources-analysis/plan.md` 작성
+  - [ ] `specs/010-citation-sources-analysis/research.md` 작성
+  - [ ] `specs/010-citation-sources-analysis/tasks.md` 작성
+  - [ ] `specs/010-citation-sources-analysis/validation.md` 작성
+  - [ ] 참고 문서: [LLMPULSE_ANALYSIS.md](./LLMPULSE_ANALYSIS.md)
+
+- [ ] **프롬프트 추적 명세서 작성** (중간 우선순위, 1-2개월 예상)
+  - [ ] `specs/009-prompt-tracking/spec.md` 작성
+  - [ ] `specs/009-prompt-tracking/plan.md` 작성
+  - [ ] `specs/009-prompt-tracking/research.md` 작성
+  - [ ] `specs/009-prompt-tracking/tasks.md` 작성
+  - [ ] `specs/009-prompt-tracking/validation.md` 작성
+  - [ ] 참고 문서: [LLMPULSE_ANALYSIS.md](./LLMPULSE_ANALYSIS.md)
+
 #### Step 3: 템플릿 파일 생성 (1일)
 - [ ] `templates/spec-template.md` 생성
 - [ ] `templates/plan-template.md` 생성
@@ -639,14 +709,22 @@ gaeo-analysis/
 
 ### 우선순위
 
-1. **높은 우선순위**
+1. **높은 우선순위** ⭐
    - Constitution 작성
    - 템플릿 파일 생성
    - 새 기능 개발 시 워크플로우 적용
+   - **인용 소스 분석 기능 명세서 작성** (LLM Pulse 기반, 최우선)
+     - 독립적으로 가치 제공
+     - 기존 분석 결과에 즉시 적용 가능
+     - 기술적 난이도 중간
+     - 명확한 ROI
 
 2. **중간 우선순위**
    - 기존 주요 기능 명세서 작성
    - 검증 체크리스트 작성
+   - **프롬프트 추적 기능 명세서 작성** (LLM Pulse 기반)
+     - 인용 소스 분석의 자동화된 데이터 소스
+     - 기술적 난이도 높음 (브라우저 자동화 필요)
 
 3. **낮은 우선순위**
    - 모든 기존 기능 명세서 작성
@@ -673,6 +751,10 @@ Spec-Kit의 `/speckit.plan`, `/speckit.tasks`, `/speckit.implement` 명령어와
 - [Spec-Driven Development 가이드](https://github.com/github/spec-kit#readme)
 - [프로젝트 README](./README.md)
 - [프로젝트 아키텍처](./ARCHITECTURE.md)
+- [LLM Pulse 기능 분석 및 접목 방안](./LLMPULSE_ANALYSIS.md) ⭐
+  - LLM Pulse의 Prompt Tracking 및 Citation Sources Analysis 기능 상세 분석
+  - 기술 스펙 및 구현 방안
+  - 우선순위 및 로드맵
 
 ---
 
@@ -686,6 +768,9 @@ Spec-Kit의 `/speckit.plan`, `/speckit.tasks`, `/speckit.implement` 명령어와
 ### 권장 작업
 - [x] 기존 주요 기능 명세서 작성 (4/4 완료)
 - [x] 검증 체크리스트 작성
+- [ ] **LLM Pulse 기반 신규 기능 명세서 작성** ⭐
+  - [ ] 인용 소스 분석 명세서 (최우선)
+  - [ ] 프롬프트 추적 명세서
 - [ ] 커스텀 스크립트 생성
 
 ### 선택 작업
@@ -695,7 +780,50 @@ Spec-Kit의 `/speckit.plan`, `/speckit.tasks`, `/speckit.implement` 명령어와
 
 ---
 
-**문서 버전**: 1.0  
-**최종 업데이트**: 2025년 12월  
+**문서 버전**: 1.1  
+**최종 업데이트**: 2025년 1월 15일 (LLM Pulse 기능 반영)  
 **작성자**: AI Assistant (Spec-Kit 분석 기반)
+
+---
+
+## LLM Pulse 기능 통합 요약
+
+### 추가된 기능
+
+1. **인용 소스 분석 (Citation Sources Analysis)** - 최우선 ⭐
+   - **목적**: AI 응답에서 인용된 소스를 추적하고 분석하여 브랜드 가시성 및 인용 기회 발견
+   - **우선순위**: 최우선 (독립적으로 가치 제공, 기술적 난이도 중간)
+   - **예상 소요 시간**: 2-3주
+   - **참고 문서**: [LLMPULSE_ANALYSIS.md](./LLMPULSE_ANALYSIS.md)
+
+2. **프롬프트 추적 (Prompt Tracking)**
+   - **목적**: 실제 AI 플랫폼에서 프롬프트를 실행하고 응답을 추적하여 브랜드 가시성 모니터링
+   - **우선순위**: 중간 (인용 소스 분석의 자동화된 데이터 소스)
+   - **예상 소요 시간**: 1-2개월
+   - **참고 문서**: [LLMPULSE_ANALYSIS.md](./LLMPULSE_ANALYSIS.md)
+
+### 구현 우선순위 권장사항
+
+**Phase 1: 인용 소스 분석** (2-3주)
+- 독립적으로 가치 제공
+- 기존 분석 결과에 즉시 적용 가능
+- 기술적 난이도 중간
+- 명확한 ROI
+
+**Phase 2: 프롬프트 추적** (1-2개월)
+- 인용 소스 분석의 자동화된 데이터 소스
+- 사용자 피드백 기반으로 설계
+- 기술적 난이도 높음
+
+### Spec-Kit 워크플로우 적용
+
+각 기능에 대해 다음 순서로 진행:
+1. **Spec 작성**: `specs/010-citation-sources-analysis/spec.md`
+2. **Plan 작성**: 구현 계획 및 단계 정의
+3. **Research 작성**: 기술 스택 및 구현 방법 연구
+4. **Validation 작성**: 명세서 및 계획 검증
+5. **Tasks 작성**: 구체적인 작업 단위로 분해
+6. **Implementation**: 작업 순서대로 구현
+
+자세한 내용은 [LLMPULSE_ANALYSIS.md](./LLMPULSE_ANALYSIS.md) 참조.
 

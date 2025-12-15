@@ -1,5 +1,15 @@
 # Freemium 모델 다음 단계 개발 프로세스
 
+## 🧭 Spec-Kit 워크플로우 반영 (Freemium)
+
+- Constitution: ✅ `memory/constitution.md` 원칙 준수 (품질/보안/성능) → 사용량 제한·결제 로직에 적용.
+- Spec: ✅ `specs/003-freemium-model/spec.md` (기능 정의 완료).
+- Plan: 🚧 이 문서 내용을 `specs/003-freemium-model/plan.md`로 정리/배포 필요 (`templates/plan-template.md` 활용).
+- Research: ☐ `specs/003-freemium-model/research.md` 작성 (결제 사업자 비교, rate-limit/캐시 정책 최신 검토 포함).
+- Validation: ☐ `specs/003-freemium-model/validation.md` 작성 (사용량 제한·결제·보안·성능 검증 시나리오 체크리스트).
+- Tasks: ☐ `specs/003-freemium-model/tasks.md`에 1~4시간 단위 작업 분해 (아래 Phase 1~4를 Task로 분리).
+- Implementation: ▶️ 아래 Phase 1~4를 Implementation 단계로 추적.
+
 ## 📊 현재 구현 상태 분석
 
 ### ✅ 완료된 작업
@@ -656,4 +666,3 @@ Week 3: Phase 3 (결제 시스템 완성) + Phase 4 (테스트 및 최적화)
 **작성일:** 2025-12-15  
 **상태:** 개발 준비 완료  
 **다음 단계:** Phase 1 (API 통합) 시작
-
