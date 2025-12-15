@@ -69,7 +69,8 @@ export default function LoginRequiredModal({
             소셜 로그인 이후 분석이 진행됩니다
           </h2>
           <p className="text-sm text-gray-600 dark:text-gray-400">
-            소셜 로그인을 진행 후, 분석 시작을 진행합니다
+            별도의 회원가입은 없으며,<br />
+            분석 이력을 계속 유지 관리 하기 위함입니다.
           </p>
         </div>
 
