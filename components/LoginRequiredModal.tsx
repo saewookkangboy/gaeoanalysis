@@ -66,7 +66,7 @@ export default function LoginRequiredModal({
             </div>
           </div>
           <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-            로그인이 필요합니다
+            소셜 로그인 이후 분석이 진행됩니다
           </h2>
           <p className="text-sm text-gray-600 dark:text-gray-400">
             소셜 로그인을 진행 후, 분석 시작을 진행합니다
