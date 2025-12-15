@@ -2,6 +2,14 @@ import * as cheerio from 'cheerio';
 import { calculateAIOCitationScores, generateAIOCitationAnalysis, AIOCitationAnalysis } from './ai-citation-analyzer';
 import { calculateAIVisibilityScore, generateAIVisibilityRecommendations } from './ai-visibility-calculator';
 import { extractCitationSources, CitationExtractionResult, calculateDomainStatistics, DomainStatistics } from './citation-extractor';
+import { 
+  calculateAllDomainAuthorities, 
+  DomainAuthority, 
+  findCitationOpportunities, 
+  CitationOpportunity, 
+  detectQualityIssues, 
+  QualityIssue 
+} from './citation-analyzer';
 import { SEO_GUIDELINES, getImprovementPriority, getContentWritingGuidelines } from './seo-guidelines';
 import { withRetry } from './retry';
 import { FRESHNESS_OPTIMIZATION, STATISTICS_QUOTATIONS_GUIDE, CONTENT_STRUCTURE_GUIDE } from './seo-guidelines-enhanced';
