@@ -4,10 +4,12 @@ import { calculateAIVisibilityScore, generateAIVisibilityRecommendations } from 
 import { extractCitationSources, CitationExtractionResult, calculateDomainStatistics, DomainStatistics } from './citation-extractor';
 import { 
   calculateAllDomainAuthorities, 
-  DomainAuthority, 
   findCitationOpportunities, 
+  detectQualityIssues
+} from './citation-analyzer';
+import type { 
+  DomainAuthority, 
   CitationOpportunity, 
-  detectQualityIssues, 
   QualityIssue 
 } from './citation-analyzer';
 import { SEO_GUIDELINES, getImprovementPriority, getContentWritingGuidelines } from './seo-guidelines';
