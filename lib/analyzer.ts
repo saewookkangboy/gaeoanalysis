@@ -17,6 +17,9 @@ export interface AnalysisResult {
   aiVisibilityRecommendations?: string[];
   citationSources?: CitationExtractionResult;
   domainStatistics?: DomainStatistics[];
+  domainAuthorities?: DomainAuthority[];
+  citationOpportunities?: CitationOpportunity[];
+  qualityIssues?: QualityIssue[];
   improvementPriorities?: Array<{ 
     category: string; 
     priority: number; 
@@ -211,6 +214,21 @@ export async function analyzeContent(url: string): Promise<AnalysisResult> {
     
     // 도메인별 통계 계산
     const domainStatistics = calculateDomainStatistics(citationSources.sources, targetDomain);
+    
+    // 도메인 권위성 평가
+    const domainAuthorities = calculateAllDomainAuthorities(
+      citationSources.sources,
+      domainStatistics
+    );
+    
+    // 인용 획득 기회 발견
+    const citationOpportunities = findCitationOpportunities(
+      domainAuthorities,
+      targetDomain
+    );
+    
+    // 품질 관리: 이슈 감지
+    const qualityIssues = detectQualityIssues(citationSources.sources);
 
     // 인사이트 생성 (개선 우선순위에 사용)
     const insights = generateInsights($, aeoScore, geoScore, seoScore);
@@ -230,6 +248,9 @@ export async function analyzeContent(url: string): Promise<AnalysisResult> {
       aiVisibilityRecommendations,
       citationSources,
       domainStatistics,
+      domainAuthorities,
+      citationOpportunities,
+      qualityIssues,
       improvementPriorities,
       contentGuidelines,
     };
