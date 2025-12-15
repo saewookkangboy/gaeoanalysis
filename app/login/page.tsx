@@ -14,6 +14,8 @@ function LoginForm() {
   // 로그인 성공 후 세션 확인 및 리디렉션 (즉시 처리)
   useEffect(() => {
     if (status === 'authenticated' && session?.user) {
+      console.log('✅ [Login] 로그인 성공, 리디렉션 처리 시작');
+      
       // URL 파라미터에서 분석 의도 확인
       const intent = searchParams?.get('intent');
       const url = searchParams?.get('url');
@@ -25,31 +27,45 @@ function LoginForm() {
         params.set('intent', 'analyze');
         // URL 파라미터가 있으면 포함 (없어도 localStorage에서 복원 가능)
         if (url) {
-          params.set('url', url);
+          try {
+            // URL이 이미 인코딩되어 있을 수 있으므로 확인
+            const decodedUrl = decodeURIComponent(url);
+            params.set('url', encodeURIComponent(decodedUrl));
+            console.log('✅ [Login] URL 파라미터 포함:', decodedUrl);
+          } catch (error) {
+            console.warn('⚠️ [Login] URL 파라미터 처리 실패, localStorage에서 복원 예정:', error);
+            // URL 파라미터 처리 실패해도 localStorage에 저장되어 있으므로 계속 진행
+          }
+        } else {
+          console.log('ℹ️ [Login] URL 파라미터 없음, localStorage에서 복원 예정');
         }
+        
         try {
-          window.location.href = `/?${params.toString()}`;
+          const redirectUrl = `/?${params.toString()}`;
+          console.log('✅ [Login] 메인 페이지로 리디렉션:', redirectUrl);
+          window.location.href = redirectUrl;
         } catch (error) {
-          console.error('리디렉션 중 오류 발생:', error);
+          console.error('❌ [Login] 리디렉션 중 오류 발생:', error);
           // 에러 발생 시 router.push로 대체 시도
           try {
             router.push(`/?${params.toString()}`);
           } catch (routerError) {
-            console.error('Router push 실패:', routerError);
-            // 최후의 수단: 일반 페이지로 이동
+            console.error('❌ [Login] Router push 실패:', routerError);
+            // 최후의 수단: 일반 페이지로 이동 (localStorage에서 복원 가능)
             window.location.href = '/';
           }
         }
       } else {
         // 일반 로그인은 기존대로 메인 페이지로 리디렉션
+        console.log('✅ [Login] 일반 로그인, 메인 페이지로 리디렉션');
         try {
           window.location.href = '/';
         } catch (error) {
-          console.error('리디렉션 중 오류 발생:', error);
+          console.error('❌ [Login] 리디렉션 중 오류 발생 (무시됨):', error);
           try {
             router.push('/');
           } catch (routerError) {
-            console.error('Router push 실패:', routerError);
+            console.error('❌ [Login] Router push 실패:', routerError);
           }
         }
       }

@@ -62,15 +62,26 @@ async function handleAnalyze(request: NextRequest) {
   // URL sanitization
   const sanitizedUrl = sanitizeUrl(url);
 
-  // 세션 확인
+  // 세션 확인 (Critical: 로그인 필수)
   const session = await auth();
   const userId = session?.user?.id;
   
   console.log('🔐 [Analyze API] 세션 확인:', {
     hasSession: !!session,
     userId: userId,
-    userEmail: session?.user?.email
+    userEmail: session?.user?.email,
+    provider: session?.user?.provider
   });
+
+  // Critical: 로그인 필수 검증 강화
+  if (!session || !userId) {
+    console.warn('⚠️ [Analyze API] 로그인되지 않은 사용자의 분석 요청');
+    return createErrorResponse(
+      'UNAUTHORIZED',
+      '분석을 시작하려면 로그인이 필요합니다.',
+      401
+    );
+  }
 
   // 캐시 키 생성
   const cacheKey = createCacheKey('analysis', sanitizedUrl);

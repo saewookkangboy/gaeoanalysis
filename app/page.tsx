@@ -136,11 +136,22 @@ function HomeContent() {
       if (session?.user && intent === 'analyze') {
         let targetUrl = '';
         
-        // 우선순위: URL 파라미터 > localStorage
+        // 우선순위: URL 파라미터 > localStorage (명확히 정의)
         if (urlParam) {
-          targetUrl = decodeURIComponent(urlParam);
+          try {
+            targetUrl = decodeURIComponent(urlParam);
+            console.log('✅ [Auto Analyze] URL 파라미터에서 복원:', targetUrl);
+          } catch (error) {
+            console.error('❌ [Auto Analyze] URL 파라미터 디코딩 실패:', error);
+            // 디코딩 실패 시 localStorage에서 시도
+            if (pendingUrl) {
+              targetUrl = pendingUrl;
+              console.log('✅ [Auto Analyze] localStorage에서 복원:', targetUrl);
+            }
+          }
         } else if (pendingUrl) {
           targetUrl = pendingUrl;
+          console.log('✅ [Auto Analyze] localStorage에서 복원:', targetUrl);
         }
 
         if (targetUrl) {
@@ -151,15 +162,38 @@ function HomeContent() {
           storage.clearPendingLoginUrl();
           
           // URL 파라미터 정리 (히스토리 정리)
-          const newUrl = new URL(window.location.href);
-          newUrl.searchParams.delete('intent');
-          newUrl.searchParams.delete('url');
-          window.history.replaceState({}, '', newUrl.toString());
+          try {
+            const newUrl = new URL(window.location.href);
+            newUrl.searchParams.delete('intent');
+            newUrl.searchParams.delete('url');
+            window.history.replaceState({}, '', newUrl.toString());
+          } catch (error) {
+            console.warn('⚠️ [Auto Analyze] URL 파라미터 정리 실패:', error);
+          }
           
           // 약간의 지연 후 분석 시작 (URL 설정이 완료된 후)
+          // 에러 처리 강화
           setTimeout(() => {
-            handleAnalyze();
+            try {
+              handleAnalyze();
+            } catch (error) {
+              console.error('❌ [Auto Analyze] 자동 분석 시작 실패:', error);
+              const errorMsg = error instanceof Error ? error.message : '분석 시작 중 오류가 발생했습니다.';
+              setError(errorMsg);
+              showToast(errorMsg, 'error');
+            }
           }, 100);
+        } else {
+          console.warn('⚠️ [Auto Analyze] 분석할 URL이 없습니다.');
+          // URL이 없으면 분석 의도만 정리
+          try {
+            const newUrl = new URL(window.location.href);
+            newUrl.searchParams.delete('intent');
+            newUrl.searchParams.delete('url');
+            window.history.replaceState({}, '', newUrl.toString());
+          } catch (error) {
+            console.warn('⚠️ [Auto Analyze] URL 파라미터 정리 실패:', error);
+          }
         }
       }
     };
@@ -317,7 +351,14 @@ function HomeContent() {
     // 로그인 상태 확인
     if (!session?.user) {
       // 로그인 전 URL 임시 저장
-      storage.savePendingLoginUrl(url.trim());
+      const urlToSave = url.trim();
+      if (urlToSave) {
+        const saved = storage.savePendingLoginUrl(urlToSave);
+        if (!saved) {
+          console.warn('⚠️ [Handle Analyze] URL 저장 실패 (localStorage 사용 불가)');
+          showToast('URL 저장에 실패했습니다. 로그인 후 다시 입력해주세요.', 'warning');
+        }
+      }
       setIsLoginModalOpen(true);
       return;
     }
@@ -775,14 +816,30 @@ function HomeContent() {
             const params = new URLSearchParams();
             params.set('intent', 'analyze');
             // URL 파라미터는 선택적 (localStorage에 저장되어 있으므로)
-            if (url.trim()) {
-              params.set('url', encodeURIComponent(url.trim()));
+            // 하지만 가능하면 파라미터로도 전달하여 안정성 향상
+            const urlToEncode = url.trim();
+            if (urlToEncode) {
+              try {
+                params.set('url', encodeURIComponent(urlToEncode));
+                console.log('✅ [Login Modal] URL 파라미터 포함:', urlToEncode);
+              } catch (encodeError) {
+                console.warn('⚠️ [Login Modal] URL 인코딩 실패:', encodeError);
+                // 인코딩 실패해도 localStorage에 저장되어 있으므로 계속 진행
+              }
             }
-            router.push(`/login?${params.toString()}`);
+            
+            // router.push 대신 window.location.href 사용하여 더 안정적인 리디렉션
+            const loginUrl = `/login?${params.toString()}`;
+            console.log('✅ [Login Modal] 로그인 페이지로 이동:', loginUrl);
+            window.location.href = loginUrl;
           } catch (error) {
             // 네트워크 에러 처리
-            console.error('로그인 페이지 이동 실패:', error);
+            console.error('❌ [Login Modal] 로그인 페이지 이동 실패:', error);
             showToast('로그인 페이지로 이동하는 중 오류가 발생했습니다. 다시 시도해주세요.', 'error');
+            // 에러 발생 시에도 모달을 다시 열어 재시도 가능하게 함
+            setTimeout(() => {
+              setIsLoginModalOpen(true);
+            }, 1000);
           }
         }}
         url={url}
