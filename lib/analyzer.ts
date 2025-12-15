@@ -7,7 +7,8 @@ import {
   findCitationOpportunities, 
   detectQualityIssues
 } from './citation-analyzer';
-import type { 
+// Re-export types for Railway build compatibility
+export type { 
   DomainAuthority, 
   CitationOpportunity, 
   QualityIssue 
@@ -15,6 +16,9 @@ import type {
 import { SEO_GUIDELINES, getImprovementPriority, getContentWritingGuidelines } from './seo-guidelines';
 import { withRetry } from './retry';
 import { FRESHNESS_OPTIMIZATION, STATISTICS_QUOTATIONS_GUIDE, CONTENT_STRUCTURE_GUIDE } from './seo-guidelines-enhanced';
+
+// Import types for use in this file
+import type { DomainAuthority, CitationOpportunity, QualityIssue } from './citation-analyzer';
 
 export interface AnalysisResult {
   aeoScore: number;
