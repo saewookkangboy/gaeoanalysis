@@ -6,6 +6,17 @@ export interface AnalysisResult {
   overallScore: number;
   insights: Insight[];
   aioAnalysis?: AIOCitationAnalysis;
+  improvementPriorities?: Array<{
+    category: string;
+    priority: number;
+    reason: string;
+    actionableTips?: Array<{
+      title: string;
+      steps: string[];
+      expectedImpact: string;
+    }>;
+  }>;
+  contentGuidelines?: string[];
   createdAt?: string;
 }
 

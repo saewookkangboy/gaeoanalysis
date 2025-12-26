@@ -5,6 +5,7 @@ import { analyzeUrl, checkAuthStatus } from '@/utils/api';
 import { saveScoreHistory, getScoreHistory } from '@/utils/storage';
 import ScoreDashboard from './components/ScoreDashboard';
 import ScoreHistoryChart from './components/ScoreHistoryChart';
+import ChecklistView from './components/ChecklistView';
 import './index.css';
 
 function Popup() {
@@ -150,6 +151,11 @@ function Popup() {
 
         {/* 점수 대시보드 */}
         <ScoreDashboard analysisData={analysisData} isLoading={isAnalyzing} />
+
+        {/* 체크리스트 */}
+        {analysisData && (
+          <ChecklistView analysisData={analysisData} url={currentUrl} />
+        )}
 
         {/* 점수 히스토리 */}
         {scoreHistory.length > 0 && (
