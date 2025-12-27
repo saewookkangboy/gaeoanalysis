@@ -31,6 +31,12 @@ const nextConfig: NextConfig = {
   },
   // Chunk 로딩 에러 방지 (webpack은 fallback으로 유지)
   webpack: (config, { isServer }) => {
+    // chrome-extension 디렉토리 제외 (Next.js 빌드에서 무시)
+    config.watchOptions = {
+      ...config.watchOptions,
+      ignored: ['**/chrome-extension/**'],
+    };
+    
     if (!isServer) {
       // 클라이언트 사이드 chunk 로딩 최적화
       config.optimization = {
