@@ -8,6 +8,7 @@ import ScoreHistoryChart from './components/ScoreHistoryChart';
 import ChecklistView from './components/ChecklistView';
 import ImprovementGuide from './components/ImprovementGuide';
 import AIAgentCompact from './components/AIAgentCompact';
+import ContentModifications from './components/ContentModifications';
 import './index.css';
 
 function Popup() {
@@ -168,6 +169,15 @@ function Popup() {
         {analysisData && (
           <AIAgentCompact 
             analysisData={analysisData} 
+            aioAnalysis={analysisData.aioAnalysis}
+            url={currentUrl}
+          />
+        )}
+
+        {/* 콘텐츠 수정안 */}
+        {analysisData && (
+          <ContentModifications
+            analysisData={analysisData}
             aioAnalysis={analysisData.aioAnalysis}
             url={currentUrl}
           />
