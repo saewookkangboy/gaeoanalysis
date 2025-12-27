@@ -79,7 +79,8 @@ export async function reviseContent(
  */
 function convertToMarkdown(content: string, originalContent: string): string {
   // 이미 마크다운 형식이면 그대로 반환
-  if (!content.includes('<') || content.match(/<[^>]+>/g)?.length < 5) {
+  const htmlTags = content.match(/<[^>]+>/g);
+  if (!content.includes('<') || !htmlTags || htmlTags.length < 5) {
     return content;
   }
   

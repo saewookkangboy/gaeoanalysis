@@ -873,11 +873,11 @@ function HomeContent() {
 
             setRevisionProgress(50);
             setRevisionProgressMessage('콘텐츠를 개선하는 중...');
-            await new Promise((resolve) => setTimeout(resolve, 1500);
+            await new Promise((resolve) => setTimeout(resolve, 1500));
 
             setRevisionProgress(75);
             setRevisionProgressMessage('점수를 계산하는 중...');
-            await new Promise((resolve) => setTimeout(resolve, 1000);
+            await new Promise((resolve) => setTimeout(resolve, 1000));
 
             // 실제 수정 API 호출
             const response = await fetch('/api/content/revise', {
