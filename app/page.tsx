@@ -19,6 +19,10 @@ import ComprehensiveChecklistModal from '@/components/ComprehensiveChecklistModa
 import Tooltip from '@/components/Tooltip';
 import NetworkStatus from '@/components/NetworkStatus';
 import LoginRequiredModal from '@/components/LoginRequiredModal';
+import RevisionPreviewModal from '@/components/ContentRevision/RevisionPreviewModal';
+import RevisionConfirmModal from '@/components/ContentRevision/RevisionConfirmModal';
+import RevisionProgress from '@/components/ContentRevision/RevisionProgress';
+import RevisionResult from '@/components/ContentRevision/RevisionResult';
 import { storage } from '@/lib/storage';
 import { fetchWithRetry } from '@/lib/fetch-with-retry';
 
@@ -62,6 +66,25 @@ function HomeContent() {
   const [retryCount, setRetryCount] = useState(0);
   const [isChecklistModalOpen, setIsChecklistModalOpen] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  
+  // 콘텐츠 수정 관련 상태
+  const [isRevisionPreviewOpen, setIsRevisionPreviewOpen] = useState(false);
+  const [isRevisionConfirmOpen, setIsRevisionConfirmOpen] = useState(false);
+  const [isRevisionProgress, setIsRevisionProgress] = useState(false);
+  const [revisionProgress, setRevisionProgress] = useState(0);
+  const [revisionProgressMessage, setRevisionProgressMessage] = useState('');
+  const [isRevisionResultOpen, setIsRevisionResultOpen] = useState(false);
+  const [revisionResult, setRevisionResult] = useState<{
+    revisedContent: string;
+    revisedMarkdown: string;
+    predictedScores?: {
+      seo: number;
+      aeo: number;
+      geo: number;
+      overall: number;
+    };
+    improvements: string[];
+  } | null>(null);
   const [estimatedTime, setEstimatedTime] = useState<number>(0);
   const [elapsedTime, setElapsedTime] = useState<number>(0);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -721,7 +744,14 @@ function HomeContent() {
             )}
 
             {/* 액션 버튼 */}
-            <div className="flex justify-end gap-2">
+            <div className="flex flex-wrap justify-end gap-2">
+              <button
+                onClick={() => setIsRevisionPreviewOpen(true)}
+                className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 px-4 py-2 text-sm font-semibold text-white shadow-md transition-all hover:from-purple-600 hover:to-pink-600 hover:shadow-lg hover:scale-105"
+              >
+                <span>✍️</span>
+                <span>콘텐츠 수정안 미리 보기</span>
+              </button>
               <ShareButton analysisData={analysisData} url={url} />
               <CopyButton analysisData={analysisData} url={url} />
             </div>
@@ -799,6 +829,110 @@ function HomeContent() {
           isOpen={isChecklistModalOpen}
           onClose={() => setIsChecklistModalOpen(false)}
           analysisData={analysisData}
+        />
+      )}
+
+      {/* 콘텐츠 수정 미리보기 모달 */}
+      {analysisData && (
+        <RevisionPreviewModal
+          isOpen={isRevisionPreviewOpen}
+          onClose={() => setIsRevisionPreviewOpen(false)}
+          onConfirm={() => {
+            setIsRevisionPreviewOpen(false);
+            setIsRevisionConfirmOpen(true);
+          }}
+          analysisData={analysisData}
+          url={url}
+        />
+      )}
+
+      {/* 콘텐츠 수정 확인 모달 */}
+      <RevisionConfirmModal
+        isOpen={isRevisionConfirmOpen}
+        onClose={() => setIsRevisionConfirmOpen(false)}
+        onConfirm={async () => {
+          setIsRevisionConfirmOpen(false);
+          setIsRevisionProgress(true);
+          setRevisionProgress(0);
+          setRevisionProgressMessage('원본 콘텐츠를 가져오는 중...');
+
+          try {
+            // 진행률 시뮬레이션
+            const progressInterval = setInterval(() => {
+              setRevisionProgress((prev) => {
+                if (prev >= 90) {
+                  clearInterval(progressInterval);
+                  return 90;
+                }
+                return prev + 10;
+              });
+            }, 500);
+
+            setRevisionProgressMessage('AI가 콘텐츠를 분석하고 수정하는 중...');
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+
+            setRevisionProgress(50);
+            setRevisionProgressMessage('콘텐츠를 개선하는 중...');
+            await new Promise((resolve) => setTimeout(resolve, 1500);
+
+            setRevisionProgress(75);
+            setRevisionProgressMessage('점수를 계산하는 중...');
+            await new Promise((resolve) => setTimeout(resolve, 1000);
+
+            // 실제 수정 API 호출
+            const response = await fetch('/api/content/revise', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                url,
+                analysisResult: analysisData,
+              }),
+            });
+
+            clearInterval(progressInterval);
+
+            if (!response.ok) {
+              const data = await response.json();
+              throw new Error(data.error || '콘텐츠 수정 실패');
+            }
+
+            const data = await response.json();
+            setRevisionProgress(100);
+            setRevisionProgressMessage('완료!');
+            await new Promise((resolve) => setTimeout(resolve, 500));
+
+            setIsRevisionProgress(false);
+            setRevisionResult(data.result);
+            setIsRevisionResultOpen(true);
+          } catch (error: any) {
+            console.error('콘텐츠 수정 오류:', error);
+            setIsRevisionProgress(false);
+            showToast(error.message || '콘텐츠 수정 중 오류가 발생했습니다.', 'error');
+          } finally {
+            setRevisionProgress(0);
+            setRevisionProgressMessage('');
+          }
+        }}
+      />
+
+      {/* 콘텐츠 수정 진행 중 */}
+      {isRevisionProgress && (
+        <RevisionProgress progress={revisionProgress} message={revisionProgressMessage} />
+      )}
+
+      {/* 콘텐츠 수정 결과 */}
+      {revisionResult && analysisData && (
+        <RevisionResult
+          isOpen={isRevisionResultOpen}
+          onClose={() => {
+            setIsRevisionResultOpen(false);
+            setRevisionResult(null);
+          }}
+          originalAnalysis={analysisData}
+          revisedContent={revisionResult.revisedContent}
+          revisedMarkdown={revisionResult.revisedMarkdown}
+          predictedScores={revisionResult.predictedScores}
+          improvements={revisionResult.improvements}
         />
       )}
 
