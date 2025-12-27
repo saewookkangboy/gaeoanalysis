@@ -6,6 +6,8 @@ import { saveScoreHistory, getScoreHistory } from '@/utils/storage';
 import ScoreDashboard from './components/ScoreDashboard';
 import ScoreHistoryChart from './components/ScoreHistoryChart';
 import ChecklistView from './components/ChecklistView';
+import ImprovementGuide from './components/ImprovementGuide';
+import AIAgentCompact from './components/AIAgentCompact';
 import './index.css';
 
 function Popup() {
@@ -155,6 +157,20 @@ function Popup() {
         {/* 체크리스트 */}
         {analysisData && (
           <ChecklistView analysisData={analysisData} url={currentUrl} />
+        )}
+
+        {/* 개선 가이드 */}
+        {analysisData && (
+          <ImprovementGuide analysisData={analysisData} />
+        )}
+
+        {/* AI Agent */}
+        {analysisData && (
+          <AIAgentCompact 
+            analysisData={analysisData} 
+            aioAnalysis={analysisData.aioAnalysis}
+            url={currentUrl}
+          />
         )}
 
         {/* 점수 히스토리 */}
