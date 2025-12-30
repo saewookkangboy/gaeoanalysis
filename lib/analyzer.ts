@@ -16,6 +16,7 @@ export type {
 import { SEO_GUIDELINES, getImprovementPriority, getContentWritingGuidelines } from './seo-guidelines';
 import { withRetry } from './retry';
 import { FRESHNESS_OPTIMIZATION, STATISTICS_QUOTATIONS_GUIDE, CONTENT_STRUCTURE_GUIDE } from './seo-guidelines-enhanced';
+import { analyzeNaverBlogContent } from './naver-blog-analyzer';
 
 // Import types for use in this file
 import type { DomainAuthority, CitationOpportunity, QualityIssue } from './citation-analyzer';
@@ -100,6 +101,14 @@ export async function analyzeContent(url: string): Promise<AnalysisResult> {
       throw new Error(validation.message);
     }
 
+    // 네이버 블로그 감지
+    const urlObj = new URL(url);
+    const isNaverBlog = urlObj.hostname.includes('blog.naver.com');
+    
+    if (isNaverBlog) {
+      console.log('📝 [Analyzer] 네이버 블로그 감지 - 전용 분석 모듈 사용');
+    }
+
     // URL fetch (재시도 로직 포함)
     const html = await withRetry(
       async () => {
@@ -163,6 +172,31 @@ export async function analyzeContent(url: string): Promise<AnalysisResult> {
       }
     );
     
+    // 네이버 블로그인 경우 전용 분석 모듈 사용
+    if (isNaverBlog) {
+      console.log('✅ [Analyzer] 네이버 블로그 전용 분석 시작');
+      const naverResult = await analyzeNaverBlogContent(html, url);
+      
+      // NaverBlogAnalysisResult를 AnalysisResult로 변환 (naverSpecific 제외)
+      return {
+        aeoScore: naverResult.aeoScore,
+        geoScore: naverResult.geoScore,
+        seoScore: naverResult.seoScore,
+        overallScore: naverResult.overallScore,
+        insights: naverResult.insights,
+        aioAnalysis: naverResult.aioAnalysis,
+        aiVisibilityScore: naverResult.aiVisibilityScore,
+        aiVisibilityRecommendations: naverResult.aiVisibilityRecommendations,
+        citationSources: naverResult.citationSources,
+        domainStatistics: naverResult.domainStatistics,
+        domainAuthorities: naverResult.domainAuthorities,
+        citationOpportunities: naverResult.citationOpportunities,
+        qualityIssues: naverResult.qualityIssues,
+        improvementPriorities: naverResult.improvementPriorities,
+        contentGuidelines: naverResult.contentGuidelines,
+      };
+    }
+
     // HTML 파싱
     const $ = cheerio.load(html);
 
