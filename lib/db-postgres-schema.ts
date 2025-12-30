@@ -246,8 +246,39 @@ export async function ensurePostgresSchema(): Promise<void> {
       const tablesExist = checkResult.rows[0]?.tables_exist;
       
       if (tablesExist) {
-        // 테이블이 이미 존재하면 스키마 초기화 스킵
-        console.log('✅ [PostgreSQL Schema] 테이블이 이미 존재합니다. 스키마 초기화 스킵.');
+        // 테이블이 이미 존재하면 필요한 컬럼이 있는지 확인하고 추가
+        console.log('✅ [PostgreSQL Schema] 테이블이 이미 존재합니다. 컬럼 마이그레이션 확인 중...');
+        
+        // analyses 테이블에 ai_visibility_score 컬럼이 있는지 확인
+        const columnCheckQuery = `
+          SELECT EXISTS (
+            SELECT FROM information_schema.columns 
+            WHERE table_schema = 'public' 
+            AND table_name = 'analyses' 
+            AND column_name = 'ai_visibility_score'
+          ) as column_exists;
+        `;
+        
+        try {
+          const columnCheckResult = await query(columnCheckQuery);
+          const columnExists = columnCheckResult.rows[0]?.column_exists;
+          
+          if (!columnExists) {
+            console.log('🔄 [PostgreSQL Schema] ai_visibility_score 컬럼이 없습니다. 추가 중...');
+            await query(`
+              ALTER TABLE analyses 
+              ADD COLUMN IF NOT EXISTS ai_visibility_score INTEGER 
+              CHECK(ai_visibility_score IS NULL OR (ai_visibility_score >= 0 AND ai_visibility_score <= 100));
+            `);
+            console.log('✅ [PostgreSQL Schema] ai_visibility_score 컬럼 추가 완료');
+          } else {
+            console.log('✅ [PostgreSQL Schema] ai_visibility_score 컬럼이 이미 존재합니다.');
+          }
+        } catch (error: any) {
+          // 컬럼 추가 실패 시에도 계속 진행 (이미 존재할 수 있음)
+          console.warn('⚠️ [PostgreSQL Schema] 컬럼 확인/추가 중 오류 (계속 진행):', error.message);
+        }
+        
         schemaInitialized = true;
         return;
       }
