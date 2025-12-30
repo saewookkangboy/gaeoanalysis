@@ -1,6 +1,9 @@
 'use client';
 
 import { useState } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import rehypeHighlight from 'rehype-highlight';
 import { AnalysisResult } from '@/lib/analyzer';
 
 interface RevisionPreviewModalProps {
@@ -30,6 +33,7 @@ export default function RevisionPreviewModal({
     improvements: string[];
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [copySuccess, setCopySuccess] = useState(false);
 
   const handleGeneratePreview = async () => {
     if (!analysisData || !url) return;
@@ -66,23 +70,26 @@ export default function RevisionPreviewModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 p-4 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-2xl max-h-[90vh] rounded-lg border border-gray-300 bg-white shadow-xl overflow-hidden flex flex-col"
+        className="relative w-full max-w-5xl max-h-[95vh] rounded-xl border-2 border-gray-200 bg-white shadow-2xl overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* 헤더 */}
-        <div className="sticky top-0 bg-white border-b border-gray-300 px-6 py-4 z-10">
+        <div className="sticky top-0 bg-gradient-to-r from-sky-50 to-indigo-50 border-b-2 border-gray-200 px-6 py-5 z-10 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-xl font-bold text-gray-900">콘텐츠 수정안 미리 보기</h2>
-              <p className="mt-1 text-sm text-gray-600">개선된 콘텐츠를 미리 확인하세요</p>
+              <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                <span className="text-3xl">✍️</span>
+                콘텐츠 수정안 미리 보기
+              </h2>
+              <p className="mt-1.5 text-sm text-gray-600">개선된 콘텐츠를 완성형으로 확인하세요</p>
             </div>
             <button
               onClick={onClose}
-              className="text-gray-500 hover:text-gray-700 transition-colors"
+              className="text-gray-500 hover:text-gray-700 hover:bg-white rounded-full p-2 transition-all"
               aria-label="닫기"
             >
               <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -207,13 +214,76 @@ export default function RevisionPreviewModal({
                 </div>
               )}
 
-              {/* 미리보기 콘텐츠 */}
-              <div>
-                <h3 className="mb-2 font-semibold text-gray-900">수정된 콘텐츠 미리보기</h3>
-                <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 max-h-96 overflow-y-auto">
-                  <pre className="whitespace-pre-wrap text-sm text-gray-700 font-mono">
-                    {preview.revisedMarkdown}
-                  </pre>
+              {/* 미리보기 콘텐츠 - 완성형 */}
+              <div className="mt-6">
+                <div className="mb-3 flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <span>📄</span>
+                    수정된 콘텐츠 (완성형)
+                  </h3>
+                  <button
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(preview.revisedMarkdown);
+                        setCopySuccess(true);
+                        setTimeout(() => setCopySuccess(false), 2000);
+                      } catch (err) {
+                        console.error('복사 실패:', err);
+                      }
+                    }}
+                    className="text-xs text-sky-600 hover:text-sky-700 font-medium flex items-center gap-1 transition-colors"
+                  >
+                    {copySuccess ? (
+                      <>
+                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        복사됨!
+                      </>
+                    ) : (
+                      <>
+                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                        복사
+                      </>
+                    )}
+                  </button>
+                </div>
+                <div className="rounded-lg border-2 border-gray-200 bg-white p-6 max-h-[60vh] overflow-y-auto shadow-inner" data-allow-copy="true">
+                  <div className="markdown-content" data-allow-copy="true">
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      rehypePlugins={[rehypeHighlight]}
+                      components={{
+                        h1: ({node, ...props}) => <h1 className="text-3xl font-bold text-gray-900 mt-6 mb-4 pb-2 border-b border-gray-200" {...props} />,
+                        h2: ({node, ...props}) => <h2 className="text-2xl font-bold text-gray-900 mt-5 mb-3 pb-2 border-b border-gray-200" {...props} />,
+                        h3: ({node, ...props}) => <h3 className="text-xl font-semibold text-gray-900 mt-4 mb-2" {...props} />,
+                        h4: ({node, ...props}) => <h4 className="text-lg font-semibold text-gray-900 mt-3 mb-2" {...props} />,
+                        p: ({node, ...props}) => <p className="text-gray-700 mb-4 leading-relaxed" {...props} />,
+                        a: ({node, ...props}) => <a className="text-sky-600 hover:text-sky-700 underline font-medium" {...props} />,
+                        strong: ({node, ...props}) => <strong className="font-bold text-gray-900" {...props} />,
+                        em: ({node, ...props}) => <em className="italic text-gray-800" {...props} />,
+                        ul: ({node, ...props}) => <ul className="list-disc list-inside mb-4 space-y-2 text-gray-700" {...props} />,
+                        ol: ({node, ...props}) => <ol className="list-decimal list-inside mb-4 space-y-2 text-gray-700" {...props} />,
+                        li: ({node, ...props}) => <li className="ml-4" {...props} />,
+                        blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-sky-500 pl-4 italic text-gray-600 my-4" {...props} />,
+                        code: ({node, inline, ...props}: any) => 
+                          inline ? (
+                            <code className="bg-sky-50 text-sky-700 px-1.5 py-0.5 rounded text-sm font-mono" {...props} />
+                          ) : (
+                            <code className="block bg-gray-50 text-gray-800 p-4 rounded-lg overflow-x-auto text-sm font-mono" {...props} />
+                          ),
+                        pre: ({node, ...props}) => <pre className="bg-gray-50 p-4 rounded-lg overflow-x-auto mb-4" {...props} />,
+                        hr: ({node, ...props}) => <hr className="my-6 border-gray-300" {...props} />,
+                        table: ({node, ...props}) => <table className="w-full border-collapse border border-gray-300 mb-4" {...props} />,
+                        th: ({node, ...props}) => <th className="border border-gray-300 bg-gray-100 px-4 py-2 text-left font-semibold text-gray-900" {...props} />,
+                        td: ({node, ...props}) => <td className="border border-gray-300 px-4 py-2 text-gray-700" {...props} />,
+                      }}
+                    >
+                      {preview.revisedMarkdown}
+                    </ReactMarkdown>
+                  </div>
                 </div>
               </div>
             </div>
@@ -221,19 +291,19 @@ export default function RevisionPreviewModal({
         </div>
 
         {/* 푸터 */}
-        <div className="sticky bottom-0 bg-gray-50 border-t border-gray-300 px-6 py-4 flex justify-end gap-3">
+        <div className="sticky bottom-0 bg-gradient-to-r from-gray-50 to-gray-100 border-t-2 border-gray-200 px-6 py-4 flex justify-end gap-3 shadow-lg">
           <button
             onClick={onClose}
-            className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+            className="rounded-lg border-2 border-gray-300 bg-white px-5 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-all"
           >
             닫기
           </button>
           {preview && (
             <button
               onClick={onConfirm}
-              className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700 transition-colors"
+              className="rounded-lg bg-gradient-to-r from-sky-600 to-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:from-sky-700 hover:to-indigo-700 transition-all shadow-md hover:shadow-lg"
             >
-              수정 진행하기
+              수정 진행하기 →
             </button>
           )}
         </div>

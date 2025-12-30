@@ -60,10 +60,12 @@ export async function POST(request: NextRequest) {
       }
     );
     
-    // 간단한 미리보기를 위해 처음 3000자만 사용
-    const originalContent = html.substring(0, 3000);
+    // 전체 콘텐츠 사용 (완성형 미리보기를 위해)
+    // 너무 긴 경우를 대비해 최대 10000자로 제한
+    const maxLength = 10000;
+    const originalContent = html.length > maxLength ? html.substring(0, maxLength) : html;
 
-    // 간단한 미리보기 생성
+    // 완성형 미리보기 생성
     const previewResult = await reviseContent(
       {
         originalContent,
@@ -76,7 +78,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       preview: {
-        revisedMarkdown: previewResult.revisedMarkdown.substring(0, 1000) + '...',
+        revisedMarkdown: previewResult.revisedMarkdown, // 전체 콘텐츠 반환
         predictedScores: previewResult.predictedScores,
         improvements: previewResult.improvements,
       },
