@@ -1102,18 +1102,25 @@ export async function saveAnalysis(data: {
         try {
           updateUserActivityStatistics(data.userId, 'analysis', data.overallScore);
         } catch (userStatError: any) {
-          if (userStatError?.code === 'SQLITE_CONSTRAINT_FOREIGNKEY') {
+          // PostgreSQL과 SQLite 모두 처리
+          if (userStatError?.code === 'SQLITE_CONSTRAINT_FOREIGNKEY' || userStatError?.code === '23503') {
             console.warn('⚠️ [saveAnalysis] 사용자 활동 통계 업데이트 FOREIGN KEY 오류 (사용자 확인 후 재시도):', {
               userId: data.userId,
-              error: userStatError.message
+              error: userStatError.message,
+              code: userStatError.code
             });
-            // 사용자 재확인 후 재시도
-            const retryUserCheck = await getUser(data.userId);
-            if (retryUserCheck) {
-              try {
-                updateUserActivityStatistics(data.userId, 'analysis', data.overallScore);
-              } catch (retryError) {
-                console.warn('⚠️ [saveAnalysis] 사용자 활동 통계 업데이트 재시도 실패 (무시):', retryError);
+            // PostgreSQL 환경에서는 통계 테이블이 없을 수 있으므로 스킵
+            if (isPostgreSQL()) {
+              console.warn('⚠️ [saveAnalysis] PostgreSQL 환경: 통계 업데이트 스킵 (통계 테이블이 없을 수 있음)');
+            } else {
+              // SQLite: 사용자 재확인 후 재시도
+              const retryUserCheck = await getUser(data.userId);
+              if (retryUserCheck) {
+                try {
+                  updateUserActivityStatistics(data.userId, 'analysis', data.overallScore);
+                } catch (retryError) {
+                  console.warn('⚠️ [saveAnalysis] 사용자 활동 통계 업데이트 재시도 실패 (무시):', retryError);
+                }
               }
             }
           } else {
@@ -1130,24 +1137,31 @@ export async function saveAnalysis(data: {
             overallScore: data.overallScore,
           });
         } catch (detailStatError: any) {
-          if (detailStatError?.code === 'SQLITE_CONSTRAINT_FOREIGNKEY') {
+          // PostgreSQL과 SQLite 모두 처리
+          if (detailStatError?.code === 'SQLITE_CONSTRAINT_FOREIGNKEY' || detailStatError?.code === '23503') {
             console.warn('⚠️ [saveAnalysis] 분석 상세 통계 업데이트 FOREIGN KEY 오류 (분석 확인 후 재시도):', {
               analysisId: data.id,
               userId: data.userId,
-              error: detailStatError.message
+              error: detailStatError.message,
+              code: detailStatError.code
             });
-            // 분석 재확인 후 재시도
-            const retryAnalysisCheck = db.prepare('SELECT id FROM analyses WHERE id = ?').get(data.id) as { id: string } | undefined;
-            if (retryAnalysisCheck) {
-              try {
-                updateAnalysisDetailStatistics(data.url, {
-                  aeoScore: data.aeoScore,
-                  geoScore: data.geoScore,
-                  seoScore: data.seoScore,
-                  overallScore: data.overallScore,
-                });
-              } catch (retryError) {
-                console.warn('⚠️ [saveAnalysis] 분석 상세 통계 업데이트 재시도 실패 (무시):', retryError);
+            // PostgreSQL 환경에서는 통계 테이블이 없을 수 있으므로 스킵
+            if (isPostgreSQL()) {
+              console.warn('⚠️ [saveAnalysis] PostgreSQL 환경: 통계 업데이트 스킵 (통계 테이블이 없을 수 있음)');
+            } else {
+              // SQLite: 분석 재확인 후 재시도
+              const retryAnalysisCheck = db.prepare('SELECT id FROM analyses WHERE id = ?').get(data.id) as { id: string } | undefined;
+              if (retryAnalysisCheck) {
+                try {
+                  updateAnalysisDetailStatistics(data.url, {
+                    aeoScore: data.aeoScore,
+                    geoScore: data.geoScore,
+                    seoScore: data.seoScore,
+                    overallScore: data.overallScore,
+                  });
+                } catch (retryError) {
+                  console.warn('⚠️ [saveAnalysis] 분석 상세 통계 업데이트 재시도 실패 (무시):', retryError);
+                }
               }
             }
           } else {
@@ -1158,9 +1172,11 @@ export async function saveAnalysis(data: {
         console.log('✅ [saveAnalysis] 통계 업데이트 완료');
       } catch (statError: any) {
         // FOREIGN KEY 제약 조건 오류는 경고만 출력 (분석 저장은 성공)
-        if (statError?.code === 'SQLITE_CONSTRAINT_FOREIGNKEY') {
+        // PostgreSQL과 SQLite 모두 처리
+        if (statError?.code === 'SQLITE_CONSTRAINT_FOREIGNKEY' || statError?.code === '23503') {
           console.warn('⚠️ [saveAnalysis] 통계 업데이트 FOREIGN KEY 제약 조건 오류 (무시):', {
             error: statError.message,
+            code: statError.code,
             userId: data.userId,
             analysisId: data.id
           });

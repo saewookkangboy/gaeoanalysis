@@ -593,6 +593,22 @@ function generateInsights($: cheerio.CheerioAPI, aeoScore: number, geoScore: num
         message: `${imagesWithoutAlt}개의 이미지에 Alt 텍스트가 없습니다. 접근성과 SEO를 위해 추가하세요.`,
       });
     }
+    
+    // 범용 블로그 이미지 개수 및 사이즈 체크
+    const imageCount = images.length;
+    if (imageCount < 2) {
+      insights.push({
+        severity: 'Medium',
+        category: 'SEO',
+        message: `이미지가 ${imageCount}개로 부족합니다. 최소 2개, 권장 3-5개 추가하세요. 본문 이미지는 800×600px 이상 권장입니다.`,
+      });
+    } else if (imageCount < 3) {
+      insights.push({
+        severity: 'Low',
+        category: 'SEO',
+        message: `이미지가 ${imageCount}개입니다. 권장 개수는 3-5개입니다. 본문 이미지는 800×600px 이상 권장입니다.`,
+      });
+    }
   }
 
   // AEO 인사이트

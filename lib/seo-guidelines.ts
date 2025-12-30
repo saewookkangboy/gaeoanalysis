@@ -714,7 +714,8 @@ export function getContentWritingGuidelines(
   // GEO 관련
   if (geoScore < 80) {
     guidelines.push('✅ 콘텐츠는 최소 2000단어 이상으로 작성하세요');
-    guidelines.push('✅ 이미지, 비디오, 표 등 다양한 미디어를 포함하세요');
+    guidelines.push('✅ 이미지 3-5개 추가 (본문 이미지 800×600px 이상 권장, Open Graph 이미지 1200×630px)');
+    guidelines.push('✅ 비디오, 표 등 다양한 미디어를 포함하세요');
     guidelines.push('✅ 최신 정보와 통계 데이터를 포함하세요');
     guidelines.push('✅ Open Graph 태그를 설정하여 소셜 공유를 최적화하세요');
   }

@@ -223,6 +223,132 @@ export async function analyzeNaverBlogContent(
 }
 
 /**
+ * 이미지 분석 결과 인터페이스
+ */
+interface ImageAnalysis {
+  totalCount: number;
+  imagesWithAlt: number;
+  imagesWithOptimalSize: number;
+  recommendedCount: {
+    minimum: number;
+    optimal: number;
+    maximum: number;
+  };
+  recommendedSizes: {
+    thumbnail: { width: number; height: number };
+    content: { width: number; height: number };
+    ogImage: { width: number; height: number };
+  };
+  issues: Array<{
+    type: 'count' | 'size' | 'alt' | 'format';
+    severity: 'High' | 'Medium' | 'Low';
+    message: string;
+  }>;
+}
+
+/**
+ * 네이버 블로그 이미지 권장사항
+ */
+const NAVER_BLOG_IMAGE_GUIDELINES = {
+  recommendedCount: {
+    minimum: 3,
+    optimal: 5,
+    maximum: 10,
+  },
+  recommendedSizes: {
+    thumbnail: { width: 400, height: 300 },
+    content: { width: 1200, height: 800 },
+    ogImage: { width: 1200, height: 630 },
+  },
+  minContentWidth: 800,
+  maxFileSize: 500 * 1024, // 500KB
+};
+
+/**
+ * 범용 블로그 이미지 권장사항
+ */
+const GENERAL_BLOG_IMAGE_GUIDELINES = {
+  recommendedCount: {
+    minimum: 2,
+    optimal: 3,
+    maximum: 5,
+  },
+  recommendedSizes: {
+    thumbnail: { width: 300, height: 200 },
+    content: { width: 800, height: 600 },
+    ogImage: { width: 1200, height: 630 },
+  },
+  minContentWidth: 600,
+  maxFileSize: 1024 * 1024, // 1MB
+};
+
+/**
+ * 이미지 분석 함수
+ */
+function analyzeImages($: cheerio.CheerioAPI, isNaverBlog: boolean = false): ImageAnalysis {
+  const images = $('img');
+  const totalCount = images.length;
+  const imagesWithAlt = images.filter((_, el) => !!$(el).attr('alt')).length;
+  
+  const guidelines = isNaverBlog ? NAVER_BLOG_IMAGE_GUIDELINES : GENERAL_BLOG_IMAGE_GUIDELINES;
+  
+  // 이미지 사이즈 분석 (width, height 속성 또는 style에서 추출)
+  let imagesWithOptimalSize = 0;
+  const issues: ImageAnalysis['issues'] = [];
+  
+  images.each((_, el) => {
+    const $img = $(el);
+    const width = parseInt($img.attr('width') || $img.css('width') || '0', 10);
+    const height = parseInt($img.attr('height') || $img.css('height') || '0', 10);
+    const src = $img.attr('src') || '';
+    
+    // 이미지 사이즈 체크
+    if (width >= guidelines.minContentWidth || height >= guidelines.minContentWidth) {
+      imagesWithOptimalSize++;
+    } else if (width > 0 && width < guidelines.minContentWidth) {
+      issues.push({
+        type: 'size',
+        severity: 'Medium',
+        message: `이미지 너비가 ${width}px로 권장 최소 너비(${guidelines.minContentWidth}px)보다 작습니다.`,
+      });
+    }
+    
+    // Alt 텍스트 체크
+    if (!$img.attr('alt')) {
+      issues.push({
+        type: 'alt',
+        severity: 'High',
+        message: 'Alt 텍스트가 없는 이미지가 있습니다.',
+      });
+    }
+  });
+  
+  // 이미지 개수 체크
+  if (totalCount < guidelines.recommendedCount.minimum) {
+    issues.push({
+      type: 'count',
+      severity: 'High',
+      message: `이미지가 ${totalCount}개로 권장 최소 개수(${guidelines.recommendedCount.minimum}개)보다 적습니다.`,
+    });
+  } else if (totalCount > guidelines.recommendedCount.maximum) {
+    issues.push({
+      type: 'count',
+      severity: 'Low',
+      message: `이미지가 ${totalCount}개로 권장 최대 개수(${guidelines.recommendedCount.maximum}개)보다 많습니다.`,
+    });
+  }
+  
+  return {
+    totalCount,
+    imagesWithAlt,
+    imagesWithOptimalSize,
+    recommendedCount: guidelines.recommendedCount,
+    recommendedSizes: guidelines.recommendedSizes,
+    issues,
+  };
+}
+
+/**
  * 네이버 블로그 특화 요소 추출
  */
 function extractNaverBlogSpecifics($: cheerio.CheerioAPI) {
@@ -244,6 +370,9 @@ function extractNaverBlogSpecifics($: cheerio.CheerioAPI) {
   const hasPoll = $('[class*="poll"], [class*="Poll"], [class*="투표"]').length > 0;
   const hasCommentSection = $('[class*="comment"], [class*="Comment"], [class*="댓글"]').length > 0 ||
                             $('[id*="comment"], [id*="Comment"]').length > 0;
+  
+  // 이미지 분석
+  const imageAnalysis = analyzeImages($, true);
   
   // SEO 요소
   const hasNaverMeta = $('meta[property^="naver:"], meta[name^="naver"]').length > 0;
@@ -271,6 +400,7 @@ function extractNaverBlogSpecifics($: cheerio.CheerioAPI) {
       hasPoll,
       hasCommentSection,
     },
+    imageAnalysis,
     seoElements: {
       hasNaverMeta,
       hasOgTags,
@@ -607,7 +737,41 @@ function generateNaverBlogInsights(
     });
   }
   
-  if (!naverSpecific.contentOptimization.hasImageGallery && $('img').length < 3) {
+  // 이미지 분석 기반 인사이트
+  if (naverSpecific.imageAnalysis) {
+    const imgAnalysis = naverSpecific.imageAnalysis;
+    
+    if (imgAnalysis.totalCount < imgAnalysis.recommendedCount.minimum) {
+      naverInsights.push({
+        severity: 'High',
+        category: '네이버 블로그 이미지',
+        message: `이미지가 ${imgAnalysis.totalCount}개로 부족합니다. 최소 ${imgAnalysis.recommendedCount.minimum}개, 권장 ${imgAnalysis.recommendedCount.optimal}개 이상 추가하세요.`,
+      });
+    } else if (imgAnalysis.totalCount < imgAnalysis.recommendedCount.optimal) {
+      naverInsights.push({
+        severity: 'Medium',
+        category: '네이버 블로그 이미지',
+        message: `이미지가 ${imgAnalysis.totalCount}개입니다. 권장 개수는 ${imgAnalysis.recommendedCount.optimal}개 이상입니다.`,
+      });
+    }
+    
+    if (imgAnalysis.imagesWithOptimalSize < imgAnalysis.totalCount * 0.5) {
+      naverInsights.push({
+        severity: 'Medium',
+        category: '네이버 블로그 이미지',
+        message: `이미지 사이즈가 최적화되지 않았습니다. 본문 이미지는 최소 ${imgAnalysis.recommendedSizes.content.width}×${imgAnalysis.recommendedSizes.content.height}px 권장입니다.`,
+      });
+    }
+    
+    if (imgAnalysis.imagesWithAlt < imgAnalysis.totalCount) {
+      const missingAltCount = imgAnalysis.totalCount - imgAnalysis.imagesWithAlt;
+      naverInsights.push({
+        severity: 'High',
+        category: '네이버 블로그 이미지',
+        message: `${missingAltCount}개의 이미지에 Alt 텍스트가 없습니다. SEO와 접근성을 위해 모든 이미지에 Alt 텍스트를 추가하세요.`,
+      });
+    }
+  } else if (!naverSpecific.contentOptimization.hasImageGallery && $('img').length < 3) {
     naverInsights.push({
       severity: 'Medium',
       category: '네이버 블로그 최적화',
@@ -763,6 +927,43 @@ function getNaverBlogImprovementPriority(
         ],
         expectedImpact: '네이버 블로그 검색 노출 증가, SEO 점수 +5~10점',
       });
+    }
+    
+    // 이미지 최적화 팁
+    if (naverSpecific.imageAnalysis) {
+      const imgAnalysis = naverSpecific.imageAnalysis;
+      
+      if (imgAnalysis.totalCount < imgAnalysis.recommendedCount.optimal) {
+        naverTips.push({
+          title: `이미지 개수 및 사이즈 최적화 (현재 ${imgAnalysis.totalCount}개)`,
+          steps: [
+            `현재 이미지가 ${imgAnalysis.totalCount}개로 권장 개수(${imgAnalysis.recommendedCount.optimal}개)보다 적습니다`,
+            `본문 이미지: ${imgAnalysis.recommendedSizes.content.width}×${imgAnalysis.recommendedSizes.content.height}px 권장 (최소 ${imgAnalysis.recommendedSizes.content.width}px 너비)`,
+            `썸네일 이미지: ${imgAnalysis.recommendedSizes.thumbnail.width}×${imgAnalysis.recommendedSizes.thumbnail.height}px`,
+            `Open Graph 이미지: ${imgAnalysis.recommendedSizes.ogImage.width}×${imgAnalysis.recommendedSizes.ogImage.height}px (카페/밴드 공유용)`,
+            `이미지 파일 크기: 각 이미지 500KB 이하 권장 (로딩 속도 최적화)`,
+            `이미지 포맷: JPG(사진), PNG(투명 배경), WebP(최신 브라우저)`,
+            `모든 이미지에 Alt 텍스트 추가 (SEO 및 접근성)`,
+            `이미지 개수: 최소 ${imgAnalysis.recommendedCount.minimum}개, 권장 ${imgAnalysis.recommendedCount.optimal}개, 최대 ${imgAnalysis.recommendedCount.maximum}개`,
+          ],
+          expectedImpact: 'SEO 점수 +10~15점, 사용자 경험 향상, 네이버 검색 노출 증가',
+        });
+      }
+      
+      if (imgAnalysis.imagesWithAlt < imgAnalysis.totalCount) {
+        naverTips.push({
+          title: `이미지 Alt 텍스트 추가 (${imgAnalysis.totalCount - imgAnalysis.imagesWithAlt}개 누락)`,
+          steps: [
+            `현재 ${imgAnalysis.totalCount - imgAnalysis.imagesWithAlt}개의 이미지에 Alt 텍스트가 없습니다`,
+            '모든 <img> 태그에 alt 속성 추가',
+            '예시: <img src="photo.jpg" alt="2024년 봄 꽃 사진">',
+            'Alt 텍스트는 이미지의 내용을 정확하게 설명해야 합니다',
+            '장식용 이미지는 alt="" (빈 문자열)로 설정 가능',
+            'SEO와 접근성(스크린 리더) 모두에 중요합니다',
+          ],
+          expectedImpact: 'SEO 점수 +5~10점, 접근성 향상',
+        });
+      }
     }
   }
   
