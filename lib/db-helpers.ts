@@ -1059,7 +1059,13 @@ export async function saveAnalysis(data: {
         // 학습 실패해도 분석 저장은 성공한 것으로 처리
       }
       
-      // 통계 업데이트 전 사용자 및 분석 존재 확인
+      // PostgreSQL 환경에서는 통계 테이블이 없을 수 있으므로 스킵
+      if (isPostgreSQL()) {
+        console.log('ℹ️ [saveAnalysis] PostgreSQL 환경: 통계 업데이트 스킵 (SQLite 전용)');
+        return;
+      }
+      
+      // 통계 업데이트 전 사용자 및 분석 존재 확인 (SQLite만)
       const userCheck = await getUser(data.userId);
       if (!userCheck) {
         console.warn('⚠️ [saveAnalysis] 통계 업데이트 전 사용자 확인 실패:', {

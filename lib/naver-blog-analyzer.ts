@@ -1033,7 +1033,19 @@ function getNaverBlogContentGuidelines(
   guidelines.push('✅ 네이버 블로그: Open Graph 태그를 반드시 추가하세요 (카페/밴드 공유 최적화)');
   guidelines.push('✅ 네이버 블로그: 태그를 3-5개 추가하여 검색 노출을 높이세요');
   guidelines.push('✅ 네이버 블로그: 카테고리를 설정하여 블로그 구조를 명확히 하세요');
-  guidelines.push('✅ 네이버 블로그: 이미지를 3개 이상 추가하세요 (네이버는 이미지 중심 콘텐츠 선호)');
+  
+  // 이미지 가이드라인 (네이버 블로그 특화)
+  if (naverSpecific?.imageAnalysis) {
+    const imgAnalysis = naverSpecific.imageAnalysis;
+    guidelines.push(`✅ 네이버 블로그: 이미지 ${imgAnalysis.recommendedCount.optimal}개 이상 추가 (최소 ${imgAnalysis.recommendedCount.minimum}개, 최대 ${imgAnalysis.recommendedCount.maximum}개)`);
+    guidelines.push(`✅ 네이버 블로그: 본문 이미지 사이즈 ${imgAnalysis.recommendedSizes.content.width}×${imgAnalysis.recommendedSizes.content.height}px 권장 (최소 ${imgAnalysis.recommendedSizes.content.width}px 너비)`);
+    guidelines.push(`✅ 네이버 블로그: Open Graph 이미지 ${imgAnalysis.recommendedSizes.ogImage.width}×${imgAnalysis.recommendedSizes.ogImage.height}px 설정 (카페/밴드 공유용)`);
+    guidelines.push('✅ 네이버 블로그: 이미지 파일 크기 각 500KB 이하 권장 (로딩 속도 최적화)');
+    guidelines.push('✅ 네이버 블로그: 모든 이미지에 Alt 텍스트 추가 (SEO 및 접근성)');
+  } else {
+    guidelines.push('✅ 네이버 블로그: 이미지를 3개 이상 추가하세요 (네이버는 이미지 중심 콘텐츠 선호)');
+  }
+  
   guidelines.push('✅ 네이버 블로그: 목차를 추가하여 긴 콘텐츠의 가독성을 높이세요');
   guidelines.push('✅ 네이버 블로그: 관련글 링크를 추가하여 콘텐츠 간 연결성을 강화하세요');
   guidelines.push('✅ 네이버 블로그: 댓글 기능을 활성화하여 사용자 참여를 유도하세요');
