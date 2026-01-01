@@ -246,8 +246,8 @@ export async function ensurePostgresSchema(): Promise<void> {
       const tablesExist = checkResult.rows[0]?.tables_exist;
       
       if (tablesExist) {
-        // 테이블이 이미 존재하면 필요한 컬럼이 있는지 확인하고 추가
-        console.log('✅ [PostgreSQL Schema] 테이블이 이미 존재합니다. 컬럼 마이그레이션 확인 중...');
+        // 테이블이 이미 존재하면 필요한 컬럼/테이블이 있는지 확인하고 추가
+        console.log('✅ [PostgreSQL Schema] 테이블이 이미 존재합니다. 마이그레이션 확인 중...');
         
         // analyses 테이블에 ai_visibility_score 컬럼이 있는지 확인
         const columnCheckQuery = `
@@ -277,6 +277,48 @@ export async function ensurePostgresSchema(): Promise<void> {
         } catch (error: any) {
           // 컬럼 추가 실패 시에도 계속 진행 (이미 존재할 수 있음)
           console.warn('⚠️ [PostgreSQL Schema] 컬럼 확인/추가 중 오류 (계속 진행):', error.message);
+        }
+        
+        // ai_reports 테이블이 있는지 확인하고 없으면 생성
+        try {
+          const aiReportsTableCheckQuery = `
+            SELECT EXISTS (
+              SELECT FROM information_schema.tables 
+              WHERE table_schema = 'public' 
+              AND table_name = 'ai_reports'
+            ) as table_exists;
+          `;
+          const aiReportsTableCheckResult = await query(aiReportsTableCheckQuery);
+          const aiReportsTableExists = aiReportsTableCheckResult.rows[0]?.table_exists;
+          
+          if (!aiReportsTableExists) {
+            console.log('🔄 [PostgreSQL Schema] ai_reports 테이블이 없습니다. 생성 중...');
+            await query(`
+              CREATE TABLE IF NOT EXISTS ai_reports (
+                id TEXT PRIMARY KEY,
+                admin_user_id TEXT NOT NULL,
+                user_id TEXT,
+                report_type TEXT NOT NULL CHECK(report_type IN ('summary', 'detailed', 'trend')),
+                report_content TEXT NOT NULL,
+                metadata TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (admin_user_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+              );
+            `);
+            // 인덱스 생성
+            await query(`
+              CREATE INDEX IF NOT EXISTS idx_ai_reports_admin_user_id ON ai_reports(admin_user_id);
+              CREATE INDEX IF NOT EXISTS idx_ai_reports_user_id ON ai_reports(user_id);
+              CREATE INDEX IF NOT EXISTS idx_ai_reports_created_at ON ai_reports(created_at);
+            `);
+            console.log('✅ [PostgreSQL Schema] ai_reports 테이블 생성 완료');
+          } else {
+            console.log('✅ [PostgreSQL Schema] ai_reports 테이블이 이미 존재합니다.');
+          }
+        } catch (error: any) {
+          // 테이블 생성 실패 시에도 계속 진행 (이미 존재할 수 있음)
+          console.warn('⚠️ [PostgreSQL Schema] ai_reports 테이블 확인/생성 중 오류 (계속 진행):', error.message);
         }
         
         schemaInitialized = true;
