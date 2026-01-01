@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
@@ -40,6 +40,7 @@ export default function ReportsPage() {
   const [selectedReport, setSelectedReport] = useState<ReportDetail | null>(null);
   const [generating, setGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
+  const reportContentRef = useRef<HTMLDivElement>(null);
 
   // 리포트 생성 폼 상태
   const [reportType, setReportType] = useState<'summary' | 'detailed' | 'trend'>('summary');
@@ -156,6 +157,7 @@ export default function ReportsPage() {
         return type;
     }
   };
+
 
   return (
     <div className="space-y-6">
@@ -335,7 +337,7 @@ export default function ReportsPage() {
               </button>
             </div>
             <div className="flex-1 overflow-y-auto p-6">
-              <div className="prose prose-sm max-w-none">
+              <div ref={reportContentRef} className="prose prose-sm max-w-none text-gray-900">
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
                   rehypePlugins={[rehypeHighlight, rehypeRaw]}
@@ -346,10 +348,49 @@ export default function ReportsPage() {
             </div>
             <div className="p-6 border-t border-gray-200 flex items-center justify-end gap-2">
               <button
-                onClick={() => {
-                  // 리포트 내용을 클립보드에 복사
-                  navigator.clipboard.writeText(selectedReport.reportContent);
-                  alert('리포트가 클립보드에 복사되었습니다.');
+                onClick={async () => {
+                  try {
+                    // 렌더링된 HTML 콘텐츠 가져오기
+                    const contentElement = reportContentRef.current;
+                    let html = '';
+                    
+                    if (contentElement) {
+                      // 스타일이 적용된 HTML 추출 (ReactMarkdown이 렌더링한 내용)
+                      html = contentElement.innerHTML;
+                    }
+                    
+                    const plainText = selectedReport.reportContent;
+                    
+                    // HTML과 텍스트를 모두 클립보드에 복사 (일반 문서에서도 서식 유지)
+                    if (navigator.clipboard && navigator.clipboard.write && typeof ClipboardItem !== 'undefined' && html) {
+                      try {
+                        const clipboardItem = new ClipboardItem({
+                          'text/html': new Blob([html], { type: 'text/html' }),
+                          'text/plain': new Blob([plainText], { type: 'text/plain' }),
+                        });
+                        
+                        await navigator.clipboard.write([clipboardItem]);
+                        alert('리포트가 클립보드에 복사되었습니다. (서식 포함)');
+                        return;
+                      } catch (clipboardError) {
+                        // ClipboardItem이 지원되지 않는 경우 fallback
+                        console.warn('ClipboardItem 미지원, 대체 방법 사용:', clipboardError);
+                      }
+                    }
+                    
+                    // 대체 방법: 일반 텍스트로 복사 (마크다운 서식 포함)
+                    await navigator.clipboard.writeText(plainText);
+                    alert('리포트가 클립보드에 복사되었습니다.');
+                  } catch (error) {
+                    // 최종 fallback: 일반 텍스트로 복사
+                    console.warn('복사 실패:', error);
+                    try {
+                      await navigator.clipboard.writeText(selectedReport.reportContent);
+                      alert('리포트가 클립보드에 복사되었습니다.');
+                    } catch (fallbackError) {
+                      alert('복사에 실패했습니다.');
+                    }
+                  }
                 }}
                 className="px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
               >
