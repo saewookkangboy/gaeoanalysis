@@ -124,17 +124,67 @@ export function withErrorHandling(
 }
 
 /**
- * URL sanitization
+ * URL sanitization 및 정규화
+ * - 프로토콜이 없으면 https:// 자동 추가
+ * - http://를 https://로 변환 (보안상 권장)
+ * - www.는 유지 (사용자 입력 그대로)
+ * - 공백 제거 및 트림
  */
 export function sanitizeUrl(url: string): string {
+  if (!url || typeof url !== 'string') {
+    throw new Error('유효하지 않은 URL입니다.');
+  }
+
+  // 공백 제거 및 트림
+  let normalizedUrl = url.trim();
+
+  // 빈 문자열 체크
+  if (!normalizedUrl) {
+    throw new Error('URL을 입력해주세요.');
+  }
+
+  // 프로토콜이 없는 경우 자동 추가
+  if (!normalizedUrl.match(/^https?:\/\//i)) {
+    // www.로 시작하는 경우
+    if (normalizedUrl.match(/^www\./i)) {
+      normalizedUrl = 'https://' + normalizedUrl;
+    } else {
+      // 일반 도메인인 경우
+      normalizedUrl = 'https://' + normalizedUrl;
+    }
+  }
+
   try {
-    const urlObj = new URL(url);
+    const urlObj = new URL(normalizedUrl);
+    
     // 허용된 프로토콜만
     if (!['http:', 'https:'].includes(urlObj.protocol)) {
       throw new Error('허용되지 않은 프로토콜입니다.');
     }
+
+    // http://는 그대로 유지 (일부 사이트는 http만 지원할 수 있음)
+    // https 우선 시도는 analyzer.ts에서 처리
+
+    // 호스트명 검증
+    if (!urlObj.hostname || urlObj.hostname.length === 0) {
+      throw new Error('유효하지 않은 도메인입니다.');
+    }
+
+    // 기본 포트 제거 (https://example.com:443 -> https://example.com)
+    if ((urlObj.protocol === 'https:' && urlObj.port === '443') ||
+        (urlObj.protocol === 'http:' && urlObj.port === '80')) {
+      urlObj.port = '';
+    }
+
     return urlObj.toString();
   } catch (error) {
+    // URL 생성 실패 시 더 자세한 에러 메시지
+    if (error instanceof TypeError) {
+      throw new Error('유효하지 않은 URL 형식입니다. 올바른 URL을 입력해주세요.');
+    }
+    if (error instanceof Error) {
+      throw error;
+    }
     throw new Error('유효하지 않은 URL입니다.');
   }
 }

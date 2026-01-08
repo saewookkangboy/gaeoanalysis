@@ -10,9 +10,33 @@ import db from '@/lib/db';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 
-// 입력 스키마 정의
+// 입력 스키마 정의 - 유연한 URL 검증
 const analyzeSchema = z.object({
-  url: z.string().url('유효하지 않은 URL입니다.'),
+  url: z.string()
+    .min(1, 'URL을 입력해주세요.')
+    .refine(
+      (val) => {
+        // 프로토콜이 없어도 허용 (sanitizeUrl에서 처리)
+        const trimmed = val.trim();
+        if (!trimmed) return false;
+        
+        // 프로토콜이 있는 경우 URL 형식 검증
+        if (trimmed.match(/^https?:\/\//i)) {
+          try {
+            new URL(trimmed);
+            return true;
+          } catch {
+            return false;
+          }
+        }
+        
+        // 프로토콜이 없는 경우 도메인 형식 검증 (www. 포함 가능)
+        // 기본적인 도메인 형식 체크: 최소 3자 이상, 점 포함, 공백 없음
+        const domainPattern = /^([a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}(\/.*)?$/;
+        return domainPattern.test(trimmed) || trimmed.match(/^www\./i);
+      },
+      { message: '유효하지 않은 URL 형식입니다.' }
+    ),
 });
 
 // 레이트 리미트 설정: IP당 1분에 10회, 사용자당 1시간에 50회
@@ -59,8 +83,19 @@ async function handleAnalyze(request: NextRequest) {
   const body = await request.json();
   const { url } = analyzeSchema.parse(body);
 
-  // URL sanitization
-  const sanitizedUrl = sanitizeUrl(url);
+  // URL sanitization 및 정규화 (프로토콜 자동 추가, http→https 변환 등)
+  let sanitizedUrl: string;
+  try {
+    sanitizedUrl = sanitizeUrl(url);
+    console.log('🔗 [Analyze API] URL 정규화:', { original: url, sanitized: sanitizedUrl });
+  } catch (error: any) {
+    console.error('❌ [Analyze API] URL 정규화 실패:', error.message);
+    return createErrorResponse(
+      'INVALID_URL',
+      error.message || '유효하지 않은 URL입니다.',
+      400
+    );
+  }
 
   // 세션 확인 (Critical: 로그인 필수)
   const session = await auth();

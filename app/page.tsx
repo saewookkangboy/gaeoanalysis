@@ -422,11 +422,19 @@ function HomeContent() {
       setCurrentStep('analyzing');
       setEstimatedTime(calculateEstimatedTime('analyzing'));
 
+      // URL 정규화 (프로토콜 자동 추가)
+      let normalizedUrl = url.trim();
+      if (normalizedUrl && !normalizedUrl.match(/^https?:\/\//i)) {
+        // 프로토콜이 없으면 https:// 자동 추가
+        normalizedUrl = 'https://' + normalizedUrl;
+        console.log('🔗 [Handle Analyze] URL 정규화:', { original: url.trim(), normalized: normalizedUrl });
+      }
+
       // 재시도 로직이 포함된 fetch (AbortSignal 지원)
       const response = await fetchWithRetry('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: url.trim() }),
+        body: JSON.stringify({ url: normalizedUrl }),
         maxRetries: 3,
         retryDelay: 1000,
         signal: abortControllerRef.current?.signal,
@@ -439,13 +447,14 @@ function HomeContent() {
         setAnalysisData(data);
         
         // URL 히스토리만 저장 (분석 결과는 세션 동안만 유지)
-        storage.addUrlToHistory(url.trim());
+        // 정규화된 URL 저장
+        storage.addUrlToHistory(normalizedUrl);
         
         // 로그인된 사용자의 경우 DB에 저장 (API에서 자동 처리됨)
         // 이력 조회를 즉시 새로고침하기 위한 이벤트 발생
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new CustomEvent('analysisCompleted', { 
-            detail: { url: url.trim(), analysisId: data.id } 
+            detail: { url: normalizedUrl, analysisId: data.id } 
           }));
         }
         

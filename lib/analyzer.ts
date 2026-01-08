@@ -109,7 +109,7 @@ export async function analyzeContent(url: string): Promise<AnalysisResult> {
       console.log('📝 [Analyzer] 네이버 블로그 감지 - 전용 분석 모듈 사용');
     }
 
-    // URL fetch (재시도 로직 포함)
+    // URL fetch (재시도 로직 포함, https 실패 시 http로 재시도)
     const html = await withRetry(
       async () => {
         // 타임아웃을 위한 AbortController 생성 (동적 콘텐츠를 위해 15초로 증가)
@@ -118,35 +118,85 @@ export async function analyzeContent(url: string): Promise<AnalysisResult> {
 
         try {
           // 더 완전한 브라우저 헤더 설정
-          const response = await fetch(url, {
-            headers: {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-              'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
-              'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
-              'Accept-Encoding': 'gzip, deflate, br',
-              'Connection': 'keep-alive',
-              'Upgrade-Insecure-Requests': '1',
-              'Sec-Fetch-Dest': 'document',
-              'Sec-Fetch-Mode': 'navigate',
-              'Sec-Fetch-Site': 'none',
-              'Cache-Control': 'max-age=0',
-              'Referer': url, // 일부 사이트에서 Referer 필요
-            },
-            signal: controller.signal,
-            redirect: 'follow', // 리다이렉트 따라가기
-          });
+          const fetchUrl = async (targetUrl: string) => {
+            const response = await fetch(targetUrl, {
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+                'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'Connection': 'keep-alive',
+                'Upgrade-Insecure-Requests': '1',
+                'Sec-Fetch-Dest': 'document',
+                'Sec-Fetch-Mode': 'navigate',
+                'Sec-Fetch-Site': 'none',
+                'Cache-Control': 'max-age=0',
+                'Referer': targetUrl, // 일부 사이트에서 Referer 필요
+              },
+              signal: controller.signal,
+              redirect: 'follow', // 리다이렉트 따라가기
+            });
+            return response;
+          };
+
+          let response = await fetchUrl(url);
+          let lastError: Error | null = null;
+
+          // https로 시도했지만 실패한 경우, http로 재시도
+          if (!response.ok && url.startsWith('https://')) {
+            const httpUrl = url.replace('https://', 'http://');
+            console.log('⚠️ [Analyzer] HTTPS 접근 실패, HTTP로 재시도:', { 
+              https: url, 
+              http: httpUrl,
+              status: response.status,
+              statusText: response.statusText
+            });
+            try {
+              response = await fetchUrl(httpUrl);
+              console.log('✅ [Analyzer] HTTP 접근 성공:', { http: httpUrl, status: response.status });
+            } catch (httpError) {
+              // http도 실패하면 원본 에러 사용
+              console.warn('⚠️ [Analyzer] HTTP 접근도 실패:', httpError);
+              lastError = httpError instanceof Error ? httpError : new Error(String(httpError));
+            }
+          }
+
+          // http로 시도했지만 실패한 경우, https로 재시도 (일부 사이트는 https만 지원)
+          if (!response.ok && url.startsWith('http://') && !url.startsWith('https://')) {
+            const httpsUrl = url.replace('http://', 'https://');
+            console.log('⚠️ [Analyzer] HTTP 접근 실패, HTTPS로 재시도:', { 
+              http: url, 
+              https: httpsUrl,
+              status: response.status,
+              statusText: response.statusText
+            });
+            try {
+              response = await fetchUrl(httpsUrl);
+              console.log('✅ [Analyzer] HTTPS 접근 성공:', { https: httpsUrl, status: response.status });
+            } catch (httpsError) {
+              // https도 실패하면 원본 에러 사용
+              console.warn('⚠️ [Analyzer] HTTPS 접근도 실패:', httpsError);
+              lastError = httpsError instanceof Error ? httpsError : new Error(String(httpsError));
+            }
+          }
 
           clearTimeout(timeoutId);
 
           if (!response.ok) {
             // 특정 상태 코드에 대한 더 나은 메시지
             if (response.status === 403) {
-              throw new Error('접근이 거부되었습니다. 해당 사이트가 봇 접근을 차단하고 있을 수 있습니다.');
+              throw new Error('접근이 거부되었습니다. 해당 사이트가 봇 접근을 차단하고 있을 수 있습니다.\n\n해결 방법:\n1. URL이 올바른지 확인해주세요\n2. 해당 사이트가 공개 접근을 허용하는지 확인해주세요\n3. 잠시 후 다시 시도해주세요');
             }
             if (response.status === 404) {
-              throw new Error('페이지를 찾을 수 없습니다. URL이 올바른지 확인해주세요.');
+              throw new Error('페이지를 찾을 수 없습니다. URL이 올바른지 확인해주세요.\n\n해결 방법:\n1. URL의 철자와 경로를 확인해주세요\n2. 해당 페이지가 삭제되었거나 이동되었을 수 있습니다\n3. 사이트의 메인 페이지로 이동하여 올바른 URL을 찾아주세요');
             }
-            throw new Error(`Failed to fetch URL: ${response.status} ${response.statusText}`);
+            if (response.status === 500 || response.status === 502 || response.status === 503) {
+              throw new Error(`서버 오류가 발생했습니다 (${response.status}). 해당 사이트에 일시적인 문제가 있을 수 있습니다.\n\n해결 방법:\n1. 잠시 후 다시 시도해주세요\n2. 해당 사이트가 정상 작동하는지 확인해주세요`);
+            }
+            if (lastError) {
+              throw lastError;
+            }
+            throw new Error(`URL 접근 실패: ${response.status} ${response.statusText}\n\n해결 방법:\n1. URL이 올바른지 확인해주세요\n2. 인터넷 연결을 확인해주세요\n3. 잠시 후 다시 시도해주세요`);
           }
 
           const html = await response.text();
