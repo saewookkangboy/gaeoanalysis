@@ -528,27 +528,8 @@ function HomeContent() {
     <div className="flex-1 bg-white">
       <NetworkStatus />
       <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
-        {/* Hero 섹션 - about 페이지와 통일된 디자인 */}
-        <div className="mb-16 text-center">
-          <h1 className="mb-4 text-4xl sm:text-5xl font-bold text-gray-900">
-            AI 검색 시대, 콘텐츠가 AI에게 선택받으려면?
-          </h1>
-          <p className="mx-auto max-w-3xl text-xl sm:text-2xl text-gray-600 leading-relaxed mb-6">
-            ChatGPT, Perplexity, Gemini, Claude가 당신의 콘텐츠를 인용하도록 만드는<br />
-            <span className="font-semibold text-sky-600">실전 최적화 도구</span>
-          </p>
-          
-          {/* 마케터가 직접 만든 도구 강조 */}
-          <div className="mx-auto max-w-2xl rounded-lg border-2 border-amber-300 bg-gradient-to-br from-amber-50 to-yellow-50 p-6 sm:p-8 mb-8">
-            <p className="text-lg sm:text-xl font-semibold text-gray-900 leading-relaxed">
-              💡 <span className="text-amber-700">마케터 스스로가 불편한 것을 극복하기 위해,<br className="hidden sm:block" /> 직접 필요한 것을 개발한 도구입니다</span>
-            </p>
-            <p className="mt-4 text-sm sm:text-base text-gray-700 leading-relaxed">
-              SEO, AEO, GEO를 각각 분석하고, AI 모델별 최적화 전략을 연구하는 데 수 시간이 걸리는 현실적인 문제를 해결하기 위해 탄생했습니다.
-            </p>
-          </div>
-
-          {/* URL 입력 섹션 */}
+        {/* URL 입력 섹션 */}
+        <div className="mb-16">
           <div className="mx-auto max-w-4xl">
             <div className="relative overflow-hidden rounded-xl sm:rounded-2xl bg-gradient-to-br from-sky-50 via-blue-50 to-indigo-50 p-6 sm:p-8 md:p-12 shadow-lg">
               {/* 배경 장식 요소 - 모바일에서 숨김 */}
