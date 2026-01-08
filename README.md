@@ -77,7 +77,7 @@ npm install
 
 ### 2. Firebase 프로젝트 설정
 
-Firebase 프로젝트를 생성하고 Authentication을 활성화해야 합니다. 자세한 설정 방법은 [FIREBASE_SETUP.md](./FIREBASE_SETUP.md)를 참조하세요.
+Firebase 프로젝트를 생성하고 Authentication을 활성화해야 합니다. 자세한 설정 방법은 [FIREBASE_SETUP.md](./docs/setup/FIREBASE_SETUP.md)를 참조하세요.
 
 **간단 요약:**
 1. [Firebase Console](https://console.firebase.google.com/)에서 새 프로젝트 생성
@@ -115,8 +115,8 @@ GITHUB_CLIENT_SECRET=your-github-client-secret
 ```
 
 **OAuth 설정 가이드:**
-- [Google OAuth 설정](./GOOGLE_OAUTH_FIX.md)
-- [GitHub OAuth 설정](./GITHUB_OAUTH_FIX.md)
+- [Google OAuth 설정](./docs/setup/GOOGLE_OAUTH_FIX.md)
+- [GitHub OAuth 설정](./docs/setup/GITHUB_OAUTH_FIX.md)
 
 ### 4. 개발 서버 실행
 
@@ -378,7 +378,7 @@ ChatGPT, Perplexity, Gemini, Claude 각 AI 모델의 특성을 반영하여 콘�
 - ✅ **사용량 제한**: 플랜별 기능 제한 및 한도 관리
 - ✅ **구독 관리 API**: 구독 생성, 업그레이드, 취소 기능
 - ✅ **자동 만료 처리**: 구독 만료 시 Free 플랜으로 자동 다운그레이드
-- 📚 참고: [Freemium 모델 가이드](./FREEMIUM_SUMMARY.md)
+- 📚 참고: [Freemium 모델 가이드](./docs/features/FREEMIUM_SUMMARY.md)
 
 ### 알고리즘 자동 학습 시스템 🤖
 - ✅ **자동 가중치 학습**: 분석 결과 기반 알고리즘 가중치 자동 조정
@@ -387,7 +387,7 @@ ChatGPT, Perplexity, Gemini, Claude 각 AI 모델의 특성을 반영하여 콘�
 - ✅ **성능 모니터링**: 알고리즘별 성능 지표 실시간 추적 및 대시보드
 - ✅ **버전 관리**: 알고리즘 버전별 성능 추적 및 롤백 지원
 - ✅ **자동 학습 파이프라인**: 분석 결과를 기반으로 자동 학습 수행
-- 📚 참고: [알고리즘 학습 시스템 가이드](./ALGORITHM_LEARNING_SYSTEM.md)
+- 📚 참고: [알고리즘 학습 시스템 가이드](./docs/features/ALGORITHM_LEARNING_SYSTEM.md)
 
 ### Claude Skill SEO/GEO Optimizer 가이드라인 통합 📊
 - ✅ **향상된 분석 알고리즘**: 2025년 연구 기반 (41M AI 검색 결과, 680M 인용 분석)
@@ -407,7 +407,7 @@ ChatGPT, Perplexity, Gemini, Claude 각 AI 모델의 특성을 반영하여 콘�
 - ✅ **이벤트 추적 (Spans)**: 프롬프트, 응답, Reward 추적
 - ✅ **데이터베이스 통합**: 학습 데이터 영구 저장
 - ✅ **자동 프롬프트 개선**: 성능 기반 프롬프트 자동 최적화
-- 📚 [Agent Lightning 통합 가이드](./AGENT_LIGHTNING_INTEGRATION.md) 참조
+- 📚 [Agent Lightning 통합 가이드](./docs/features/AGENT_LIGHTNING_INTEGRATION.md) 참조
 
 ## 최근 업데이트 (2024년 12월)
 
@@ -453,22 +453,21 @@ ChatGPT, Perplexity, Gemini, Claude 각 AI 모델의 특성을 반영하여 콘�
 ## 관련 문서
 
 ### 설정 가이드
-- [Firebase 설정](./FIREBASE_SETUP.md) - Firebase 프로젝트 설정 방법
-- [Google OAuth 설정](./GOOGLE_OAUTH_FIX.md) - Google 로그인 설정 및 문제 해결
-- [GitHub OAuth 설정](./GITHUB_OAUTH_FIX.md) - GitHub 로그인 설정 및 문제 해결
-- [GitHub OAuth 다중 환경 설정](./GITHUB_OAUTH_MULTI_ENV.md) - 개발/프로덕션 환경별 설정
-- [GitHub OAuth 프로덕션 오류 해결](./GITHUB_OAUTH_PRODUCTION_FIX.md) - 프로덕션 환경 오류 해결
+- [Firebase 설정](./docs/setup/FIREBASE_SETUP.md) - Firebase 프로젝트 설정 방법
+- [Google OAuth 설정](./docs/setup/GOOGLE_OAUTH_FIX.md) - Google 로그인 설정 및 문제 해결
+- [GitHub OAuth 설정](./docs/setup/GITHUB_OAUTH_FIX.md) - GitHub 로그인 설정 및 문제 해결
+- [GitHub OAuth 다중 환경 설정](./docs/setup/GITHUB_OAUTH_MULTI_ENV.md) - 개발/프로덕션 환경별 설정
+- [GitHub OAuth 프로덕션 오류 해결](./docs/setup/GITHUB_OAUTH_PRODUCTION_FIX.md) - 프로덕션 환경 오류 해결
 
 ### 기술 문서
-- [상세 기능 가이드](./FEATURES.md) - 모든 기능의 상세 설명
-- [데이터베이스 개선 사항](./DATABASE_IMPROVEMENTS.md) - 데이터베이스 개선 상세 내용
-- [서비스 안정화 개선 아이디어](./STABILITY_IMPROVEMENTS.md) - 향후 개선 계획
-- [Firebase 설정 가이드](./FIREBASE_SETUP.md) - Firebase 프로젝트 설정 방법
-- [문제 해결 가이드](./TROUBLESHOOTING.md) - 일반적인 문제 해결 방법
-- [Freemium 모델 가이드](./FREEMIUM_SUMMARY.md) - Freemium 모델 상세 설명
-- [Freemium 구현 가이드](./FREEMIUM_IMPLEMENTATION_GUIDE.md) - Freemium 모델 구현 방법
-- [알고리즘 학습 시스템](./ALGORITHM_LEARNING_SYSTEM.md) - 알고리즘 자동 학습 시스템 상세 가이드
-- [Agent Lightning 통합](./AGENT_LIGHTNING_INTEGRATION.md) - Agent Lightning 통합 가이드
+- [상세 기능 가이드](./docs/features/FEATURES.md) - 모든 기능의 상세 설명
+- [데이터베이스 개선 사항](./docs/architecture/DATABASE_IMPROVEMENTS.md) - 데이터베이스 개선 상세 내용
+- [서비스 안정화 개선 아이디어](./docs/troubleshooting/STABILITY_IMPROVEMENTS.md) - 향후 개선 계획
+- [문제 해결 가이드](./docs/troubleshooting/TROUBLESHOOTING.md) - 일반적인 문제 해결 방법
+- [Freemium 모델 가이드](./docs/features/FREEMIUM_SUMMARY.md) - Freemium 모델 상세 설명
+- [Freemium 구현 가이드](./docs/features/FREEMIUM_IMPLEMENTATION_GUIDE.md) - Freemium 모델 구현 방법
+- [알고리즘 학습 시스템](./docs/features/ALGORITHM_LEARNING_SYSTEM.md) - 알고리즘 자동 학습 시스템 상세 가이드
+- [Agent Lightning 통합](./docs/features/AGENT_LIGHTNING_INTEGRATION.md) - Agent Lightning 통합 가이드
 
 ## 기여
 
