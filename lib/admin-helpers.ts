@@ -1072,6 +1072,15 @@ export interface ReportData {
     avgGeoScore: number;
     avgSeoScore: number;
   };
+  insights?: {
+    userRetentionRate: number; // 사용자 유지율 (%)
+    activeUserRate: number; // 활성 사용자 비율 (%)
+    chatEngagementRate: number; // 채팅 참여율 (%)
+    scoreImprovementTrend: 'improving' | 'stable' | 'declining'; // 점수 개선 추세
+    peakAnalysisDay?: string; // 분석 급증일
+    peakAnalysisCount?: number; // 분석 급증일 건수
+    lowScoreCategory: 'aeo' | 'geo' | 'seo' | 'none'; // 가장 낮은 점수 카테고리
+  };
 }
 
 /**
@@ -1100,6 +1109,29 @@ export async function collectReportData(
 
     // 전체 통계 조회
     const statistics = await getStatistics(startDate, endDate);
+
+    // 날짜 범위 설정
+    const now = new Date();
+    let start: Date;
+    let end: Date;
+
+    if (startDate) {
+      start = new Date(startDate);
+    } else {
+      start = new Date(now);
+      start.setDate(start.getDate() - 30);
+      start.setHours(0, 0, 0, 0);
+    }
+
+    if (endDate) {
+      end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+    } else {
+      end = now;
+    }
+
+    // 인사이트 계산
+    const insights = await calculateInsights(start, end, statistics);
 
     // 사용자별 통계 (특정 사용자가 지정된 경우)
     let userStats = undefined;
@@ -1152,6 +1184,7 @@ export async function collectReportData(
       averages: statistics.averages,
       trends: statistics.trends,
       userStats,
+      insights,
     };
   } catch (error: any) {
     console.error('❌ [collectReportData] 리포트 데이터 수집 오류:', {
@@ -1179,6 +1212,144 @@ export async function collectReportData(
         dailyLogins: [],
       },
       userStats: userId ? undefined : undefined,
+      insights: {
+        userRetentionRate: 0,
+        activeUserRate: 0,
+        chatEngagementRate: 0,
+        scoreImprovementTrend: 'stable',
+        lowScoreCategory: 'none',
+      },
+    };
+  }
+}
+
+/**
+ * 리포트 인사이트 계산
+ */
+async function calculateInsights(
+  startDate: Date,
+  endDate: Date,
+  statistics: StatisticsData
+): Promise<ReportData['insights']> {
+  try {
+    const successCondition = isPostgreSQL() ? "success = true" : "success = 1";
+    
+    // 1. 사용자 유지율 계산 (최근 7일 내 재방문한 사용자 비율)
+    const sevenDaysAgo = new Date(endDate);
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    
+    // 전체 사용자 중 최근 7일 내 로그인한 사용자
+    const activeUsersResult = await query(
+      `SELECT COUNT(DISTINCT user_id) as count
+       FROM auth_logs
+       WHERE action = 'login' AND ${successCondition}
+         AND created_at >= $1 AND created_at <= $2`,
+      [sevenDaysAgo.toISOString(), endDate.toISOString()]
+    );
+    const activeUsers = parseInt(activeUsersResult.rows[0]?.count as string, 10) || 0;
+    
+    // 전체 사용자 수
+    const totalUsers = statistics.overview.totalUsers;
+    const activeUserRate = totalUsers > 0 ? (activeUsers / totalUsers) * 100 : 0;
+    
+    // 2. 사용자 유지율 (최근 30일 내 2회 이상 로그인한 사용자 비율)
+    const thirtyDaysAgo = new Date(endDate);
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    const retainedUsersResult = await query(
+      `SELECT user_id, COUNT(*) as login_count
+       FROM auth_logs
+       WHERE action = 'login' AND ${successCondition}
+         AND created_at >= $1 AND created_at <= $2
+       GROUP BY user_id
+       HAVING COUNT(*) >= 2`,
+      [thirtyDaysAgo.toISOString(), endDate.toISOString()]
+    );
+    const retainedUsers = retainedUsersResult.rows.length;
+    const userRetentionRate = totalUsers > 0 ? (retainedUsers / totalUsers) * 100 : 0;
+    
+    // 3. 채팅 참여율 (채팅을 사용한 사용자 비율)
+    const chatUsersResult = await query(
+      `SELECT COUNT(DISTINCT user_id) as count
+       FROM chat_conversations
+       WHERE created_at >= $1 AND created_at <= $2`,
+      [startDate.toISOString(), endDate.toISOString()]
+    );
+    const chatUsers = parseInt(chatUsersResult.rows[0]?.count as string, 10) || 0;
+    const chatEngagementRate = totalUsers > 0 ? (chatUsers / totalUsers) * 100 : 0;
+    
+    // 4. 점수 개선 추세 계산 (최근 7일 vs 그 이전 7일)
+    const fourteenDaysAgo = new Date(endDate);
+    fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+    const sevenDaysAgoForTrend = new Date(endDate);
+    sevenDaysAgoForTrend.setDate(sevenDaysAgoForTrend.getDate() - 7);
+    
+    // 최근 7일 평균 점수
+    const recentScoresResult = await query(
+      `SELECT AVG(overall_score) as avg_score
+       FROM analyses
+       WHERE created_at >= $1 AND created_at <= $2`,
+      [sevenDaysAgoForTrend.toISOString(), endDate.toISOString()]
+    );
+    const recentAvg = parseFloat(recentScoresResult.rows[0]?.avg_score as string) || 0;
+    
+    // 그 이전 7일 평균 점수
+    const previousScoresResult = await query(
+      `SELECT AVG(overall_score) as avg_score
+       FROM analyses
+       WHERE created_at >= $1 AND created_at < $2`,
+      [fourteenDaysAgo.toISOString(), sevenDaysAgoForTrend.toISOString()]
+    );
+    const previousAvg = parseFloat(previousScoresResult.rows[0]?.avg_score as string) || 0;
+    
+    let scoreImprovementTrend: 'improving' | 'stable' | 'declining' = 'stable';
+    if (recentAvg > previousAvg + 2) {
+      scoreImprovementTrend = 'improving';
+    } else if (recentAvg < previousAvg - 2) {
+      scoreImprovementTrend = 'declining';
+    }
+    
+    // 5. 분석 급증일 찾기
+    let peakAnalysisDay: string | undefined;
+    let peakAnalysisCount: number | undefined;
+    if (statistics.trends.dailyAnalyses.length > 0) {
+      const peakDay = statistics.trends.dailyAnalyses.reduce((max, day) => 
+        day.count > (max.count || 0) ? day : max
+      );
+      if (peakDay.count > 5) { // 5건 이상일 때만 급증으로 간주
+        peakAnalysisDay = peakDay.date;
+        peakAnalysisCount = peakDay.count;
+      }
+    }
+    
+    // 6. 가장 낮은 점수 카테고리
+    const { aeoScore, geoScore, seoScore } = statistics.averages;
+    let lowScoreCategory: 'aeo' | 'geo' | 'seo' | 'none' = 'none';
+    if (aeoScore < geoScore && aeoScore < seoScore) {
+      lowScoreCategory = 'aeo';
+    } else if (geoScore < aeoScore && geoScore < seoScore) {
+      lowScoreCategory = 'geo';
+    } else if (seoScore < aeoScore && seoScore < geoScore) {
+      lowScoreCategory = 'seo';
+    }
+    
+    return {
+      userRetentionRate: Math.round(userRetentionRate * 10) / 10,
+      activeUserRate: Math.round(activeUserRate * 10) / 10,
+      chatEngagementRate: Math.round(chatEngagementRate * 10) / 10,
+      scoreImprovementTrend,
+      peakAnalysisDay,
+      peakAnalysisCount,
+      lowScoreCategory,
+    };
+  } catch (error: any) {
+    console.error('❌ [calculateInsights] 인사이트 계산 오류:', error);
+    return {
+      userRetentionRate: 0,
+      activeUserRate: 0,
+      chatEngagementRate: 0,
+      scoreImprovementTrend: 'stable',
+      lowScoreCategory: 'none',
     };
   }
 }
@@ -1194,7 +1365,7 @@ export function buildReportPrompt(
   reportData: ReportData,
   reportType: 'summary' | 'detailed' | 'trend'
 ): string {
-  const { overview, averages, trends, userStats } = reportData;
+  const { overview, averages, trends, userStats, insights } = reportData;
 
   let prompt = `GAEO 분석 서비스의 관리자 리포트를 생성해주세요.
 
@@ -1214,6 +1385,18 @@ export function buildReportPrompt(
 
 `;
 
+  if (insights) {
+    prompt += `**핵심 인사이트**:
+- 사용자 유지율: ${insights.userRetentionRate.toFixed(1)}% (최근 30일 내 2회 이상 로그인한 사용자 비율)
+- 활성 사용자 비율: ${insights.activeUserRate.toFixed(1)}% (최근 7일 내 로그인한 사용자 비율)
+- 채팅 참여율: ${insights.chatEngagementRate.toFixed(1)}% (채팅을 사용한 사용자 비율)
+- 점수 개선 추세: ${insights.scoreImprovementTrend === 'improving' ? '개선 중' : insights.scoreImprovementTrend === 'declining' ? '하락 중' : '안정적'}
+${insights.peakAnalysisDay ? `- 분석 급증일: ${insights.peakAnalysisDay} (${insights.peakAnalysisCount}건)` : ''}
+- 가장 낮은 점수 카테고리: ${insights.lowScoreCategory === 'aeo' ? 'AEO' : insights.lowScoreCategory === 'geo' ? 'GEO' : insights.lowScoreCategory === 'seo' ? 'SEO' : '없음'}
+
+`;
+  }
+
   if (userStats) {
     prompt += `**사용자별 통계** (${userStats.userEmail}):
 - 총 분석 수: ${userStats.totalAnalyses}건
@@ -1226,10 +1409,15 @@ export function buildReportPrompt(
   }
 
   if (trends.dailyUsers.length > 0) {
+    const allDailyData = trends.dailyUsers.map((d, i) => ({
+      date: d.date,
+      users: d.count,
+      analyses: trends.dailyAnalyses[i]?.count || 0,
+      logins: trends.dailyLogins[i]?.count || 0,
+    }));
+    
     prompt += `**일별 트렌드** (최근 ${trends.dailyUsers.length}일):
-- 일별 신규 사용자: ${trends.dailyUsers.slice(-7).map(d => `${d.date}: ${d.count}명`).join(', ')}
-- 일별 분석 수: ${trends.dailyAnalyses.slice(-7).map(d => `${d.date}: ${d.count}건`).join(', ')}
-- 일별 로그인 수: ${trends.dailyLogins.slice(-7).map(d => `${d.date}: ${d.count}회`).join(', ')}
+${allDailyData.slice(-16).map(d => `- ${d.date}: 신규 사용자 ${d.users}명, 분석 ${d.analyses}건, 로그인 ${d.logins}회`).join('\n')}
 
 `;
   }
@@ -1239,7 +1427,13 @@ export function buildReportPrompt(
 - ${reportType === 'summary' ? '핵심 요약과 주요 인사이트를 간결하게 제공' : reportType === 'detailed' ? '상세한 분석과 개선 제안을 포함' : '트렌드 분석과 예측을 포함'}
 - 한국어로 작성
 - 데이터 기반의 객관적인 분석
-- 구체적인 개선 제안 포함
+- 구체적이고 실행 가능한 개선 제안 포함
+${insights && insights.peakAnalysisDay ? `- ${insights.peakAnalysisDay} 분석 급증 원인 분석 및 재현 방안 제시` : ''}
+${insights && insights.chatEngagementRate === 0 ? '- 채팅 기능이 전혀 사용되지 않는 원인 분석 및 활성화 방안 제시' : ''}
+${insights && insights.userRetentionRate < 30 ? '- 사용자 유지율이 낮은 원인 분석 및 재방문 유도 전략 제시' : ''}
+${insights && insights.lowScoreCategory !== 'none' ? `- ${insights.lowScoreCategory.toUpperCase()} 점수 개선을 위한 구체적인 가이드라인 및 기능 개선 제안` : ''}
+- 서비스 퍼포먼스, 사용자 유입, 사용량 증대를 위한 실질적인 방안 제시
+- 각 개선 제안에 대해 예상 효과 및 우선순위 명시
 
 **리포트 작성**:`;
 

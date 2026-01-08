@@ -346,27 +346,41 @@ export default function AIAgent({ analysisData, aioAnalysis }: AIAgentProps) {
 
   return (
     <>
-      {/* 플로팅 버튼 */}
+      {/* 플로팅 버튼 - 개선된 디자인 */}
       {!isOpen && (
-        <button
-          onClick={() => setIsOpen(true)}
-          className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg transition-all hover:from-blue-700 hover:to-purple-700 hover:shadow-xl hover:scale-110 active:scale-95 animate-fade-in"
-          aria-label="AI Agent 열기"
-        >
-          <svg
-            className="h-6 w-6"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
+        <div className="fixed bottom-6 right-6 z-50 animate-fade-in">
+          {/* 펄스 애니메이션 배경 */}
+          <div className="absolute inset-0 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 animate-ping opacity-20"></div>
+          <button
+            onClick={() => setIsOpen(true)}
+            className="relative flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-2xl transition-all hover:from-blue-700 hover:to-purple-700 hover:shadow-3xl hover:scale-110 active:scale-95 group"
+            aria-label="AI Agent 열기 - 분석 결과에 대해 질문하세요"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
-            />
-          </svg>
-        </button>
+            <svg
+              className="h-7 w-7 transition-transform group-hover:scale-110"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+              />
+            </svg>
+            {/* 알림 배지 */}
+            <span className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white shadow-lg">
+              💬
+            </span>
+          </button>
+          {/* 툴팁 */}
+          <div className="absolute bottom-full right-0 mb-2 hidden w-48 rounded-lg bg-gray-900 px-3 py-2 text-sm text-white shadow-xl group-hover:block">
+            <p className="font-semibold">AI Agent와 대화하기</p>
+            <p className="text-xs text-gray-300">분석 결과에 대해 질문하세요</p>
+            <div className="absolute bottom-0 right-4 h-2 w-2 rotate-45 bg-gray-900"></div>
+          </div>
+        </div>
       )}
 
       {/* AI Agent 모달 */}

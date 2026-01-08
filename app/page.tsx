@@ -19,6 +19,7 @@ import ComprehensiveChecklistModal from '@/components/ComprehensiveChecklistModa
 import Tooltip from '@/components/Tooltip';
 import NetworkStatus from '@/components/NetworkStatus';
 import LoginRequiredModal from '@/components/LoginRequiredModal';
+import ScoreImprovementGuide from '@/components/ScoreImprovementGuide';
 import RevisionPreviewModal from '@/components/ContentRevision/RevisionPreviewModal';
 import RevisionConfirmModal from '@/components/ContentRevision/RevisionConfirmModal';
 import RevisionProgress from '@/components/ContentRevision/RevisionProgress';
@@ -764,6 +765,38 @@ function HomeContent() {
               <ShareButton analysisData={analysisData} url={url} />
               <CopyButton analysisData={analysisData} url={url} />
             </div>
+
+            {/* 채팅 기능 안내 */}
+            <div className="rounded-lg border-2 border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50 p-6">
+              <div className="flex items-start gap-4">
+                <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-r from-blue-600 to-purple-600 text-2xl text-white shadow-lg">
+                  💬
+                </div>
+                <div className="flex-1">
+                  <h3 className="mb-2 text-lg font-semibold text-gray-900">
+                    AI Agent와 대화하기
+                  </h3>
+                  <p className="mb-3 text-sm text-gray-700">
+                    분석 결과에 대해 궁금한 점이 있으신가요? 오른쪽 하단의 AI Agent 버튼을 클릭하여 
+                    더 구체적인 개선 방안을 문의하거나 분석 결과에 대해 질문해보세요.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-800">
+                      점수 개선 방법 문의
+                    </span>
+                    <span className="rounded-full bg-purple-100 px-3 py-1 text-xs font-medium text-purple-800">
+                      구체적인 개선 제안
+                    </span>
+                    <span className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-medium text-indigo-800">
+                      실시간 상담
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 점수 개선 가이드 */}
+            <ScoreImprovementGuide analysisData={analysisData} />
 
             {/* 개선 가이드 */}
             <InsightList insights={analysisData.insights} />
