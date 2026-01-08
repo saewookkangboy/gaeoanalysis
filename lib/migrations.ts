@@ -915,6 +915,48 @@ const migrations: Migration[] = [
       }
     },
   },
+  // 에러 로그 테이블 추가
+  {
+    version: 17,
+    name: 'add_error_logs_table',
+    up: () => {
+      console.log('🔄 [Migration v17] error_logs 테이블 생성 시작...');
+      try {
+        db.exec(`
+          CREATE TABLE IF NOT EXISTS error_logs (
+            id TEXT PRIMARY KEY,
+            user_id TEXT,
+            error_type TEXT NOT NULL,
+            error_message TEXT NOT NULL,
+            error_stack TEXT,
+            component_stack TEXT,
+            url TEXT,
+            user_agent TEXT,
+            ip_address TEXT,
+            metadata TEXT,
+            severity TEXT CHECK(severity IN ('low', 'medium', 'high', 'critical')) DEFAULT 'medium',
+            resolved INTEGER DEFAULT 0,
+            resolved_at DATETIME,
+            resolved_by TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+            FOREIGN KEY (resolved_by) REFERENCES users(id) ON DELETE SET NULL
+          );
+
+          CREATE INDEX IF NOT EXISTS idx_error_logs_user_id ON error_logs(user_id);
+          CREATE INDEX IF NOT EXISTS idx_error_logs_error_type ON error_logs(error_type);
+          CREATE INDEX IF NOT EXISTS idx_error_logs_severity ON error_logs(severity);
+          CREATE INDEX IF NOT EXISTS idx_error_logs_resolved ON error_logs(resolved);
+          CREATE INDEX IF NOT EXISTS idx_error_logs_created_at ON error_logs(created_at);
+          CREATE INDEX IF NOT EXISTS idx_error_logs_user_created ON error_logs(user_id, created_at DESC);
+        `);
+        console.log('✅ [Migration v17] error_logs 테이블 생성 완료');
+      } catch (error: any) {
+        console.error('❌ [Migration v17] error_logs 테이블 생성 실패:', error);
+        throw error;
+      }
+    },
+  },
   // 알고리즘 초기화 (마이그레이션 후 자동 실행)
   {
     version: 13,

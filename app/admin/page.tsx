@@ -116,6 +116,18 @@ export default function AdminDashboardPage() {
             사용자 구독 정보 및 사용량을 관리합니다.
           </p>
         </Link>
+
+        <Link
+          href="/admin/error-logs"
+          className="block bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow"
+        >
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            에러 로그
+          </h3>
+          <p className="text-sm text-gray-600">
+            애플리케이션에서 발생한 에러를 모니터링하고 관리합니다.
+          </p>
+        </Link>
       </div>
     </div>
   );

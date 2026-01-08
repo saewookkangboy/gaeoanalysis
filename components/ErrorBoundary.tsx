@@ -38,7 +38,7 @@ export class ErrorBoundary extends Component<Props, State> {
       errorInfo,
     });
 
-    // 에러 리포팅 (향후 Sentry 등 연동 가능)
+    // 에러 리포팅 (서버로 전송)
     if (typeof window !== 'undefined') {
       // 에러를 로컬 스토리지에 저장 (개발용)
       try {
@@ -53,6 +53,62 @@ export class ErrorBoundary extends Component<Props, State> {
       } catch (e) {
         // 로컬 스토리지 저장 실패는 무시
       }
+
+      // 서버로 에러 로그 전송 (비동기, 실패해도 무시)
+      this.sendErrorToServer(error, errorInfo).catch((err) => {
+        console.warn('에러 로그 전송 실패:', err);
+      });
+    }
+  }
+
+  private async sendErrorToServer(error: Error, errorInfo: ErrorInfo) {
+    try {
+      // 현재 URL과 사용자 정보 수집
+      const url = window.location.href;
+      const userAgent = navigator.userAgent;
+
+      // 에러 타입 결정
+      let errorType = 'unknown';
+      if (error.name === 'TypeError') errorType = 'type_error';
+      else if (error.name === 'ReferenceError') errorType = 'reference_error';
+      else if (error.name === 'SyntaxError') errorType = 'syntax_error';
+      else if (error.name === 'NetworkError' || error.message.includes('fetch')) errorType = 'network_error';
+      else if (error.message.includes('timeout')) errorType = 'timeout_error';
+      else errorType = 'runtime_error';
+
+      // 심각도 결정
+      let severity: 'low' | 'medium' | 'high' | 'critical' = 'medium';
+      if (errorType === 'network_error' || errorType === 'timeout_error') {
+        severity = 'low';
+      } else if (error.message.includes('Cannot read') || error.message.includes('undefined')) {
+        severity = 'high';
+      } else if (error.message.includes('Failed to fetch') || error.message.includes('Network')) {
+        severity = 'low';
+      }
+
+      // 서버로 전송
+      await fetch('/api/admin/error-logs', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          error_type: errorType,
+          error_message: error.message,
+          error_stack: error.stack || null,
+          component_stack: errorInfo.componentStack || null,
+          url,
+          user_agent: userAgent,
+          metadata: {
+            error_name: error.name,
+            timestamp: new Date().toISOString(),
+          },
+          severity,
+        }),
+      });
+    } catch (sendError) {
+      // 에러 전송 실패는 조용히 무시 (무한 루프 방지)
+      console.warn('에러 로그 서버 전송 실패:', sendError);
     }
   }
 
