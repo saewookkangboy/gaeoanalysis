@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/auth';
+import { requireAdmin } from '@/lib/admin-auth';
 import db from '@/lib/db';
 import { createErrorResponse, createSuccessResponse } from '@/lib/api-utils';
 import { v4 as uuidv4 } from 'uuid';
@@ -10,14 +10,7 @@ import { v4 as uuidv4 } from 'uuid';
 export async function GET(request: NextRequest) {
   try {
     // 관리자 권한 확인
-    const session = await auth();
-    if (!session?.user || session.user.role !== 'admin') {
-      return createErrorResponse(
-        'UNAUTHORIZED',
-        '관리자 권한이 필요합니다.',
-        403
-      );
-    }
+    await requireAdmin(request);
 
     // 쿼리 파라미터
     const { searchParams } = new URL(request.url);

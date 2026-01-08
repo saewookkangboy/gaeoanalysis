@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/auth';
+import { requireAdmin } from '@/lib/admin-auth';
 import db from '@/lib/db';
 import { createErrorResponse, createSuccessResponse } from '@/lib/api-utils';
 
@@ -8,19 +8,13 @@ import { createErrorResponse, createSuccessResponse } from '@/lib/api-utils';
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     // 관리자 권한 확인
-    const session = await auth();
-    if (!session?.user || session.user.role !== 'admin') {
-      return createErrorResponse(
-        'UNAUTHORIZED',
-        '관리자 권한이 필요합니다.',
-        403
-      );
-    }
+    const { userId: adminUserId } = await requireAdmin(request);
 
+    const params = await context.params;
     const body = await request.json();
     const { resolved = true } = body;
 
@@ -35,7 +29,7 @@ export async function PATCH(
     `).run(
       resolved ? 1 : 0,
       resolved ? new Date().toISOString() : null,
-      resolved ? session.user.id : null,
+      resolved ? adminUserId : null,
       params.id
     );
 
@@ -65,19 +59,13 @@ export async function PATCH(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     // 관리자 권한 확인
-    const session = await auth();
-    if (!session?.user || session.user.role !== 'admin') {
-      return createErrorResponse(
-        'UNAUTHORIZED',
-        '관리자 권한이 필요합니다.',
-        403
-      );
-    }
+    await requireAdmin(request);
 
+    const params = await context.params;
     // 에러 로그 삭제
     const result = db.prepare('DELETE FROM error_logs WHERE id = ?').run(params.id);
 
