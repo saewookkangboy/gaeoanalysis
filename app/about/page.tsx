@@ -54,10 +54,20 @@ export default function AboutPage() {
           <h1 className="mb-4 text-4xl sm:text-5xl font-bold text-gray-900">
             AI 검색 시대, 콘텐츠가 AI에게 선택받으려면?
           </h1>
-          <p className="mx-auto max-w-3xl text-xl sm:text-2xl text-gray-600 leading-relaxed">
+          <p className="mx-auto max-w-3xl text-xl sm:text-2xl text-gray-600 leading-relaxed mb-6">
             ChatGPT, Perplexity, Gemini, Claude가 당신의 콘텐츠를 인용하도록 만드는<br />
             <span className="font-semibold text-sky-600">실전 최적화 도구</span>
           </p>
+          
+          {/* 마케터가 직접 만든 도구 강조 */}
+          <div className="mx-auto max-w-2xl rounded-lg border-2 border-amber-300 bg-gradient-to-br from-amber-50 to-yellow-50 p-6 sm:p-8">
+            <p className="text-lg sm:text-xl font-semibold text-gray-900 leading-relaxed">
+              💡 <span className="text-amber-700">마케터 스스로가 불편한 것을 극복하기 위해,<br className="hidden sm:block" /> 직접 필요한 것을 개발한 도구입니다</span>
+            </p>
+            <p className="mt-4 text-sm sm:text-base text-gray-700 leading-relaxed">
+              SEO, AEO, GEO를 각각 분석하고, AI 모델별 최적화 전략을 연구하는 데 수 시간이 걸리는 현실적인 문제를 해결하기 위해 탄생했습니다.
+            </p>
+          </div>
         </div>
 
         {/* 문제 정의 */}
@@ -125,6 +135,46 @@ export default function AboutPage() {
           </div>
         </section>
 
+        {/* Top 3 커뮤니케이션 강조 */}
+        <section className="mb-16">
+          <div className="rounded-lg border-2 border-sky-400 bg-gradient-to-br from-sky-50 via-blue-50 to-white p-8 sm:p-10 shadow-lg">
+            <div className="text-center mb-8">
+              <h2 className="mb-3 text-3xl sm:text-4xl font-bold text-gray-900">
+                핵심 커뮤니케이션 기능
+              </h2>
+              <p className="text-lg text-gray-600">
+                분석 결과를 효과적으로 전달하고 활용하는 3가지 핵심 기능
+              </p>
+            </div>
+            <div className="grid gap-6 md:grid-cols-3">
+              <div className="rounded-lg border-2 border-sky-300 bg-white p-6 shadow-md hover:shadow-lg transition-shadow">
+                <div className="mb-4 text-4xl text-center">📊</div>
+                <h3 className="mb-3 text-xl font-bold text-gray-900 text-center">시각적 점수 분석</h3>
+                <p className="text-sm text-gray-700 leading-relaxed text-center">
+                  AEO, GEO, SEO 점수를 한눈에 확인하고, 종합 점수를 클릭하면 모든 개선 사항을 체크리스트로 볼 수 있습니다. 
+                  각 점수는 색상과 이모지로 직관적으로 표시되어 즉시 이해할 수 있습니다.
+                </p>
+              </div>
+              <div className="rounded-lg border-2 border-sky-300 bg-white p-6 shadow-md hover:shadow-lg transition-shadow">
+                <div className="mb-4 text-4xl text-center">🤖</div>
+                <h3 className="mb-3 text-xl font-bold text-gray-900 text-center">AI Agent 상담</h3>
+                <p className="text-sm text-gray-700 leading-relaxed text-center">
+                  분석 결과를 바탕으로 "어떻게 개선할 수 있나요?" 같은 질문에 대해 구체적이고 실행 가능한 답변을 대화형으로 받을 수 있습니다. 
+                  마크다운 형식으로 정리되어 바로 문서화하거나 팀과 공유할 수 있습니다.
+                </p>
+              </div>
+              <div className="rounded-lg border-2 border-sky-300 bg-white p-6 shadow-md hover:shadow-lg transition-shadow">
+                <div className="mb-4 text-4xl text-center">✅</div>
+                <h3 className="mb-3 text-xl font-bold text-gray-900 text-center">우선순위별 개선 가이드</h3>
+                <p className="text-sm text-gray-700 leading-relaxed text-center">
+                  "긴급 개선 사항"부터 "추가 개선 사항"까지 우선순위별로 정리된 체크리스트를 제공합니다. 
+                  각 개선 항목마다 예상 효과와 단계별 실행 방법까지 포함되어 있어, 바로 적용할 수 있습니다.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* 해결책 */}
         <section className="mb-16">
           <div className="rounded-lg border border-gray-300 bg-white p-8 sm:p-10 shadow-sm">
@@ -161,11 +211,11 @@ export default function AboutPage() {
               </div>
               <div className="rounded-lg border border-sky-200 bg-sky-50 p-6">
                 <div className="mb-3 text-3xl">💬</div>
-                <h3 className="mb-2 text-lg font-semibold text-gray-900">실시간 AI 상담</h3>
+                <h3 className="mb-2 text-lg font-semibold text-gray-900">고도화된 AI Agent 상담</h3>
                 <p className="text-sm text-gray-700 leading-relaxed">
-                  "SEO 점수를 어떻게 올릴 수 있나요?" 같은 질문에 대해 분석 결과를 바탕으로 
-                  구체적이고 실행 가능한 답변을 제공합니다. 마크다운 형식으로 정리되어 
-                  바로 문서화하거나 팀과 공유할 수 있습니다.
+                  분석 결과를 바탕으로 구체적이고 실행 가능한 답변을 제공합니다. 
+                  마크다운 형식 렌더링, 답변 복사 기능, 동적 추천 질문 생성 등 
+                  실무에 바로 활용할 수 있는 기능을 제공합니다.
                 </p>
               </div>
             </div>
@@ -251,17 +301,17 @@ export default function AboutPage() {
         {/* 핵심 기능 */}
         <section className="mb-16">
           <h2 className="mb-8 text-center text-2xl sm:text-3xl font-bold text-gray-900">
-            핵심 기능
+            모든 기능
           </h2>
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            <div className="rounded-lg border border-gray-300 bg-white p-6 shadow-sm">
+            <div className="rounded-lg border border-gray-300 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
               <div className="mb-3 text-3xl">📊</div>
               <h3 className="mb-2 text-lg font-semibold text-gray-900">종합 점수 분석</h3>
               <p className="text-sm text-gray-600 leading-relaxed">
                 AEO, GEO, SEO 점수를 한눈에 확인하고, 종합 점수를 클릭하면 모든 개선 사항을 체크리스트로 볼 수 있습니다.
               </p>
             </div>
-            <div className="rounded-lg border border-gray-300 bg-white p-6 shadow-sm">
+            <div className="rounded-lg border border-gray-300 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
               <div className="mb-3 text-3xl">🤖</div>
               <h3 className="mb-2 text-lg font-semibold text-gray-900">AI 모델별 인용 확률</h3>
               <p className="text-sm text-gray-600 leading-relaxed">
@@ -269,22 +319,22 @@ export default function AboutPage() {
                 모델별 맞춤 개선 제안을 제공합니다.
               </p>
             </div>
-            <div className="rounded-lg border border-gray-300 bg-white p-6 shadow-sm">
+            <div className="rounded-lg border border-gray-300 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
               <div className="mb-3 text-3xl">💬</div>
-              <h3 className="mb-2 text-lg font-semibold text-gray-900">AI Agent 상담</h3>
+              <h3 className="mb-2 text-lg font-semibold text-gray-900">고도화된 AI Agent</h3>
               <p className="text-sm text-gray-600 leading-relaxed">
-                분석 결과를 바탕으로 "어떻게 개선할 수 있나요?" 같은 질문에 대해 
-                구체적이고 실행 가능한 답변을 대화형으로 받을 수 있습니다.
+                마크다운 형식 답변 렌더링, 답변 복사 기능, 동적 추천 질문 생성, 대화 이력 저장 등 
+                실무에 바로 활용할 수 있는 고급 기능을 제공합니다.
               </p>
             </div>
-            <div className="rounded-lg border border-gray-300 bg-white p-6 shadow-sm">
+            <div className="rounded-lg border border-gray-300 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
               <div className="mb-3 text-3xl">✅</div>
               <h3 className="mb-2 text-lg font-semibold text-gray-900">실행 가능한 개선 팁</h3>
               <p className="text-sm text-gray-600 leading-relaxed">
                 우선순위별로 정리된 개선 항목과 각 항목의 예상 효과, 단계별 실행 방법을 제공합니다.
               </p>
             </div>
-            <div className="rounded-lg border border-gray-300 bg-white p-6 shadow-sm">
+            <div className="rounded-lg border border-gray-300 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
               <div className="mb-3 text-3xl">📚</div>
               <h3 className="mb-2 text-lg font-semibold text-gray-900">가이드라인 라이브러리</h3>
               <p className="text-sm text-gray-600 leading-relaxed">
@@ -292,12 +342,33 @@ export default function AboutPage() {
                 콘텐츠 작성 시 바로 참고할 수 있습니다.
               </p>
             </div>
-            <div className="rounded-lg border border-gray-300 bg-white p-6 shadow-sm">
+            <div className="rounded-lg border border-gray-300 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
               <div className="mb-3 text-3xl">📋</div>
               <h3 className="mb-2 text-lg font-semibold text-gray-900">분석 이력 관리</h3>
               <p className="text-sm text-gray-600 leading-relaxed">
                 최근 분석 기록을 저장하고 관리하여, 콘텐츠 개선 전후를 비교하거나 
                 팀과 공유할 수 있습니다.
+              </p>
+            </div>
+            <div className="rounded-lg border border-gray-300 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
+              <div className="mb-3 text-3xl">⚡</div>
+              <h3 className="mb-2 text-lg font-semibold text-gray-900">빠른 분석 속도</h3>
+              <p className="text-sm text-gray-600 leading-relaxed">
+                캐싱 시스템과 최적화된 알고리즘으로 동일 URL 재분석 시 즉시 결과를 제공합니다.
+              </p>
+            </div>
+            <div className="rounded-lg border border-gray-300 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
+              <div className="mb-3 text-3xl">🔄</div>
+              <h3 className="mb-2 text-lg font-semibold text-gray-900">알고리즘 자동 학습</h3>
+              <p className="text-sm text-gray-600 leading-relaxed">
+                분석 결과 기반 자동 가중치 학습으로 지속적으로 정확도가 향상됩니다.
+              </p>
+            </div>
+            <div className="rounded-lg border border-gray-300 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
+              <div className="mb-3 text-3xl">📱</div>
+              <h3 className="mb-2 text-lg font-semibold text-gray-900">반응형 디자인</h3>
+              <p className="text-sm text-gray-600 leading-relaxed">
+                모바일, 태블릿, 데스크톱 모든 기기에서 완벽하게 작동합니다.
               </p>
             </div>
           </div>
@@ -357,7 +428,7 @@ export default function AboutPage() {
               다른 도구와 차별화되는 점
             </h2>
             <div className="grid gap-6 md:grid-cols-2">
-              <div className="rounded-lg border border-sky-200 bg-white p-6">
+              <div className="rounded-lg border border-sky-200 bg-white p-6 hover:shadow-md transition-shadow">
                 <h3 className="mb-3 text-lg font-semibold text-gray-900">🎯 AI 모델별 맞춤 분석</h3>
                 <p className="text-sm text-gray-700 leading-relaxed">
                   단순 SEO 점수가 아닌, ChatGPT, Perplexity, Gemini, Claude 각 모델의 특성을 반영한 
@@ -365,22 +436,21 @@ export default function AboutPage() {
                   구체적인 점수로 보여줍니다.
                 </p>
               </div>
-              <div className="rounded-lg border border-sky-200 bg-white p-6">
+              <div className="rounded-lg border border-sky-200 bg-white p-6 hover:shadow-md transition-shadow">
                 <h3 className="mb-3 text-lg font-semibold text-gray-900">💡 실행 가능한 개선 팁</h3>
                 <p className="text-sm text-gray-700 leading-relaxed">
                   추상적인 조언이 아닌, "이렇게 하면 이만큼 효과가 있다"는 예상 효과와 
                   단계별 실행 방법을 제공합니다. 바로 적용할 수 있는 실전 가이드입니다.
                 </p>
               </div>
-              <div className="rounded-lg border border-sky-200 bg-white p-6">
-                <h3 className="mb-3 text-lg font-semibold text-gray-900">🤖 AI Agent 상담</h3>
+              <div className="rounded-lg border border-sky-200 bg-white p-6 hover:shadow-md transition-shadow">
+                <h3 className="mb-3 text-lg font-semibold text-gray-900">🤖 고도화된 AI Agent</h3>
                 <p className="text-sm text-gray-700 leading-relaxed">
-                  분석 결과를 바탕으로 "SEO 점수를 어떻게 올릴 수 있나요?" 같은 질문에 대해 
-                  구체적이고 실행 가능한 답변을 제공합니다. 마크다운 형식으로 정리되어 
-                  바로 문서화하거나 팀과 공유할 수 있습니다.
+                  분석 결과를 바탕으로 구체적이고 실행 가능한 답변을 제공합니다. 
+                  마크다운 형식 렌더링, 답변 복사, 동적 추천 질문 생성 등 실무에 바로 활용할 수 있는 기능을 제공합니다.
                 </p>
               </div>
-              <div className="rounded-lg border border-sky-200 bg-white p-6">
+              <div className="rounded-lg border border-sky-200 bg-white p-6 hover:shadow-md transition-shadow">
                 <h3 className="mb-3 text-lg font-semibold text-gray-900">⚡ 즉시 사용 가능</h3>
                 <p className="text-sm text-gray-700 leading-relaxed">
                   복잡한 설정이나 학습 없이, URL만 입력하면 바로 분석을 시작할 수 있습니다. 
