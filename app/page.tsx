@@ -527,16 +527,25 @@ function HomeContent() {
   return (
     <div className="flex-1 bg-white">
       <NetworkStatus />
-      <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
-        {/* URL 입력 섹션 */}
-        <div className="mb-16">
+      <div className="mx-auto max-w-7xl px-4 py-6 sm:py-8 sm:px-6 lg:px-8">
+        {/* Hero 섹션 - 강화된 반응형 디자인 */}
+        <div className="mb-8 sm:mb-12 animate-fade-in">
           <div className="mx-auto max-w-4xl">
+            {/* Hero 배경 그라데이션 */}
             <div className="relative overflow-hidden rounded-xl sm:rounded-2xl bg-gradient-to-br from-sky-50 via-blue-50 to-indigo-50 p-6 sm:p-8 md:p-12 shadow-lg">
               {/* 배경 장식 요소 - 모바일에서 숨김 */}
               <div className="hidden sm:block absolute -top-20 -right-20 h-64 w-64 rounded-full bg-sky-200/30 blur-3xl"></div>
               <div className="hidden sm:block absolute -bottom-20 -left-20 h-64 w-64 rounded-full bg-indigo-200/30 blur-3xl"></div>
               
               <div className="relative z-10">
+                <h1 className="mb-3 sm:mb-4 text-center text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 leading-tight px-2">
+                  <span className="bg-gradient-to-r from-sky-600 to-indigo-600 bg-clip-text text-transparent">
+                    AI 검색 시대, 콘텐츠 최적화를 한 번에
+                  </span>
+                </h1>
+                <p className="mb-6 sm:mb-8 text-center text-sm sm:text-base md:text-lg lg:text-xl text-gray-700 leading-relaxed px-2">
+                  ChatGPT, Perplexity, Gemini, Claude가 당신의 콘텐츠를 인용하도록 만드는 <span className="font-semibold text-sky-600">실전 최적화 도구</span>
+                </p>
                 <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
                   <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto max-w-6xl">
                     <div className="flex-1 min-w-0">
@@ -590,9 +599,9 @@ function HomeContent() {
           </div>
         </div>
 
-        {/* 진행 상태 표시 - about 페이지와 통일된 디자인 */}
+        {/* 진행 상태 표시 */}
         {isAnalyzing && currentStep !== 'idle' && (
-          <div className="mx-auto max-w-4xl mb-16 rounded-lg border-2 border-sky-300 bg-gradient-to-br from-sky-50 to-white p-8 sm:p-10 shadow-sm">
+          <div className="mx-auto max-w-4xl mt-4 sm:mt-6 rounded-xl border-2 border-sky-200 bg-gradient-to-r from-sky-50 to-indigo-50 p-4 sm:p-6 shadow-md">
             <ProgressBar
               steps={analysisSteps}
               currentStep={
@@ -616,9 +625,9 @@ function HomeContent() {
           </div>
         )}
         
-        {/* 에러 표시 - about 페이지와 통일된 디자인 */}
+        {/* 에러 표시 */}
         {error && (
-          <div className="mx-auto max-w-4xl mb-16 rounded-lg border-2 border-red-200 bg-gradient-to-br from-red-50 to-white p-8 sm:p-10 text-sm text-gray-800 animate-slide-in shadow-sm">
+          <div className="mx-auto max-w-4xl mt-4 sm:mt-6 rounded-xl border-2 border-red-200 bg-gradient-to-r from-red-50 to-pink-50 p-4 sm:p-6 text-sm text-gray-800 animate-slide-in shadow-md">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div className="flex-1">
                 <div className="flex items-start gap-2">
@@ -644,7 +653,7 @@ function HomeContent() {
               <button
                 onClick={handleRetry}
                 disabled={isAnalyzing}
-                className="w-full sm:w-auto rounded-md border border-gray-300 bg-white px-6 py-2.5 text-sm font-semibold text-black hover:bg-black hover:text-white transition-all disabled:opacity-50 whitespace-nowrap"
+                className="w-full sm:w-auto rounded-lg border-2 border-red-300 bg-white px-4 py-2 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50 transition-all whitespace-nowrap"
               >
                 다시 시도
               </button>
@@ -665,9 +674,9 @@ function HomeContent() {
 
         {/* 분석 결과 섹션 */}
         {analysisData && !isAnalyzing && (
-          <div className="space-y-6 mb-16 animate-fade-in">
+          <div className="space-y-6 animate-fade-in">
             {/* 점수 카드 */}
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               <ScoreCard
                 title="AEO 점수"
                 score={analysisData.aeoScore}
@@ -694,23 +703,27 @@ function HomeContent() {
               aioAnalysis={analysisData.aioAnalysis}
             /> */}
 
-            {/* 종합 점수 - about 페이지와 통일된 디자인 */}
+            {/* 종합 점수 - 개선된 반응형 디자인 */}
             <div 
-              className="group relative overflow-hidden rounded-lg border-2 border-sky-300 bg-gradient-to-br from-sky-50 to-white p-8 sm:p-10 shadow-lg transition-all duration-300 hover:shadow-xl hover:scale-[1.01] cursor-pointer animate-fade-in"
+              className="group relative overflow-hidden rounded-xl sm:rounded-2xl border-2 border-sky-200 bg-gradient-to-br from-sky-50 via-indigo-50 to-blue-50 p-6 sm:p-8 shadow-xl transition-all duration-300 hover:shadow-2xl hover:scale-[1.01] cursor-pointer animate-fade-in"
               onClick={() => setIsChecklistModalOpen(true)}
             >
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-6">
+              {/* 배경 장식 - 모바일에서 숨김 */}
+              <div className="hidden sm:block absolute -top-20 -right-20 h-40 w-40 rounded-full bg-sky-300/20 blur-3xl group-hover:bg-sky-400/30 transition-colors"></div>
+              <div className="hidden sm:block absolute -bottom-20 -left-20 h-40 w-40 rounded-full bg-indigo-300/20 blur-3xl group-hover:bg-indigo-400/30 transition-colors"></div>
+              
+              <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-6">
                 <div className="flex-1 w-full sm:w-auto">
                   <div className="mb-2 flex items-center gap-2">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-indigo-500 text-white shadow-lg text-lg">
+                    <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-lg sm:rounded-xl bg-gradient-to-br from-sky-500 to-indigo-500 text-white shadow-lg text-sm sm:text-base">
                       ⭐
                     </div>
-                    <h3 className="text-2xl sm:text-3xl font-bold text-gray-900">종합 점수</h3>
+                    <h3 className="text-xl sm:text-2xl font-bold text-gray-900">종합 점수</h3>
                   </div>
-                  <p className="mb-2 text-base text-gray-600">
+                  <p className="mb-2 text-sm sm:text-base text-gray-600">
                     AEO, GEO, SEO 점수의 평균
                   </p>
-                  <p className="inline-flex items-center gap-1 text-sm font-semibold text-sky-600">
+                  <p className="inline-flex items-center gap-1 text-xs sm:text-sm font-semibold text-sky-600">
                     <span>클릭하여 종합 개선 체크리스트 보기</span>
                     <span className="hidden sm:inline transition-transform group-hover:translate-x-1">→</span>
                   </p>
@@ -719,9 +732,9 @@ function HomeContent() {
                   <div className="mb-2 text-5xl sm:text-6xl font-bold bg-gradient-to-r from-sky-600 to-indigo-600 bg-clip-text text-transparent">
                     {Math.round(analysisData.overallScore)}
                   </div>
-                  <div className="text-lg font-medium text-gray-500">/ 100</div>
+                  <div className="text-base sm:text-lg font-medium text-gray-500">/ 100</div>
                   <div className="mt-3">
-                    <span className={`inline-flex items-center rounded-full px-4 py-1.5 text-sm font-bold ${
+                    <span className={`inline-flex items-center rounded-full px-3 sm:px-4 py-1 sm:py-1.5 text-xs sm:text-sm font-bold ${
                       analysisData.overallScore >= 80 
                         ? 'bg-gradient-to-r from-sky-100 to-indigo-100 text-sky-800' 
                         : analysisData.overallScore >= 60 
@@ -753,23 +766,25 @@ function HomeContent() {
               <CopyButton analysisData={analysisData} url={url} />
             </div>
 
-            {/* 채팅 기능 안내 - about 페이지와 통일된 디자인 */}
-            <div className="rounded-lg border-2 border-sky-300 bg-gradient-to-br from-sky-50 to-white p-8 sm:p-10 shadow-sm">
+            {/* 채팅 기능 안내 */}
+            <div className="rounded-lg border-2 border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50 p-6">
               <div className="flex items-start gap-4">
-                <div className="text-3xl">💬</div>
+                <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-r from-blue-600 to-purple-600 text-2xl text-white shadow-lg">
+                  💬
+                </div>
                 <div className="flex-1">
                   <h3 className="mb-2 text-lg font-semibold text-gray-900">
                     AI Agent와 대화하기
                   </h3>
-                  <p className="mb-3 text-sm text-gray-700 leading-relaxed">
+                  <p className="mb-3 text-sm text-gray-700">
                     분석 결과에 대해 궁금한 점이 있으신가요? 오른쪽 하단의 AI Agent 버튼을 클릭하여 
                     더 구체적인 개선 방안을 문의하거나 분석 결과에 대해 질문해보세요.
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    <span className="rounded-full bg-sky-100 px-3 py-1 text-xs font-medium text-sky-800">
+                    <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-800">
                       점수 개선 방법 문의
                     </span>
-                    <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-800">
+                    <span className="rounded-full bg-purple-100 px-3 py-1 text-xs font-medium text-purple-800">
                       구체적인 개선 제안
                     </span>
                     <span className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-medium text-indigo-800">
@@ -791,34 +806,42 @@ function HomeContent() {
           </div>
         )}
 
-        {/* 빈 상태 - about 페이지와 통일된 디자인 */}
+        {/* 빈 상태 - 개선된 디자인 */}
         {!analysisData && !isAnalyzing && (
-          <div className="mx-auto max-w-2xl">
-            <div className="rounded-lg border border-gray-300 bg-white p-8 sm:p-10 shadow-sm text-center">
-              <div className="mb-4 flex justify-center">
-                <div className="text-5xl">🔍</div>
-              </div>
-              <h3 className="mb-2 text-2xl sm:text-3xl font-bold text-gray-900">
-                분석을 시작해보세요!
-              </h3>
-              <p className="mb-1.5 text-base text-gray-700 leading-relaxed">
-                URL을 입력하고 <span className="font-semibold text-sky-600">분석 시작</span> 버튼을 클릭하세요
-              </p>
-              <p className="text-sm text-gray-600 leading-relaxed">
-                콘텐츠의 AEO, GEO, SEO 점수를 확인하고 개선 방안을 제시합니다
-              </p>
-              <div className="mt-6 flex flex-wrap justify-center gap-3">
-                <div className="group flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition-all duration-200 hover:border-sky-300 hover:bg-sky-50 hover:shadow-md hover:scale-105">
-                  <span className="text-lg transition-transform group-hover:scale-110">⚡</span>
-                  <span>30초 진단</span>
+          <div className="mx-auto max-w-2xl py-6">
+            <div className="relative">
+              {/* 배경 장식 */}
+              <div className="absolute -top-10 -left-10 h-32 w-32 rounded-full bg-sky-100/50 blur-2xl animate-pulse-slow"></div>
+              <div className="absolute -bottom-10 -right-10 h-32 w-32 rounded-full bg-indigo-100/50 blur-2xl animate-pulse-slow" style={{ animationDelay: '1s' }}></div>
+              
+              <div className="relative rounded-2xl border-2 border-dashed border-gray-300 bg-gradient-to-br from-sky-50/50 to-indigo-50/50 p-10 text-center shadow-lg">
+                <div className="mb-4 flex justify-center">
+                  <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-sky-100 to-indigo-100 text-4xl animate-float shadow-md">
+                    🔍
+                  </div>
                 </div>
-                <div className="group flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition-all duration-200 hover:border-sky-300 hover:bg-sky-50 hover:shadow-md hover:scale-105">
-                  <span className="text-lg transition-transform group-hover:scale-110">🤖</span>
-                  <span>AI 분석</span>
-                </div>
-                <div className="group flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition-all duration-200 hover:border-sky-300 hover:bg-sky-50 hover:shadow-md hover:scale-105">
-                  <span className="text-lg transition-transform group-hover:scale-110">📊</span>
-                  <span>종합 리포트</span>
+                <h3 className="mb-2 text-2xl font-bold text-gray-900">
+                  분석을 시작해보세요!
+                </h3>
+                <p className="mb-1.5 text-base text-gray-600">
+                  URL을 입력하고 <span className="font-semibold text-sky-600">분석 시작</span> 버튼을 클릭하세요
+                </p>
+                <p className="text-sm text-gray-500">
+                  콘텐츠의 AEO, GEO, SEO 점수를 확인하고 개선 방안을 제시합니다
+                </p>
+                <div className="mt-6 flex flex-wrap justify-center gap-3">
+                  <div className="group flex items-center gap-2 rounded-lg border-2 border-gray-200 bg-white px-5 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition-all duration-200 hover:border-sky-300 hover:bg-gradient-to-r hover:from-sky-50 hover:to-indigo-50 hover:shadow-md hover:scale-105">
+                    <span className="text-lg transition-transform group-hover:scale-110">⚡</span>
+                    <span>30초 진단</span>
+                  </div>
+                  <div className="group flex items-center gap-2 rounded-lg border-2 border-gray-200 bg-white px-5 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition-all duration-200 hover:border-sky-300 hover:bg-gradient-to-r hover:from-sky-50 hover:to-indigo-50 hover:shadow-md hover:scale-105">
+                    <span className="text-lg transition-transform group-hover:scale-110">🤖</span>
+                    <span>AI 분석</span>
+                  </div>
+                  <div className="group flex items-center gap-2 rounded-lg border-2 border-gray-200 bg-white px-5 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition-all duration-200 hover:border-sky-300 hover:bg-gradient-to-r hover:from-sky-50 hover:to-indigo-50 hover:shadow-md hover:scale-105">
+                    <span className="text-lg transition-transform group-hover:scale-110">📊</span>
+                    <span>종합 리포트</span>
+                  </div>
                 </div>
               </div>
             </div>

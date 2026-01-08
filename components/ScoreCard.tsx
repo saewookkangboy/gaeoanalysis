@@ -26,10 +26,13 @@ export default function ScoreCard({ title, score, color }: ScoreCardProps) {
   };
 
   return (
-    <div className={`group relative overflow-hidden rounded-lg border border-gray-300 bg-white p-6 shadow-sm transition-all duration-300 hover:shadow-md animate-fade-in`}>
+    <div className={`group relative overflow-hidden rounded-lg sm:rounded-xl border-2 border-gray-200 bg-gradient-to-br ${getCardGradient(score)} p-4 sm:p-6 shadow-md transition-all duration-300 hover:shadow-xl hover:scale-[1.02] hover:border-sky-300 animate-fade-in`}>
+      {/* 장식 요소 - 모바일에서 숨김 */}
+      <div className="hidden sm:block absolute -top-10 -right-10 h-24 w-24 rounded-full bg-sky-200/20 blur-2xl group-hover:bg-sky-300/30 transition-colors"></div>
+      
       <div className="relative z-10">
-        <h3 className="text-sm font-semibold text-gray-900 mb-3">{title}</h3>
-        <div className="mb-4 flex items-baseline gap-2">
+        <h3 className="text-xs sm:text-sm font-semibold text-gray-700 uppercase tracking-wide">{title}</h3>
+        <div className="mt-2 sm:mt-3 flex items-baseline gap-2">
           <span className={`text-4xl sm:text-5xl font-bold ${getScoreColor(score)}`}>
             {score}
           </span>
@@ -37,7 +40,7 @@ export default function ScoreCard({ title, score, color }: ScoreCardProps) {
         </div>
         
         {/* 개선된 진행 바 */}
-        <div className="mb-4 h-3 w-full overflow-hidden rounded-full bg-gray-200/50 shadow-inner">
+        <div className="mt-6 h-3 w-full overflow-hidden rounded-full bg-gray-200/50 shadow-inner">
           <div
             className={`h-full ${getProgressColor(score)} transition-all duration-1000 ease-out shadow-lg`}
             style={{ width: `${score}%` }}
@@ -45,7 +48,7 @@ export default function ScoreCard({ title, score, color }: ScoreCardProps) {
         </div>
         
         {/* 점수 레벨 표시 */}
-        <div>
+        <div className="mt-4">
           <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${
             score >= 80 
               ? 'bg-sky-100 text-sky-800' 
