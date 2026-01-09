@@ -126,7 +126,7 @@ export function withErrorHandling(
 /**
  * URL sanitization 및 정규화
  * - 프로토콜이 없으면 https:// 자동 추가
- * - http://를 https://로 변환 (보안상 권장)
+ * - http://는 그대로 유지 (일부 사이트는 http만 지원)
  * - www.는 유지 (사용자 입력 그대로)
  * - 공백 제거 및 트림
  */

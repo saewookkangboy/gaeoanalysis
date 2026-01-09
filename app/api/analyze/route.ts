@@ -33,7 +33,7 @@ const analyzeSchema = z.object({
         // 프로토콜이 없는 경우 도메인 형식 검증 (www. 포함 가능)
         // 기본적인 도메인 형식 체크: 최소 3자 이상, 점 포함, 공백 없음
         const domainPattern = /^([a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}(\/.*)?$/;
-        return domainPattern.test(trimmed) || trimmed.match(/^www\./i);
+        return domainPattern.test(trimmed);
       },
       { message: '유효하지 않은 URL 형식입니다.' }
     ),

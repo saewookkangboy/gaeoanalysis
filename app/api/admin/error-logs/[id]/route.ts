@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/admin-auth';
 import db from '@/lib/db';
+import { query, isPostgreSQL } from '@/lib/db-adapter';
 import { createErrorResponse, createSuccessResponse } from '@/lib/api-utils';
 
 /**
@@ -19,19 +20,38 @@ export async function PATCH(
     const { resolved = true } = body;
 
     // 에러 로그 업데이트
-    const result = db.prepare(`
-      UPDATE error_logs
-      SET 
-        resolved = ?,
-        resolved_at = ?,
-        resolved_by = ?
-      WHERE id = ?
-    `).run(
-      resolved ? 1 : 0,
-      resolved ? new Date().toISOString() : null,
-      resolved ? adminUserId : null,
-      params.id
-    );
+    let result;
+    if (isPostgreSQL()) {
+      const queryResult = await query(
+        `UPDATE error_logs
+         SET 
+           resolved = $1,
+           resolved_at = $2,
+           resolved_by = $3
+         WHERE id = $4`,
+        [
+          resolved,
+          resolved ? new Date().toISOString() : null,
+          resolved ? adminUserId : null,
+          params.id
+        ]
+      );
+      result = { changes: queryResult.rowCount || 0 };
+    } else {
+      result = db.prepare(`
+        UPDATE error_logs
+        SET 
+          resolved = ?,
+          resolved_at = ?,
+          resolved_by = ?
+        WHERE id = ?
+      `).run(
+        resolved ? 1 : 0,
+        resolved ? new Date().toISOString() : null,
+        resolved ? adminUserId : null,
+        params.id
+      );
+    }
 
     if (result.changes === 0) {
       return createErrorResponse(

@@ -44,9 +44,6 @@ import {
 import type { AnalysisResult, Insight } from './analyzer';
 import type { DomainAuthority, CitationOpportunity, QualityIssue } from './citation-analyzer';
 
-// 분석 결과 다양성을 위한 랜덤 시드
-let analysisVariationSeed = 0;
-
 /**
  * 네이버 블로그 특화 분석 결과 인터페이스
  */
@@ -65,6 +62,7 @@ export interface NaverBlogAnalysisResult extends AnalysisResult {
       hasPoll: boolean;
       hasCommentSection: boolean;
     };
+    imageAnalysis: ImageAnalysis;
     seoElements: {
       hasNaverMeta: boolean;
       hasOgTags: boolean;
@@ -85,7 +83,8 @@ export interface NaverBlogAnalysisResult extends AnalysisResult {
  */
 export async function analyzeNaverBlogContent(
   html: string, 
-  url: string
+  url: string,
+  variationSeed?: number
 ): Promise<NaverBlogAnalysisResult> {
   const $ = cheerio.load(html);
   
@@ -177,14 +176,15 @@ export async function analyzeNaverBlogContent(
   const qualityIssues = detectQualityIssues(citationSources.sources);
   
   // 네이버 블로그 특화 인사이트 생성 (다양성 확보)
-  analysisVariationSeed = (analysisVariationSeed + 1) % 10; // 10가지 변형
+  // URL 기반으로 결정적인 시드 생성 (서버리스 환경에서도 안전)
+  const seed = variationSeed ?? Math.abs(url.split('').reduce((a, b) => a + b.charCodeAt(0), 0) % 10);
   const insights = generateNaverBlogInsights(
     $, 
     aeoScore, 
     geoScore, 
     seoScore, 
     naverSpecific,
-    analysisVariationSeed
+    seed
   );
   
   // 개선 우선순위 및 콘텐츠 작성 가이드라인 생성

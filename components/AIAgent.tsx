@@ -348,12 +348,12 @@ export default function AIAgent({ analysisData, aioAnalysis }: AIAgentProps) {
     <>
       {/* 플로팅 버튼 - 개선된 디자인 */}
       {!isOpen && (
-        <div className="fixed bottom-6 right-6 z-50 animate-fade-in">
+        <div className="fixed bottom-6 right-6 z-50 animate-fade-in group">
           {/* 펄스 애니메이션 배경 */}
           <div className="absolute inset-0 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 animate-ping opacity-20"></div>
           <button
             onClick={() => setIsOpen(true)}
-            className="relative flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-2xl transition-all hover:from-blue-700 hover:to-purple-700 hover:shadow-3xl hover:scale-110 active:scale-95 group"
+            className="relative flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-2xl transition-all hover:from-blue-700 hover:to-purple-700 hover:shadow-3xl hover:scale-110 active:scale-95"
             aria-label="AI Agent 열기 - 분석 결과에 대해 질문하세요"
           >
             <svg

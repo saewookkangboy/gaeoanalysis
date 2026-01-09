@@ -139,6 +139,9 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
+    // 관리자 권한 확인 (또는 클라이언트 에러 리포팅용이면 rate limiting 고려)
+    await requireAdmin(request);
+    
     const body = await request.json();
     const {
       error_type,

@@ -42,8 +42,9 @@ export default function UrlInput({
           // 프로토콜이 없는 경우 도메인 형식 검증
           // 기본적인 도메인 형식 체크: 최소 3자 이상, 점 포함, 공백 없음
           const domainPattern = /^([a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}(\/.*)?$/;
-          const wwwPattern = /^www\./i;
-          const isValidDomain = domainPattern.test(trimmed) || wwwPattern.test(trimmed);
+          // www. 프리픽스가 있으면 제거하고 도메인 패턴으로 검증
+          const normalizedForValidation = trimmed.replace(/^www\./i, '');
+          const isValidDomain = domainPattern.test(normalizedForValidation) || domainPattern.test(trimmed);
           setIsValid(isValidDomain);
         }
       } catch {

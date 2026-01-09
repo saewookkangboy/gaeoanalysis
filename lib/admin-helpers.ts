@@ -1409,14 +1409,28 @@ ${insights.peakAnalysisDay ? `- 분석 급증일: ${insights.peakAnalysisDay} ($
   }
 
   if (trends.dailyUsers.length > 0) {
-    const allDailyData = trends.dailyUsers.map((d, i) => ({
-      date: d.date,
-      users: d.count,
-      analyses: trends.dailyAnalyses[i]?.count || 0,
-      logins: trends.dailyLogins[i]?.count || 0,
-    }));
+    // Create a map of all dates to combine data correctly
+    const dateMap = new Map<string, { users: number; analyses: number; logins: number }>();
     
-    prompt += `**일별 트렌드** (최근 ${trends.dailyUsers.length}일):
+    trends.dailyUsers.forEach(d => {
+      dateMap.set(d.date, { users: d.count, analyses: 0, logins: 0 });
+    });
+    trends.dailyAnalyses.forEach(d => {
+      const existing = dateMap.get(d.date) || { users: 0, analyses: 0, logins: 0 };
+      existing.analyses = d.count;
+      dateMap.set(d.date, existing);
+    });
+    trends.dailyLogins.forEach(d => {
+      const existing = dateMap.get(d.date) || { users: 0, analyses: 0, logins: 0 };
+      existing.logins = d.count;
+      dateMap.set(d.date, existing);
+    });
+    
+    const allDailyData = Array.from(dateMap.entries())
+      .map(([date, data]) => ({ date, ...data }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+    
+    prompt += `**일별 트렌드** (최근 ${allDailyData.length}일):
 ${allDailyData.slice(-16).map(d => `- ${d.date}: 신규 사용자 ${d.users}명, 분석 ${d.analyses}건, 로그인 ${d.logins}회`).join('\n')}
 
 `;

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
@@ -22,6 +22,7 @@ export default function RevisionPreviewModal({
   url,
 }: RevisionPreviewModalProps) {
   const [isLoading, setIsLoading] = useState(false);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [preview, setPreview] = useState<{
     revisedMarkdown: string;
     predictedScores?: {

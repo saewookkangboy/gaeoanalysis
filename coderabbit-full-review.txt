@@ -1,0 +1,387 @@
+Starting CodeRabbit review in plain text mode...
+
+Connecting to review service
+Setting up
+Analyzing
+Reviewing
+
+============================================================================
+File: app/api/admin/error-logs/[id]/route.ts
+Line: 22 to 34
+Type: potential_issue
+
+Comment:
+SQLite-only implementation - no PostgreSQL support.
+
+This route uses db.prepare() directly, which only works with SQLite. Given the PR's focus on cross-database support (as seen in db-helpers.ts), this should use the database adapter for PostgreSQL compatibility.
+
+
+
+🔧 Recommended approach
+
+Consider using the query function from @/lib/db-adapter or wrapping in a helper that supports both databases:
+
+import { query, isPostgreSQL } from '@/lib/db-adapter';
+
+// In PATCH handler:
+if (isPostgreSQL()) {
+  await query(
+    UPDATE error_logs
+    SET resolved = $1, resolved_at = $2, resolved_by = $3
+    WHERE id = $4
+  , [resolved, resolved ? new Date().toISOString() : null, resolved ? adminUserId : null, params.id]);
+} else {
+  // existing SQLite code
+}
+
+Prompt for AI Agent:
+In @app/api/admin/error-logs/[id]/route.ts around lines 22 - 34, The PATCH handler uses db.prepare() (SQLite-only) to update the error_logs row; replace it with the cross-db adapter by importing and using query (and isPostgreSQL if needed) from @/lib/db-adapter so the UPDATE works on PostgreSQL too; implement logic in the route handler to call query with parameterized placeholders appropriate for the adapter and pass [resolved, resolved ? new Date().toISOString() : null, resolved ? adminUserId : null, params.id] (or adapt boolean/NULL handling per isPostgreSQL) instead of db.prepare().run(...) so the update supports both SQLite and PostgreSQL.
+
+
+
+============================================================================
+File: app/api/analyze/route.ts
+Line: 13 to 40
+Type: potential_issue
+
+Comment:
+Review URL validation logic for edge cases.
+
+Line 36 accepts inputs matching /^www\./i even if they don't pass the domain pattern validation. This could allow invalid inputs like "www." alone to pass validation. Consider removing this separate check or ensuring it validates the full domain, not just the prefix.
+
+
+
+
+🔍 Suggested refinement
+
+-        // 프로토콜이 없는 경우 도메인 형식 검증 (www. 포함 가능)
+-        // 기본적인 도메인 형식 체크: 최소 3자 이상, 점 포함, 공백 없음
+         const domainPattern = /^(a-zA-Z0-9?\.)+[a-zA-Z]{2,}(\/.*)?$/;
+-        return domainPattern.test(trimmed) || trimmed.match(/^www\./i);
++        return domainPattern.test(trimmed);
+
+
+The domain pattern already allows www. as part of valid domains, so the separate check is unnecessary.
+
+Prompt for AI Agent:
+In @app/api/analyze/route.ts around lines 13 - 40, The refine predicate inside analyzeSchema currently allows strings that match /^www\./i even if they don't satisfy the domainPattern, which permits invalid inputs like "www."; update the refine logic to remove the standalone trimmed.match(/^www\./i) check and rely solely on the domainPattern (or replace it with a stricter regex) so that any "www." prefixed input must also satisfy the full domainPattern; locate the refine callback in analyzeSchema and delete or tighten the separate www. condition so only full-domain-valid strings pass.
+
+
+
+============================================================================
+File: components/AIAgent.tsx
+Line: 349 to 383
+Type: potential_issue
+
+Comment:
+Tooltip hover effect won't work due to incorrect group class placement.
+
+The tooltip at lines 378-382 uses group-hover:block but is a sibling of the button, not a descendant. Tailwind's group-hover: modifier only works on descendants of elements with the group class. The tooltip will never appear on hover.
+
+
+
+
+🔧 Proposed fix
+
+Move the group class to the container div and ensure proper nesting:
+
+-        
++        
+           {/ 펄스 애니메이션 배경 /}
+           
+            setIsOpen(true)}
+-            className="relative flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-2xl transition-all hover:from-blue-700 hover:to-purple-700 hover:shadow-3xl hover:scale-110 active:scale-95 group"
++            className="relative flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-2xl transition-all hover:from-blue-700 hover:to-purple-700 hover:shadow-3xl hover:scale-110 active:scale-95"
+             aria-label="AI Agent 열기 - 분석 결과에 대해 질문하세요"
+           >
+
+Prompt for AI Agent:
+In @components/AIAgent.tsx around lines 349 - 383, The tooltip doesn't appear because group-hover:block is applied to the tooltip but the group class is on the button; move the group class up to the container div that wraps both the  and the tooltip (the parent div with classes "fixed bottom-6 right-6 ..."), or ensure the tooltip is a descendant of the element with group, so the group-hover:block on the tooltip will toggle visibility when hovering the button; update class placement accordingly around the button and tooltip elements.
+
+
+
+============================================================================
+File: lib/naver-blog-analyzer.ts
+Line: 47 to 48
+Type: potential_issue
+
+Comment:
+Global mutable state is problematic in serverless/concurrent environments.
+
+The analysisVariationSeed is a module-level mutable variable. In serverless environments (like Vercel), this can behave unpredictably since the module may be reloaded between requests or shared across concurrent requests, leading to race conditions.
+
+
+
+
+🔧 Recommended fix: Pass seed as parameter or use request-scoped value
+
+-// 분석 결과 다양성을 위한 랜덤 시드
+-let analysisVariationSeed = 0;
+
+ export async function analyzeNaverBlogContent(
+   html: string, 
+-  url: string
++  url: string,
++  variationSeed?: number
+ ): Promise {
++  // Use provided seed or generate based on URL hash for deterministic variation
++  const seed = variationSeed ?? Math.abs(url.split('').reduce((a, b) => a + b.charCodeAt(0), 0) % 10);
+   // ...
+-  analysisVariationSeed = (analysisVariationSeed + 1) % 10;
+   const insights = generateNaverBlogInsights(
+     $, 
+     aeoScore, 
+     geoScore, 
+     seoScore, 
+     naverSpecific,
+-    analysisVariationSeed
++    seed
+   );
+
+Prompt for AI Agent:
+In @lib/naver-blog-analyzer.ts around lines 47 - 48, The module-level mutable variable analysisVariationSeed causes shared-state/race issues; remove this global and instead thread a seed value through the call chain by adding a seed parameter to the functions that read or update analysisVariationSeed (e.g., the analyzer entry function and any helper functions that currently reference analysisVariationSeed) and generate/derive the seed in request-scoped code (caller) so each request gets its own seed; update all call sites to pass the request-scoped seed and delete the top-level analysisVariationSeed declaration.
+
+
+
+============================================================================
+File: components/UrlInput.tsx
+Line: 42 to 48
+Type: potential_issue
+
+Comment:
+wwwPattern check is too permissive.
+
+The wwwPattern (/^www\./i) validates any input starting with "www." without ensuring a valid domain follows. For example, "www." or "www.123" would incorrectly pass validation.
+
+
+
+🐛 Proposed fix
+
+           // 프로토콜이 없는 경우 도메인 형식 검증
+           // 기본적인 도메인 형식 체크: 최소 3자 이상, 점 포함, 공백 없음
+           const domainPattern = /^(a-zA-Z0-9?\.)+[a-zA-Z]{2,}(\/.*)?$/;
+-          const wwwPattern = /^www\./i;
+-          const isValidDomain = domainPattern.test(trimmed) || wwwPattern.test(trimmed);
++          // www. 프리픽스가 있으면 제거하고 도메인 패턴으로 검증
++          const normalizedForValidation = trimmed.replace(/^www\./i, '');
++          const isValidDomain = domainPattern.test(normalizedForValidation) || domainPattern.test(trimmed);
+           setIsValid(isValidDomain);
+
+Prompt for AI Agent:
+In @components/UrlInput.tsx around lines 42 - 48, The wwwPattern is too permissive (e.g., "www." or "www.123" pass); update the validation so inputs that start with "www." are validated against the full domain pattern rather than matched by /^www\./i alone — for example, replace the current isValidDomain check with logic that either domainPattern.test(trimmed) is true or (wwwPattern.test(trimmed) && domainPattern.test(trimmed.replace(/^www\./i, ''))) and then call setIsValid accordingly so only proper domains (including those prefixed with www.) pass.
+
+
+
+============================================================================
+File: app/api/admin/error-logs/route.ts
+Line: 140 to 218
+Type: potential_issue
+
+Comment:
+POST handler lacks admin authentication.
+
+Unlike the GET handler which calls requireAdmin(), the POST handler accepts requests without admin verification. This could allow unauthorized error log creation.
+
+
+
+🐛 Proposed fix
+
+ export async function POST(request: NextRequest) {
+   try {
++    // 관리자 권한 확인 (또는 클라이언트 에러 리포팅용이면 rate limiting 고려)
++    await requireAdmin(request);
++
+     const body = await request.json();
+
+
+Alternatively, if this endpoint is meant for client-side error reporting, consider:
+1. Rate limiting to prevent abuse
+2. Request validation/sanitization
+3. Separate public endpoint from admin endpoints
+
+Prompt for AI Agent:
+In @app/api/admin/error-logs/route.ts around lines 140 - 218, The POST handler currently allows unauthenticated access; add admin verification by invoking requireAdmin() at the start of POST (mirroring the GET handler) and aborting with createErrorResponse on failure, or if this route is intended for public client-side error reporting, instead create a separate public endpoint and keep this POST protected; update the POST function to call requireAdmin() (or branch to a validated/public handler), ensure any user-specific fields like user_id are validated, and retain existing responses (createSuccessResponse/createErrorResponse) for consistency.
+
+
+
+============================================================================
+File: lib/admin-helpers.ts
+Line: 1411 to 1420
+Type: potential_issue
+
+Comment:
+Potential data mismatch when joining daily trends arrays by index.
+
+The code assumes dailyUsers, dailyAnalyses, and dailyLogins arrays are aligned by index, but they may have different dates or lengths if some days have users but no analyses/logins or vice versa. This could display incorrect data combinations.
+
+
+
+
+🐛 Fix: Join by date key instead of index
+
+   if (trends.dailyUsers.length > 0) {
+-    const allDailyData = trends.dailyUsers.map((d, i) => ({
+-      date: d.date,
+-      users: d.count,
+-      analyses: trends.dailyAnalyses[i]?.count || 0,
+-      logins: trends.dailyLogins[i]?.count || 0,
+-    }));
++    // Create a map of all dates to combine data correctly
++    const dateMap = new Map();
++    
++    trends.dailyUsers.forEach(d => {
++      dateMap.set(d.date, { users: d.count, analyses: 0, logins: 0 });
++    });
++    trends.dailyAnalyses.forEach(d => {
++      const existing = dateMap.get(d.date) || { users: 0, analyses: 0, logins: 0 };
++      existing.analyses = d.count;
++      dateMap.set(d.date, existing);
++    });
++    trends.dailyLogins.forEach(d => {
++      const existing = dateMap.get(d.date) || { users: 0, analyses: 0, logins: 0 };
++      existing.logins = d.count;
++      dateMap.set(d.date, existing);
++    });
++    
++    const allDailyData = Array.from(dateMap.entries())
++      .map(([date, data]) => ({ date, ...data }))
++      .sort((a, b) => a.date.localeCompare(b.date));
+     
+     prompt += 일별 트렌드 (최근 ${trends.dailyUsers.length}일):
+ ${allDailyData.slice(-16).map(d => - ${d.date}: 신규 사용자 ${d.users}명, 분석 ${d.analyses}건, 로그인 ${d.logins}회`).join('\n')}
+
+Prompt for AI Agent:
+In @lib/admin-helpers.ts around lines 1411 - 1420, The current construction of allDailyData assumes trends.dailyUsers, trends.dailyAnalyses, and trends.dailyLogins are aligned by index which can mispair dates; change it to join by date: build lookup maps from trends.dailyAnalyses and trends.dailyLogins keyed by each item.date, then iterate the dates you want (e.g., trends.dailyUsers or the union of all dates) and for each date pull analyses and logins from the maps (defaulting to 0) to populate allDailyData before slicing and formatting into prompt; update references to trends.dailyUsers, trends.dailyAnalyses, trends.dailyLogins, and allDailyData accordingly.
+
+
+
+============================================================================
+File: lib/naver-blog-analyzer.ts
+Line: 53 to 81
+Type: potential_issue
+
+Comment:
+Interface is missing imageAnalysis property that is returned by extractNaverBlogSpecifics.
+
+The NaverBlogAnalysisResult.naverSpecific interface doesn't include imageAnalysis, but extractNaverBlogSpecifics (line 403) returns it. This causes a type mismatch.
+
+
+
+
+🐛 Fix: Add imageAnalysis to interface
+
+ export interface NaverBlogAnalysisResult extends AnalysisResult {
+   naverSpecific: {
+     blogStructure: {
+       hasCategory: boolean;
+       hasTag: boolean;
+       hasSeries: boolean;
+       hasRelatedPosts: boolean;
+     };
+     contentOptimization: {
+       hasTableOfContents: boolean;
+       hasImageGallery: boolean;
+       hasVideo: boolean;
+       hasPoll: boolean;
+       hasCommentSection: boolean;
+     };
++    imageAnalysis: ImageAnalysis;
+     seoElements: {
+       hasNaverMeta: boolean;
+       hasOgTags: boolean;
+       hasCanonical: boolean;
+       hasBreadcrumb: boolean;
+     };
+     engagement: {
+       viewCount: number;
+       likeCount: number;
+       commentCount: number;
+       shareCount: number;
+     };
+   };
+ }
+
+Prompt for AI Agent:
+In @lib/naver-blog-analyzer.ts around lines 53 - 81, The NaverBlogAnalysisResult.naverSpecific interface is missing the imageAnalysis property that extractNaverBlogSpecifics returns; update the NaverBlogAnalysisResult interface (specifically the naverSpecific object) to include an imageAnalysis field with the appropriate shape returned by extractNaverBlogSpecifics (refer to the structure returned in extractNaverBlogSpecifics at line ~403 for exact keys/types) so the return type matches the actual data.
+
+
+
+============================================================================
+File: lib/api-utils.ts
+Line: 127 to 132
+Type: potential_issue
+
+Comment:
+Documentation inconsistency.
+
+Line 129 states "http://를 https://로 변환 (보안상 권장)" but the actual implementation (lines 165-166) explicitly states HTTP is preserved. Update the JSDoc to reflect the actual behavior.
+
+
+
+
+📝 Suggested fix
+
+ /
+  * URL sanitization 및 정규화
+  * - 프로토콜이 없으면 https:// 자동 추가
+- * - http://를 https://로 변환 (보안상 권장)
++ * - http://는 그대로 유지 (일부 사이트는 http만 지원)
+  * - www.는 유지 (사용자 입력 그대로)
+  * - 공백 제거 및 트림
+  */
+
+Prompt for AI Agent:
+In @lib/api-utils.ts around lines 127 - 132, Update the JSDoc block titled "URL sanitization 및 정규화" to match the actual implementation: remove or reword the line that says "http://를 https://로 변환 (보안상 권장)" and instead state that existing http:// protocols are preserved (no automatic upgrade to https), and clarify that only missing protocols get "https://" prepended and whitespace is trimmed; ensure this description sits with the existing JSDoc for the URL sanitization function/block so docs reflect the behavior implemented at the HTTP-preserving code path.
+
+
+
+============================================================================
+File: components/ContentRevision/RevisionPreviewModal.tsx
+Line: 224 to 233
+Type: potential_issue
+
+Comment:
+Potential memory leak: Clear timeout on component unmount.
+
+The setTimeout on line 229 could fire after the component unmounts, causing a state update on an unmounted component. Consider using useEffect cleanup or a ref to track mounted state.
+
+
+
+
+🔧 Suggested fix using useRef
+
++'use client';
++
++import { useState, useRef, useEffect } from 'react';
+ // ... other imports
+ 
+ export default function RevisionPreviewModal({ ... }) {
+   const [copySuccess, setCopySuccess] = useState(false);
++  const timeoutRef = useRef(null);
++
++  useEffect(() => {
++    return () => {
++      if (timeoutRef.current) {
++        clearTimeout(timeoutRef.current);
++      }
++    };
++  }, []);
+ 
+   // In the onClick handler:
+   onClick={async () => {
+     try {
+       await navigator.clipboard.writeText(preview.revisedMarkdown);
+       setCopySuccess(true);
+-      setTimeout(() => setCopySuccess(false), 2000);
++      timeoutRef.current = setTimeout(() => setCopySuccess(false), 2000);
+     } catch (err) {
+       console.error('복사 실패:', err);
+     }
+   }}
+
+Prompt for AI Agent:
+In @components/ContentRevision/RevisionPreviewModal.tsx around lines 224 - 233, The copy button's setTimeout in RevisionPreviewModal can update state after unmount; store the timeout ID (e.g., in a ref like copyTimeoutRef) when calling setTimeout and clear it in a useEffect cleanup (or useEffect to manage copySuccess lifecycle) so setCopySuccess(false) won't run after unmount; ensure you also clear the timeout when initiating a new copy to avoid overlapping timers and avoid calling setCopySuccess if the component is unmounted.
+
+
+
+Review completed ✔
