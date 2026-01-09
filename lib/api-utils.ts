@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { logServerError } from './error-logger';
 
 /**
  * 표준화된 에러 응답 타입
@@ -76,6 +77,64 @@ export function withErrorHandling(
       return await handler(request);
     } catch (error) {
       console.error(errorMessage, error);
+      
+      // 서버 에러를 중앙 에러 로그(error_logs)에 비동기로 기록 (실패해도 무시)
+      if (error instanceof Error) {
+        const url = request.url;
+        const method = request.method;
+        const pathname = (() => {
+          try {
+            return new URL(url).pathname;
+          } catch {
+            return url;
+          }
+        })();
+
+        // 에러 타입/심각도 분류
+        let errorType = 'internal_error';
+        let severity: 'low' | 'medium' | 'high' | 'critical' = 'medium';
+
+        if (error.name === 'AbortError' || error.message.includes('timeout')) {
+          errorType = 'timeout_error';
+          severity = 'low';
+        } else if (
+          error.message.includes('fetch failed') ||
+          error.message.includes('ECONNREFUSED') ||
+          error.message.includes('ENOTFOUND')
+        ) {
+          errorType = 'network_error';
+          severity = 'low';
+        } else if (
+          error.message.includes('Unauthorized') ||
+          error.message.includes('인증') ||
+          error.message.includes('UNAUTHORIZED')
+        ) {
+          errorType = 'auth_error';
+          severity = 'low';
+        } else if (
+          pathname.startsWith('/api/analyze') ||
+          pathname.startsWith('/api/chat')
+        ) {
+          // 핵심 분석/채팅 API 에러는 한 단계 높게
+          errorType = 'analysis_error';
+          severity = 'high';
+        }
+
+        // Fire-and-forget 로깅
+        Promise.resolve().then(() =>
+          logServerError({
+            errorType,
+            error,
+            url,
+            method,
+            severity,
+            headers: request.headers,
+            metadata: {
+              pathname,
+            },
+          })
+        );
+      }
       
       if (error instanceof Error) {
         // 타임아웃 에러
