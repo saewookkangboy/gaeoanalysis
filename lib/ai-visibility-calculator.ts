@@ -23,9 +23,10 @@ export function calculateAIVisibilityScore(
   const averageAIO = (
     aioScores.chatgpt +
     aioScores.perplexity +
+    aioScores.grok +
     aioScores.gemini +
     aioScores.claude
-  ) / 4;
+  ) / 5;
   const aioComponent = averageAIO * 0.4;
 
   // 2. 구조화된 데이터 및 메타데이터 품질 (25%)
@@ -211,7 +212,13 @@ export function generateAIVisibilityRecommendations(
     }
     
     // AIO 점수 기반 추천
-    const avgAIO = (aioScores.chatgpt + aioScores.perplexity + aioScores.gemini + aioScores.claude) / 4;
+    const avgAIO =
+      (aioScores.chatgpt +
+        aioScores.perplexity +
+        aioScores.grok +
+        aioScores.gemini +
+        aioScores.claude) /
+      5;
     if (avgAIO < 60) {
       recommendations.push('🤖 AI 모델별 인용 확률을 높이기 위해 AIO 분석 결과의 추천사항을 참고하세요.');
     }
@@ -219,4 +226,3 @@ export function generateAIVisibilityRecommendations(
 
   return recommendations;
 }
-

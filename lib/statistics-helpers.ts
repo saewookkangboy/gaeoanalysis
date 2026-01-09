@@ -9,7 +9,7 @@ import { dbHelpers } from './db';
  * 분석 항목별 통계 업데이트
  */
 export function updateAnalysisItemStatistics(
-  itemType: 'aeo' | 'geo' | 'seo' | 'chatgpt' | 'perplexity' | 'gemini' | 'claude',
+  itemType: 'aeo' | 'geo' | 'seo' | 'chatgpt' | 'perplexity' | 'grok' | 'gemini' | 'claude',
   score: number
 ) {
   return dbHelpers.transaction(() => {
@@ -300,7 +300,7 @@ export function aggregateDailyStatistics(date?: string) {
  * 통계 조회 함수들
  */
 export function getAnalysisItemStatistics(
-  itemType: 'aeo' | 'geo' | 'seo' | 'chatgpt' | 'perplexity' | 'gemini' | 'claude',
+  itemType: 'aeo' | 'geo' | 'seo' | 'chatgpt' | 'perplexity' | 'grok' | 'gemini' | 'claude',
   startDate?: string,
   endDate?: string
 ) {
@@ -386,4 +386,3 @@ export function getAnalysisDetailStatistics(
     }>;
   }
 }
-

@@ -1,8 +1,10 @@
 import * as cheerio from 'cheerio';
+import { DEFAULT_AIO_WEIGHTS, type AIOWeights } from './algorithm-defaults';
 
 export interface AIOCitationScores {
   chatgpt: number;
   perplexity: number;
+  grok: number;
   gemini: number;
   claude: number;
 }
@@ -10,11 +12,49 @@ export interface AIOCitationScores {
 export interface AIOCitationAnalysis {
   scores: AIOCitationScores;
   insights: {
-    model: 'chatgpt' | 'perplexity' | 'gemini' | 'claude';
+    model: 'chatgpt' | 'perplexity' | 'grok' | 'gemini' | 'claude';
     score: number;
     level: 'High' | 'Medium' | 'Low';
     recommendations: string[];
   }[];
+}
+
+export type AIOWeightOverrides = Partial<AIOWeights>;
+
+function mergeAioWeights(overrides?: AIOWeightOverrides): AIOWeights {
+  const merged: AIOWeights = { ...DEFAULT_AIO_WEIGHTS };
+  if (!overrides) {
+    return merged;
+  }
+
+  for (const [key, value] of Object.entries(overrides)) {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      (merged as Record<string, number>)[key] = value;
+    }
+  }
+
+  return merged;
+}
+
+function normalizeWeightGroup(weights: AIOWeights, keys: Array<keyof AIOWeights>): void {
+  const total = keys.reduce((sum, key) => sum + weights[key], 0);
+  if (total <= 0) {
+    return;
+  }
+
+  for (const key of keys) {
+    weights[key] = weights[key] / total;
+  }
+}
+
+function resolveAioWeights(overrides?: AIOWeightOverrides): AIOWeights {
+  const weights = mergeAioWeights(overrides);
+  normalizeWeightGroup(weights, ['chatgpt_seo_weight', 'chatgpt_aeo_weight', 'chatgpt_geo_weight']);
+  normalizeWeightGroup(weights, ['perplexity_geo_weight', 'perplexity_seo_weight', 'perplexity_aeo_weight']);
+  normalizeWeightGroup(weights, ['grok_geo_weight', 'grok_seo_weight', 'grok_aeo_weight']);
+  normalizeWeightGroup(weights, ['gemini_geo_weight', 'gemini_seo_weight', 'gemini_aeo_weight']);
+  normalizeWeightGroup(weights, ['claude_aeo_weight', 'claude_geo_weight', 'claude_seo_weight']);
+  return weights;
 }
 
 /**
@@ -25,23 +65,44 @@ export function calculateAIOCitationScores(
   $: cheerio.CheerioAPI,
   aeoScore: number,
   geoScore: number,
-  seoScore: number
+  seoScore: number,
+  weightOverrides?: AIOWeightOverrides
 ): AIOCitationScores {
+  const weights = resolveAioWeights(weightOverrides);
+
   // 각 AI 모델별 특화 지표 계산
   const chatgptBonus = calculateChatGPTBonus($);
   const perplexityBonus = calculatePerplexityBonus($);
+  const grokBonus = calculateGrokBonus($);
   const geminiBonus = calculateGeminiBonus($);
   const claudeBonus = calculateClaudeBonus($);
 
   // 기본 점수 계산 (가중치 기반)
-  const chatgptBase = (seoScore * 0.4) + (aeoScore * 0.35) + (geoScore * 0.25);
-  const perplexityBase = (geoScore * 0.45) + (seoScore * 0.30) + (aeoScore * 0.25);
-  const geminiBase = (geoScore * 0.40) + (seoScore * 0.35) + (aeoScore * 0.25);
-  const claudeBase = (aeoScore * 0.40) + (geoScore * 0.35) + (seoScore * 0.25);
+  const chatgptBase =
+    (seoScore * weights.chatgpt_seo_weight) +
+    (aeoScore * weights.chatgpt_aeo_weight) +
+    (geoScore * weights.chatgpt_geo_weight);
+  const perplexityBase =
+    (geoScore * weights.perplexity_geo_weight) +
+    (seoScore * weights.perplexity_seo_weight) +
+    (aeoScore * weights.perplexity_aeo_weight);
+  const grokBase =
+    (geoScore * weights.grok_geo_weight) +
+    (seoScore * weights.grok_seo_weight) +
+    (aeoScore * weights.grok_aeo_weight);
+  const geminiBase =
+    (geoScore * weights.gemini_geo_weight) +
+    (seoScore * weights.gemini_seo_weight) +
+    (aeoScore * weights.gemini_aeo_weight);
+  const claudeBase =
+    (aeoScore * weights.claude_aeo_weight) +
+    (geoScore * weights.claude_geo_weight) +
+    (seoScore * weights.claude_seo_weight);
 
   return {
     chatgpt: Math.min(100, Math.round(chatgptBase + chatgptBonus)),
     perplexity: Math.min(100, Math.round(perplexityBase + perplexityBonus)),
+    grok: Math.min(100, Math.round(grokBase + grokBonus)),
     gemini: Math.min(100, Math.round(geminiBase + geminiBonus)),
     claude: Math.min(100, Math.round(claudeBase + claudeBonus)),
   };
@@ -136,6 +197,43 @@ function calculatePerplexityBonus($: cheerio.CheerioAPI): number {
   if (metaKeywords && metaKeywords.split(',').length >= 3) bonus += 5;
 
   return Math.min(40, bonus); // 최대 보너스 증가 (40점)
+}
+
+/**
+ * Grok 인용 확률 보너스 계산
+ * Grok은 최신성, 출처 명시, 빠른 요약 정보를 선호합니다.
+ */
+function calculateGrokBonus($: cheerio.CheerioAPI): number {
+  let bonus = 0;
+  const text = $('body').text();
+
+  // 최신 정보 및 시간성 (15점)
+  const hasDate = $('time, [datetime], [class*="date"], [class*="updated"]').length > 0;
+  const hasRecentYear = /(202[4-9]|최근|recent|updated|latest|breaking)/i.test(text);
+  if (hasDate && hasRecentYear) bonus += 15;
+  else if (hasDate || hasRecentYear) bonus += 10;
+
+  // 출처 링크 및 인용 (10점)
+  const hasCitations = /참고|출처|reference|citation|source|근거/i.test(text);
+  const hasPrimarySources = /pubmed|arxiv|doi|\.edu|\.gov|whitepaper|official/i.test(text);
+  if (hasPrimarySources) bonus += 10;
+  else if (hasCitations) bonus += 6;
+
+  // 요약 또는 핵심 정리 (6점)
+  const hasSummary = /요약|핵심|정리|TL;DR|tl;dr|summary/i.test(text);
+  if (hasSummary) bonus += 6;
+
+  // 소셜/공유 메타데이터 (6점)
+  const ogTags = $('meta[property^="og:"]').length;
+  const twitterTags = $('meta[name^="twitter:"]').length;
+  if (twitterTags >= 2) bonus += 6;
+  else if (ogTags >= 3) bonus += 4;
+
+  // 짧은 핵심 답변 블록 (3점)
+  const hasShortAnswer = $('h2, h3').length > 0 && text.length < 300;
+  if (hasShortAnswer) bonus += 3;
+
+  return Math.min(40, bonus);
 }
 
 /**
@@ -251,6 +349,12 @@ export function generateAIOCitationAnalysis(scores: AIOCitationScores): AIOCitat
       recommendations: getPerplexityRecommendations(scores.perplexity),
     },
     {
+      model: 'grok' as const,
+      score: scores.grok,
+      level: getScoreLevel(scores.grok),
+      recommendations: getGrokRecommendations(scores.grok),
+    },
+    {
       model: 'gemini' as const,
       score: scores.gemini,
       level: getScoreLevel(scores.gemini),
@@ -315,6 +419,27 @@ function getPerplexityRecommendations(score: number): string[] {
   ];
 }
 
+function getGrokRecommendations(score: number): string[] {
+  if (score >= 80) {
+    return [
+      '최신 업데이트 날짜와 시간 정보를 유지하세요',
+      '핵심 요약(TL;DR) 섹션을 유지하세요',
+    ];
+  } else if (score >= 60) {
+    return [
+      '콘텐츠에 최신 날짜 및 시간 정보를 명시하세요',
+      '출처 링크와 참고 자료를 추가하세요',
+      '요약 또는 핵심 정리 섹션을 추가하세요',
+    ];
+  }
+  return [
+    '콘텐츠에 최신 날짜 및 시간 정보를 명시하세요',
+    '출처 링크와 참고 자료를 추가하세요',
+    '요약 또는 핵심 정리(TL;DR) 섹션을 추가하세요',
+    'Open Graph/Twitter 메타데이터를 설정하여 공유 품질을 높이세요',
+  ];
+}
+
 function getGeminiRecommendations(score: number): string[] {
   if (score >= 80) {
     return [
@@ -357,4 +482,3 @@ function getClaudeRecommendations(score: number): string[] {
     '2000자 이상의 상세하고 포괄적인 콘텐츠를 작성하세요',
   ];
 }
-

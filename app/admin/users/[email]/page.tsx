@@ -42,6 +42,7 @@ interface UserDetailData {
     seoScore: number;
     chatgptScore: number | null;
     perplexityScore: number | null;
+    grokScore: number | null;
     geminiScore: number | null;
     claudeScore: number | null;
     createdAt: string;
@@ -338,4 +339,3 @@ export default function UserDetailPage() {
     </div>
   );
 }
-

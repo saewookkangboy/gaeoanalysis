@@ -81,7 +81,7 @@ export async function GET(request: NextRequest) {
     // 3. 분석 결과 조회 (최근 20건)
     const analysesResult = await query(
       `SELECT id, url, overall_score, aeo_score, geo_score, seo_score, 
-              chatgpt_score, perplexity_score, gemini_score, claude_score,
+              chatgpt_score, perplexity_score, grok_score, gemini_score, claude_score,
               created_at 
        FROM analyses 
        WHERE user_id = $1 
@@ -99,6 +99,7 @@ export async function GET(request: NextRequest) {
       seoScore: analysis.seo_score || 0,
       chatgptScore: analysis.chatgpt_score,
       perplexityScore: analysis.perplexity_score,
+      grokScore: analysis.grok_score,
       geminiScore: analysis.gemini_score,
       claudeScore: analysis.claude_score,
       createdAt: analysis.created_at,
@@ -168,4 +169,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-

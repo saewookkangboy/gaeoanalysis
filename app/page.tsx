@@ -544,7 +544,7 @@ function HomeContent() {
                   </span>
                 </h1>
                 <p className="mb-6 sm:mb-8 text-center text-sm sm:text-base md:text-lg lg:text-xl text-gray-700 leading-relaxed px-2">
-                  ChatGPT, Perplexity, Gemini, Claude가 당신의 콘텐츠를 인용하도록 만드는 <span className="font-semibold text-sky-600">실전 최적화 도구</span>
+                  ChatGPT, Perplexity, Grok, Gemini, Claude가 당신의 콘텐츠를 인용하도록 만드는 <span className="font-semibold text-sky-600">실전 최적화 도구</span>
                 </p>
                 <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
                   <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto max-w-6xl">

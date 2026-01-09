@@ -25,6 +25,7 @@ interface HistoryItem {
   aioScores?: {
     chatgpt: number | null;
     perplexity: number | null;
+    grok: number | null;
     gemini: number | null;
     claude: number | null;
   };
@@ -130,6 +131,7 @@ export default function HistoryPage() {
       const scores = {
         chatgpt: history.aioScores.chatgpt || 0,
         perplexity: history.aioScores.perplexity || 0,
+        grok: history.aioScores.grok || 0,
         gemini: history.aioScores.gemini || 0,
         claude: history.aioScores.claude || 0,
       };
@@ -154,6 +156,15 @@ export default function HistoryPage() {
             recommendations: [
               '콘텐츠 업데이트 날짜를 명시하여 최신 정보임을 명확히 하세요',
               '출처 링크와 참고 자료를 추가하여 신뢰성을 높이세요',
+            ],
+          },
+          {
+            model: 'grok' as const,
+            score: scores.grok,
+            level: scores.grok >= 80 ? 'High' : scores.grok >= 60 ? 'Medium' : 'Low',
+            recommendations: [
+              '최신 날짜와 시간 정보를 명시하여 최신성을 강조하세요',
+              '요약 또는 핵심 정리 섹션을 추가하세요',
             ],
           },
           {
@@ -428,6 +439,7 @@ export default function HistoryPage() {
                       <div className="mb-3 flex gap-4 text-xs text-gray-500">
                         <span>ChatGPT: {history.aioScores.chatgpt || 'N/A'}</span>
                         <span>Perplexity: {history.aioScores.perplexity || 'N/A'}</span>
+                        <span>Grok: {history.aioScores.grok || 'N/A'}</span>
                         <span>Gemini: {history.aioScores.gemini || 'N/A'}</span>
                         <span>Claude: {history.aioScores.claude || 'N/A'}</span>
                       </div>
@@ -452,4 +464,3 @@ export default function HistoryPage() {
     </div>
   );
 }
-

@@ -77,6 +77,7 @@ function generateMockAnalysis(userId: string, urlIndex: number) {
     aioScores: {
       chatgpt: Math.floor(Math.random() * 20) + 80,
       perplexity: Math.floor(Math.random() * 20) + 80,
+      grok: Math.floor(Math.random() * 20) + 80,
       gemini: Math.floor(Math.random() * 20) + 80,
       claude: Math.floor(Math.random() * 20) + 80,
     },
@@ -450,4 +451,3 @@ if (require.main === module) {
 }
 
 export { runTests, testUserFlow, generateMockUsers };
-

@@ -15,7 +15,7 @@ export default function AboutPage() {
           "name": "GAEO Analysis는 무엇인가요?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "GAEO Analysis는 ChatGPT, Perplexity, Gemini, Claude가 당신의 콘텐츠를 인용하도록 만드는 실전 최적화 도구입니다. AEO, GEO, SEO 점수를 30초 안에 종합 진단하고, AI 모델별 인용 확률과 개선 가이드를 제공합니다."
+            "text": "GAEO Analysis는 ChatGPT, Perplexity, Grok, Gemini, Claude가 당신의 콘텐츠를 인용하도록 만드는 실전 최적화 도구입니다. AEO, GEO, SEO 점수를 30초 안에 종합 진단하고, AI 모델별 인용 확률과 개선 가이드를 제공합니다."
           }
         },
         {
@@ -55,7 +55,7 @@ export default function AboutPage() {
             AI 검색 시대, 콘텐츠가 AI에게 선택받으려면?
           </h1>
           <p className="mx-auto max-w-3xl text-xl sm:text-2xl text-gray-600 leading-relaxed mb-6">
-            ChatGPT, Perplexity, Gemini, Claude가 당신의 콘텐츠를 인용하도록 만드는<br />
+            ChatGPT, Perplexity, Grok, Gemini, Claude가 당신의 콘텐츠를 인용하도록 만드는<br />
             <span className="font-semibold text-sky-600">실전 최적화 도구</span>
           </p>
           
@@ -187,7 +187,7 @@ export default function AboutPage() {
                 <h3 className="mb-2 text-lg font-semibold text-gray-900">30초 안에 종합 진단</h3>
                 <p className="text-sm text-gray-700 leading-relaxed">
                   URL만 입력하면 AEO, GEO, SEO 점수를 자동으로 분석하고, 
-                  ChatGPT, Perplexity, Gemini, Claude 각 모델에서 인용될 확률까지 즉시 확인할 수 있습니다. 
+                  ChatGPT, Perplexity, Grok, Gemini, Claude 각 모델에서 인용될 확률까지 즉시 확인할 수 있습니다. 
                   수 시간 걸리던 분석을 몇 초로 단축합니다.
                 </p>
               </div>
@@ -315,7 +315,7 @@ export default function AboutPage() {
               <div className="mb-3 text-3xl">🤖</div>
               <h3 className="mb-2 text-lg font-semibold text-gray-900">AI 모델별 인용 확률</h3>
               <p className="text-sm text-gray-600 leading-relaxed">
-                ChatGPT, Perplexity, Gemini, Claude 각 모델에서 콘텐츠가 인용될 확률을 시각화하고, 
+                ChatGPT, Perplexity, Grok, Gemini, Claude 각 모델에서 콘텐츠가 인용될 확률을 시각화하고, 
                 모델별 맞춤 개선 제안을 제공합니다.
               </p>
             </div>
@@ -431,7 +431,7 @@ export default function AboutPage() {
               <div className="rounded-lg border border-sky-200 bg-white p-6 hover:shadow-md transition-shadow">
                 <h3 className="mb-3 text-lg font-semibold text-gray-900">🎯 AI 모델별 맞춤 분석</h3>
                 <p className="text-sm text-gray-700 leading-relaxed">
-                  단순 SEO 점수가 아닌, ChatGPT, Perplexity, Gemini, Claude 각 모델의 특성을 반영한 
+                  단순 SEO 점수가 아닌, ChatGPT, Perplexity, Grok, Gemini, Claude 각 모델의 특성을 반영한 
                   인용 확률 분석을 제공합니다. 각 모델별로 다른 최적화 전략이 필요하다는 것을 
                   구체적인 점수로 보여줍니다.
                 </p>

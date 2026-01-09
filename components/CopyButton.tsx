@@ -20,6 +20,7 @@ export default function CopyButton({ analysisData, url }: CopyButtonProps) {
       ? `\n## AI 모델별 인용 확률
 - **ChatGPT**: ${analysisData.aioAnalysis.scores.chatgpt}/100
 - **Perplexity**: ${analysisData.aioAnalysis.scores.perplexity}/100
+- **Grok**: ${analysisData.aioAnalysis.scores.grok}/100
 - **Gemini**: ${analysisData.aioAnalysis.scores.gemini}/100
 - **Claude**: ${analysisData.aioAnalysis.scores.claude}/100
 `
@@ -88,4 +89,3 @@ ${insight.message}`
     </button>
   );
 }
-

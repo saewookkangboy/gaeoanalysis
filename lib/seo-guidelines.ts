@@ -138,7 +138,7 @@ export const SEO_GUIDELINES: Record<string, ContentGuideline> = {
     title: 'AIO (AI Optimization)',
     description: '모든 AI 모델에 통합 최적화된 콘텐츠 작성 가이드라인',
     keyPoints: [
-      'ChatGPT, Perplexity, Gemini, Claude 등 모든 AI 모델 고려',
+      'ChatGPT, Perplexity, Grok, Gemini, Claude 등 모든 AI 모델 고려',
       'AI 모델별 특성을 반영한 통합 전략',
       '신뢰성과 정확성 우선',
       '구조화된 데이터와 명확한 정보 제공',
@@ -147,6 +147,7 @@ export const SEO_GUIDELINES: Record<string, ContentGuideline> = {
     bestPractices: [
       'ChatGPT: 구조화된 데이터, FAQ, 단계별 가이드',
       'Perplexity: 최신 정보, 출처 링크, 날짜 표시',
+      'Grok: 최신성, 출처 명시, 핵심 요약',
       'Gemini: 다양한 미디어, 표/리스트, 구조화된 정보',
       'Claude: 상세한 설명, 배경 정보, 포괄적 내용',
       '모든 모델: 정확한 사실, 신뢰할 수 있는 출처',
@@ -728,4 +729,3 @@ export function getContentWritingGuidelines(
 
   return guidelines;
 }
-

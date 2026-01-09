@@ -303,6 +303,7 @@ AI가 콘텐츠를 잘 이해하고 인용할 수 있도록 하는 구체적인 
 **AI 모델별 인용 확률:**
 - ChatGPT: ${aioAnalysis.scores.chatgpt}/100
 - Perplexity: ${aioAnalysis.scores.perplexity}/100
+- Grok: ${aioAnalysis.scores.grok}/100
 - Gemini: ${aioAnalysis.scores.gemini}/100
 - Claude: ${aioAnalysis.scores.claude}/100
 
@@ -343,7 +344,7 @@ ${aioAnalysis.insights
 `;
 
       if (aioAnalysis) {
-        prompt += `AI인용: ChatGPT ${aioAnalysis.scores.chatgpt} Perplexity ${aioAnalysis.scores.perplexity} Gemini ${aioAnalysis.scores.gemini} Claude ${aioAnalysis.scores.claude}
+        prompt += `AI인용: ChatGPT ${aioAnalysis.scores.chatgpt} Perplexity ${aioAnalysis.scores.perplexity} Grok ${aioAnalysis.scores.grok} Gemini ${aioAnalysis.scores.gemini} Claude ${aioAnalysis.scores.claude}
 
 `;
       }
@@ -700,4 +701,3 @@ export const agentLightning = {
 };
 
 export default agentLightning;
-

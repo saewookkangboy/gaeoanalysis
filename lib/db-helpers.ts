@@ -78,7 +78,7 @@ export async function getAnalysesByEmail(email: string, options: QueryOptions = 
     const queryText = `
       SELECT 
         id, url, aeo_score, geo_score, seo_score, overall_score, 
-        insights, chatgpt_score, perplexity_score, gemini_score, claude_score, 
+        insights, chatgpt_score, perplexity_score, grok_score, gemini_score, claude_score, 
         ai_visibility_score, created_at, user_id
       FROM analyses
       WHERE user_id IN (${placeholders})
@@ -107,6 +107,7 @@ export async function getAnalysesByEmail(email: string, options: QueryOptions = 
       aioScores: {
         chatgpt: row.chatgpt_score,
         perplexity: row.perplexity_score,
+        grok: row.grok_score,
         gemini: row.gemini_score,
         claude: row.claude_score,
       },
@@ -192,7 +193,7 @@ export async function getUserAnalyses(userId: string, options: QueryOptions = {}
     const queryText = `
       SELECT 
         id, url, aeo_score, geo_score, seo_score, overall_score, 
-        insights, chatgpt_score, perplexity_score, gemini_score, claude_score, 
+        insights, chatgpt_score, perplexity_score, grok_score, gemini_score, claude_score, 
         created_at, user_id
       FROM analyses
       WHERE user_id = $1
@@ -248,6 +249,7 @@ export async function getUserAnalyses(userId: string, options: QueryOptions = {}
       aioScores: {
         chatgpt: row.chatgpt_score,
         perplexity: row.perplexity_score,
+        grok: row.grok_score,
         gemini: row.gemini_score,
         claude: row.claude_score,
       },
@@ -284,6 +286,7 @@ export async function saveAnalysis(data: {
   aioScores?: {
     chatgpt?: number;
     perplexity?: number;
+    grok?: number;
     gemini?: number;
     claude?: number;
   };
@@ -376,9 +379,9 @@ export async function saveAnalysis(data: {
           INSERT INTO analyses (
             id, user_id, url, aeo_score, geo_score, seo_score, 
             overall_score, insights, chatgpt_score, perplexity_score, 
-            gemini_score, claude_score, ai_visibility_score
+            grok_score, gemini_score, claude_score, ai_visibility_score
           )
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
         `;
         const insertQueryResult = await client.query(insertQuery, [
           data.id,
@@ -391,6 +394,7 @@ export async function saveAnalysis(data: {
           JSON.stringify(data.insights),
           data.aioScores?.chatgpt || null,
           data.aioScores?.perplexity || null,
+          data.aioScores?.grok || null,
           data.aioScores?.gemini || null,
           data.aioScores?.claude || null,
           data.aiVisibilityScore || null
@@ -401,9 +405,9 @@ export async function saveAnalysis(data: {
           INSERT INTO analyses (
             id, user_id, url, aeo_score, geo_score, seo_score, 
             overall_score, insights, chatgpt_score, perplexity_score, 
-            gemini_score, claude_score, ai_visibility_score
+            grok_score, gemini_score, claude_score, ai_visibility_score
           )
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
         insertResult = stmt.run(
           data.id,
@@ -416,6 +420,7 @@ export async function saveAnalysis(data: {
           JSON.stringify(data.insights),
           data.aioScores?.chatgpt || null,
           data.aioScores?.perplexity || null,
+          data.aioScores?.grok || null,
           data.aioScores?.gemini || null,
           data.aioScores?.claude || null,
           data.aiVisibilityScore || null
@@ -576,9 +581,9 @@ export async function saveAnalysis(data: {
         INSERT INTO analyses (
           id, user_id, url, aeo_score, geo_score, seo_score, 
           overall_score, insights, chatgpt_score, perplexity_score, 
-          gemini_score, claude_score
+          grok_score, gemini_score, claude_score
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
       
       const insertResult = stmt.run(
@@ -592,6 +597,7 @@ export async function saveAnalysis(data: {
         JSON.stringify(data.insights),
         data.aioScores?.chatgpt || null,
         data.aioScores?.perplexity || null,
+        data.aioScores?.grok || null,
         data.aioScores?.gemini || null,
         data.aioScores?.claude || null
       ) as { changes: number; lastInsertRowid?: number };
@@ -984,6 +990,7 @@ export async function saveAnalysis(data: {
           scores: {
             chatgpt: data.aioScores.chatgpt || 0,
             perplexity: data.aioScores.perplexity || 0,
+            grok: data.aioScores.grok || 0,
             gemini: data.aioScores.gemini || 0,
             claude: data.aioScores.claude || 0,
           },
@@ -1095,6 +1102,9 @@ export async function saveAnalysis(data: {
           }
           if (data.aioScores.perplexity !== undefined) {
             updateAnalysisItemStatistics('perplexity', data.aioScores.perplexity);
+          }
+          if (data.aioScores.grok !== undefined) {
+            updateAnalysisItemStatistics('grok', data.aioScores.grok);
           }
           if (data.aioScores.gemini !== undefined) {
             updateAnalysisItemStatistics('gemini', data.aioScores.gemini);
@@ -2984,7 +2994,7 @@ export async function saveAIAgentUsage(data: {
   userId: string;
   analysisId?: string | null;
   conversationId?: string | null;
-  agentType: 'chatgpt' | 'perplexity' | 'gemini' | 'claude';
+  agentType: 'chatgpt' | 'perplexity' | 'grok' | 'gemini' | 'claude';
   action: string;
   inputTokens?: number;
   outputTokens?: number;
@@ -3146,4 +3156,3 @@ export async function saveAIAgentUsage(data: {
     }
   });
 }
-

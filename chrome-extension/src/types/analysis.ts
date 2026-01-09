@@ -30,11 +30,12 @@ export interface AIOCitationAnalysis {
   scores: {
     chatgpt: number;
     perplexity: number;
+    grok: number;
     gemini: number;
     claude: number;
   };
   insights: Array<{
-    model: 'chatgpt' | 'perplexity' | 'gemini' | 'claude';
+    model: 'chatgpt' | 'perplexity' | 'grok' | 'gemini' | 'claude';
     score: number;
     level: 'High' | 'Medium' | 'Low';
     recommendations: string[];
@@ -52,9 +53,9 @@ export interface ScoreHistory {
     aio?: {
       chatgpt: number;
       perplexity: number;
+      grok: number;
       gemini: number;
       claude: number;
     };
   };
 }
-

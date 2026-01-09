@@ -31,6 +31,7 @@ export async function initializePostgresSchema(): Promise<void> {
         insights TEXT NOT NULL,
         chatgpt_score INTEGER CHECK(chatgpt_score IS NULL OR (chatgpt_score >= 0 AND chatgpt_score <= 100)),
         perplexity_score INTEGER CHECK(perplexity_score IS NULL OR (perplexity_score >= 0 AND perplexity_score <= 100)),
+        grok_score INTEGER CHECK(grok_score IS NULL OR (grok_score >= 0 AND grok_score <= 100)),
         gemini_score INTEGER CHECK(gemini_score IS NULL OR (gemini_score >= 0 AND gemini_score <= 100)),
         claude_score INTEGER CHECK(claude_score IS NULL OR (claude_score >= 0 AND claude_score <= 100)),
         ai_visibility_score INTEGER CHECK(ai_visibility_score IS NULL OR (ai_visibility_score >= 0 AND ai_visibility_score <= 100)),
@@ -278,6 +279,35 @@ export async function ensurePostgresSchema(): Promise<void> {
           // 컬럼 추가 실패 시에도 계속 진행 (이미 존재할 수 있음)
           console.warn('⚠️ [PostgreSQL Schema] 컬럼 확인/추가 중 오류 (계속 진행):', error.message);
         }
+
+        // analyses 테이블에 grok_score 컬럼이 있는지 확인
+        const grokColumnCheckQuery = `
+          SELECT EXISTS (
+            SELECT FROM information_schema.columns 
+            WHERE table_schema = 'public' 
+            AND table_name = 'analyses' 
+            AND column_name = 'grok_score'
+          ) as column_exists;
+        `;
+
+        try {
+          const grokColumnCheckResult = await query(grokColumnCheckQuery);
+          const grokColumnExists = grokColumnCheckResult.rows[0]?.column_exists;
+
+          if (!grokColumnExists) {
+            console.log('🔄 [PostgreSQL Schema] grok_score 컬럼이 없습니다. 추가 중...');
+            await query(`
+              ALTER TABLE analyses 
+              ADD COLUMN IF NOT EXISTS grok_score INTEGER 
+              CHECK(grok_score IS NULL OR (grok_score >= 0 AND grok_score <= 100));
+            `);
+            console.log('✅ [PostgreSQL Schema] grok_score 컬럼 추가 완료');
+          } else {
+            console.log('✅ [PostgreSQL Schema] grok_score 컬럼이 이미 존재합니다.');
+          }
+        } catch (error: any) {
+          console.warn('⚠️ [PostgreSQL Schema] grok_score 컬럼 확인/추가 중 오류 (계속 진행):', error.message);
+        }
         
         // ai_reports 테이블이 있는지 확인하고 없으면 생성
         try {
@@ -340,4 +370,3 @@ export async function ensurePostgresSchema(): Promise<void> {
 
   return schemaCheckPromise;
 }
-

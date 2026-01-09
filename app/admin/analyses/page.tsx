@@ -14,6 +14,7 @@ interface AnalysisInfo {
   overallScore: number;
   chatgptScore: number | null;
   perplexityScore: number | null;
+  grokScore: number | null;
   geminiScore: number | null;
   claudeScore: number | null;
   insights: any[];
@@ -310,6 +311,9 @@ export default function AnalysesPage() {
                             {analysis.perplexityScore !== null && (
                               <div>Perplexity: {formatScore(analysis.perplexityScore)}</div>
                             )}
+                            {analysis.grokScore !== null && (
+                              <div>Grok: {formatScore(analysis.grokScore)}</div>
+                            )}
                             {analysis.geminiScore !== null && (
                               <div>Gemini: {formatScore(analysis.geminiScore)}</div>
                             )}
@@ -317,7 +321,8 @@ export default function AnalysesPage() {
                               <div>Claude: {formatScore(analysis.claudeScore)}</div>
                             )}
                             {analysis.chatgptScore === null && analysis.perplexityScore === null && 
-                             analysis.geminiScore === null && analysis.claudeScore === null && (
+                             analysis.grokScore === null && analysis.geminiScore === null && 
+                             analysis.claudeScore === null && (
                               <div>-</div>
                             )}
                           </div>
@@ -371,4 +376,3 @@ export default function AnalysesPage() {
     </div>
   );
 }
-

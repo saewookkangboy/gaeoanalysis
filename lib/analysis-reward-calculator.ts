@@ -81,9 +81,10 @@ export function calculateAnalysisReward(
       const avgAIO = (
         analysisResult.aioAnalysis.scores.chatgpt +
         analysisResult.aioAnalysis.scores.perplexity +
+        analysisResult.aioAnalysis.scores.grok +
         analysisResult.aioAnalysis.scores.gemini +
         analysisResult.aioAnalysis.scores.claude
-      ) / 4;
+      ) / 5;
 
       (rewards as any).aio = calculateScoreReward(
         analysisId,
@@ -426,4 +427,3 @@ export function getBestPromptVersion(agentType: 'aeo' | 'geo' | 'seo' | 'aio'): 
     return 1;
   }
 }
-

@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
     const type = searchParams.get('type') as 'item' | 'user' | 'detail' | 'daily' | null;
     const startDate = searchParams.get('startDate') || undefined;
     const endDate = searchParams.get('endDate') || undefined;
-    const itemType = searchParams.get('itemType') as 'aeo' | 'geo' | 'seo' | 'chatgpt' | 'perplexity' | 'gemini' | 'claude' | null;
+    const itemType = searchParams.get('itemType') as 'aeo' | 'geo' | 'seo' | 'chatgpt' | 'perplexity' | 'grok' | 'gemini' | 'claude' | null;
     const userId = searchParams.get('userId') || undefined;
     const domain = searchParams.get('domain') || undefined;
     const aggregate = searchParams.get('aggregate') === 'true';
@@ -73,4 +73,3 @@ export async function GET(request: NextRequest) {
     return createErrorResponse('INTERNAL_ERROR', '통계를 조회할 수 없습니다.', 500);
   }
 }
-

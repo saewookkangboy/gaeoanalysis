@@ -214,6 +214,23 @@ const migrations: Migration[] = [
     },
   },
   {
+    version: 14,
+    name: 'add_grok_score',
+    up: () => {
+      const tableInfo = db.prepare("PRAGMA table_info(analyses)").all() as Array<{ name: string }>;
+      const columnNames = tableInfo.map(col => col.name);
+
+      if (!columnNames.includes('grok_score')) {
+        db.exec(`
+          ALTER TABLE analyses ADD COLUMN grok_score INTEGER CHECK(grok_score IS NULL OR (grok_score >= 0 AND grok_score <= 100));
+        `);
+        console.log('✅ [Migration] grok_score 필드 추가 완료');
+      } else {
+        console.log('ℹ️ [Migration] grok_score 필드가 이미 존재합니다.');
+      }
+    },
+  },
+  {
     version: 2,
     name: 'add_users_updated_at',
     up: () => {
@@ -1176,4 +1193,3 @@ export function getMigrationStatus() {
     })),
   };
 }
-

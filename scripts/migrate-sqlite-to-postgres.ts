@@ -245,7 +245,7 @@ async function migrate() {
     await migrateTable('analyses', [
       'id', 'user_id', 'url', 'aeo_score', 'geo_score', 'seo_score',
       'overall_score', 'insights', 'chatgpt_score', 'perplexity_score',
-      'gemini_score', 'claude_score', 'created_at'
+      'grok_score', 'gemini_score', 'claude_score', 'created_at'
     ]);
     console.log('');
     
@@ -322,4 +322,3 @@ migrate()
     console.error('\n❌ 마이그레이션 실패:', error);
     process.exit(1);
   });
-

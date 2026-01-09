@@ -40,7 +40,7 @@ export function buildAIAgentPrompt(
 인사이트: ${topInsights.map(i => `[${i.severity}] ${i.category}: ${i.message}`).join(' | ')}`;
 
     if (aioAnalysis) {
-      analysisContext += ` AI인용: ChatGPT ${aioAnalysis.scores.chatgpt} Perplexity ${aioAnalysis.scores.perplexity} Gemini ${aioAnalysis.scores.gemini} Claude ${aioAnalysis.scores.claude}`;
+      analysisContext += ` AI인용: ChatGPT ${aioAnalysis.scores.chatgpt} Perplexity ${aioAnalysis.scores.perplexity} Grok ${aioAnalysis.scores.grok} Gemini ${aioAnalysis.scores.gemini} Claude ${aioAnalysis.scores.claude}`;
     }
   }
 
@@ -106,7 +106,7 @@ export function getQuickQuestions(analysisData: AnalysisResult | null): string[]
   // AI 모델별 질문
   questions.push('ChatGPT에 잘 인용되려면?');
   questions.push('Perplexity에 잘 인용되려면?');
+  questions.push('Grok에 잘 인용되려면?');
 
   return questions.slice(0, 6); // 최대 6개
 }
-

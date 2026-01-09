@@ -601,6 +601,7 @@ export interface AnalysisInfo {
   overallScore: number;
   chatgptScore: number | null;
   perplexityScore: number | null;
+  grokScore: number | null;
   geminiScore: number | null;
   claudeScore: number | null;
   insights: any[];
@@ -720,6 +721,7 @@ export async function getAnalyses(
         a.overall_score,
         a.chatgpt_score,
         a.perplexity_score,
+        a.grok_score,
         a.gemini_score,
         a.claude_score,
         a.insights,
@@ -772,6 +774,7 @@ export async function getAnalyses(
         overallScore: Number(row.overall_score) || 0,
         chatgptScore: row.chatgpt_score !== null && row.chatgpt_score !== undefined ? Number(row.chatgpt_score) : null,
         perplexityScore: row.perplexity_score !== null && row.perplexity_score !== undefined ? Number(row.perplexity_score) : null,
+        grokScore: row.grok_score !== null && row.grok_score !== undefined ? Number(row.grok_score) : null,
         geminiScore: row.gemini_score !== null && row.gemini_score !== undefined ? Number(row.gemini_score) : null,
         claudeScore: row.claude_score !== null && row.claude_score !== undefined ? Number(row.claude_score) : null,
         insights,
@@ -1753,6 +1756,7 @@ export interface LearningData {
   aiScores?: {
     chatgpt: number | null;
     perplexity: number | null;
+    grok: number | null;
     gemini: number | null;
     claude: number | null;
   };
@@ -1780,7 +1784,7 @@ export async function extractLearningData(analysisId: string): Promise<LearningD
     const analysisResult = await query(
       `SELECT 
         id, url, aeo_score, geo_score, seo_score, overall_score,
-        chatgpt_score, perplexity_score, gemini_score, claude_score
+        chatgpt_score, perplexity_score, grok_score, gemini_score, claude_score
       FROM analyses
       WHERE id = $1`,
       [analysisId]
@@ -1814,6 +1818,7 @@ export async function extractLearningData(analysisId: string): Promise<LearningD
       aiScores: {
         chatgpt: analysis.chatgpt_score,
         perplexity: analysis.perplexity_score,
+        grok: analysis.grok_score,
         gemini: analysis.gemini_score,
         claude: analysis.claude_score,
       },

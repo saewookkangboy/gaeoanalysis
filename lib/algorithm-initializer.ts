@@ -6,6 +6,12 @@
  */
 
 import { createAlgorithmVersion, saveResearchFinding } from './algorithm-learning';
+import {
+  DEFAULT_AEO_WEIGHTS,
+  DEFAULT_AIO_WEIGHTS,
+  DEFAULT_GEO_WEIGHTS,
+  DEFAULT_SEO_WEIGHTS,
+} from './algorithm-defaults';
 import db from './db';
 
 // ============================================
@@ -30,69 +36,6 @@ export function initializeAlgorithmVersions(): void {
     return;
   }
 
-  // SEO 알고리즘 초기 가중치
-  const seoWeights = {
-    h1_tag: 20,
-    title_tag: 15,
-    meta_description: 15,
-    alt_text: 10,
-    structured_data: 10,
-    meta_keywords: 5,
-    og_tags: 10,
-    canonical_url: 5,
-    internal_links: 5,
-    heading_structure: 5,
-  };
-
-  // AEO 알고리즘 초기 가중치
-  const aeoWeights = {
-    question_format: 20,
-    faq_section: 15,
-    clear_answer_structure: 20,
-    keyword_density: 10,
-    structured_answer: 15,
-    content_freshness: 10,
-    term_explanation: 10,
-    statistics_bonus: 5,
-    quotations_bonus: 3,
-  };
-
-  // GEO 알고리즘 초기 가중치
-  const geoWeights = {
-    content_length_2000: 20,
-    content_length_1500: 18,
-    content_length_1000: 15,
-    content_length_500: 10,
-    multimedia_optimal: 15,
-    multimedia_good: 10,
-    section_structure_optimal: 15,
-    section_structure_basic: 10,
-    keyword_diversity: 15,
-    update_date_optimal: 10,
-    update_date_partial: 7,
-    social_meta_optimal: 10,
-    social_meta_partial: 6,
-    structured_data_optimal: 15,
-    structured_data_basic: 10,
-    voice_search_bonus: 5,
-  };
-
-  // AIO 알고리즘 초기 가중치 (기본 점수 계산 가중치)
-  const aioWeights = {
-    chatgpt_seo_weight: 0.4,
-    chatgpt_aeo_weight: 0.35,
-    chatgpt_geo_weight: 0.25,
-    perplexity_geo_weight: 0.45,
-    perplexity_seo_weight: 0.30,
-    perplexity_aeo_weight: 0.25,
-    gemini_geo_weight: 0.40,
-    gemini_seo_weight: 0.35,
-    gemini_aeo_weight: 0.25,
-    claude_aeo_weight: 0.40,
-    claude_geo_weight: 0.35,
-    claude_seo_weight: 0.25,
-  };
-
   try {
     // 기존 버전이 없을 때만 생성
     const existingSEO = db.prepare(`
@@ -100,7 +43,7 @@ export function initializeAlgorithmVersions(): void {
     `).get() as { count: number };
 
     if (existingSEO.count === 0) {
-      createAlgorithmVersion('seo', seoWeights, {
+      createAlgorithmVersion('seo', DEFAULT_SEO_WEIGHTS, {
         description: '초기 SEO 알고리즘 버전 (하드코딩된 가중치 기반)',
       });
       console.log('✅ [Algorithm Initializer] SEO 초기 버전 생성 완료');
@@ -111,7 +54,7 @@ export function initializeAlgorithmVersions(): void {
     `).get() as { count: number };
 
     if (existingAEO.count === 0) {
-      createAlgorithmVersion('aeo', aeoWeights, {
+      createAlgorithmVersion('aeo', DEFAULT_AEO_WEIGHTS, {
         description: '초기 AEO 알고리즘 버전 (하드코딩된 가중치 기반)',
       });
       console.log('✅ [Algorithm Initializer] AEO 초기 버전 생성 완료');
@@ -122,7 +65,7 @@ export function initializeAlgorithmVersions(): void {
     `).get() as { count: number };
 
     if (existingGEO.count === 0) {
-      createAlgorithmVersion('geo', geoWeights, {
+      createAlgorithmVersion('geo', DEFAULT_GEO_WEIGHTS, {
         description: '초기 GEO 알고리즘 버전 (하드코딩된 가중치 기반)',
       });
       console.log('✅ [Algorithm Initializer] GEO 초기 버전 생성 완료');
@@ -133,7 +76,7 @@ export function initializeAlgorithmVersions(): void {
     `).get() as { count: number };
 
     if (existingAIO.count === 0) {
-      createAlgorithmVersion('aio', aioWeights, {
+      createAlgorithmVersion('aio', DEFAULT_AIO_WEIGHTS, {
         description: '초기 AIO 알고리즘 버전 (하드코딩된 가중치 기반)',
       });
       console.log('✅ [Algorithm Initializer] AIO 초기 버전 생성 완료');
@@ -327,4 +270,3 @@ export function initializeAlgorithms(): void {
     throw error;
   }
 }
-

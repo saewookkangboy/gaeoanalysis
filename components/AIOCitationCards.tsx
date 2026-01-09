@@ -9,10 +9,10 @@ interface AIOCitationCardsProps {
 }
 
 export default function AIOCitationCards({ analysis }: AIOCitationCardsProps) {
-  const [selectedModel, setSelectedModel] = useState<'chatgpt' | 'perplexity' | 'gemini' | 'claude' | null>(null);
+  const [selectedModel, setSelectedModel] = useState<'chatgpt' | 'perplexity' | 'grok' | 'gemini' | 'claude' | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const handleCardClick = (model: 'chatgpt' | 'perplexity' | 'gemini' | 'claude') => {
+  const handleCardClick = (model: 'chatgpt' | 'perplexity' | 'grok' | 'gemini' | 'claude') => {
     setSelectedModel(model);
     setIsModalOpen(true);
   };
@@ -37,6 +37,14 @@ export default function AIOCitationCards({ analysis }: AIOCitationCardsProps) {
           name: 'Perplexity',
           icon: '🔍',
           color: 'bg-sky-400',
+          borderColor: 'border-sky-200',
+          bgColor: 'bg-sky-50',
+        };
+      case 'grok':
+        return {
+          name: 'Grok',
+          icon: '⚡',
+          color: 'bg-sky-700',
           borderColor: 'border-sky-200',
           bgColor: 'bg-sky-50',
         };
@@ -84,7 +92,7 @@ export default function AIOCitationCards({ analysis }: AIOCitationCardsProps) {
           <p className="text-sm text-gray-600">각 AI 모델에서 콘텐츠가 인용될 확률</p>
         </div>
       </div>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
         {analysis.insights.map((insight) => {
           const info = getModelInfo(insight.model);
           return (
@@ -157,4 +165,3 @@ export default function AIOCitationCards({ analysis }: AIOCitationCardsProps) {
     </div>
   );
 }
-

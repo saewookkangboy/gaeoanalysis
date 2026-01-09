@@ -5,7 +5,7 @@ import { AIOCitationAnalysis } from '@/lib/ai-citation-analyzer';
 interface AIOModalProps {
   isOpen: boolean;
   onClose: () => void;
-  model: 'chatgpt' | 'perplexity' | 'gemini' | 'claude' | null;
+  model: 'chatgpt' | 'perplexity' | 'grok' | 'gemini' | 'claude' | null;
   analysis: AIOCitationAnalysis | null;
 }
 
@@ -32,6 +32,15 @@ export default function AIOModal({ isOpen, onClose, model, analysis }: AIOModalP
           icon: '🔍',
           description: 'Perplexity는 실시간 정보와 최신 데이터를 선호합니다. 출처 링크와 업데이트 날짜가 명시된 콘텐츠가 더 잘 인용됩니다.',
           color: 'bg-sky-400',
+          borderColor: 'border-sky-200',
+          bgColor: 'bg-sky-50',
+        };
+      case 'grok':
+        return {
+          name: 'Grok',
+          icon: '⚡',
+          description: 'xAI의 Grok은 최신성, 출처 명시, 핵심 요약이 있는 콘텐츠를 선호합니다. 날짜/시간 정보와 인용 링크가 잘 정리된 글이 유리합니다.',
+          color: 'bg-sky-700',
           borderColor: 'border-sky-200',
           bgColor: 'bg-sky-50',
         };
@@ -163,4 +172,3 @@ export default function AIOModal({ isOpen, onClose, model, analysis }: AIOModalP
     </div>
   );
 }
-

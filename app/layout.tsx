@@ -40,7 +40,7 @@ export const metadata: Metadata = {
     default: "GAEO - Do it now! | AI 검색 최적화 분석 도구",
     template: "%s | GAEO",
   },
-  description: "ChatGPT, Perplexity, Gemini, Claude가 당신의 콘텐츠를 인용하도록 만드는 실전 최적화 도구. AEO, GEO, SEO 점수를 30초 안에 종합 진단하고, AI 모델별 인용 확률과 개선 가이드를 제공합니다.",
+  description: "ChatGPT, Perplexity, Grok, Gemini, Claude가 당신의 콘텐츠를 인용하도록 만드는 실전 최적화 도구. AEO, GEO, SEO 점수를 30초 안에 종합 진단하고, AI 모델별 인용 확률과 개선 가이드를 제공합니다.",
   keywords: [
     "AI SEO",
     "AEO",
@@ -48,6 +48,7 @@ export const metadata: Metadata = {
     "AI 검색 최적화",
     "ChatGPT 최적화",
     "Perplexity 최적화",
+    "Grok 최적화",
     "Gemini 최적화",
     "Claude 최적화",
     "AI 인용 확률",
@@ -72,7 +73,7 @@ export const metadata: Metadata = {
     url: baseUrl,
     siteName: "GAEO Analysis",
     title: "GAEO - Do it now!",
-    description: "ChatGPT, Perplexity, Gemini, Claude가 당신의 콘텐츠를 인용하도록 만드는 실전 최적화 도구. 30초 안에 종합 진단 완료.",
+    description: "ChatGPT, Perplexity, Grok, Gemini, Claude가 당신의 콘텐츠를 인용하도록 만드는 실전 최적화 도구. 30초 안에 종합 진단 완료.",
     images: [
       {
         url: new URL('/og-image.png', baseUrl).toString(),
@@ -87,7 +88,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "GAEO - Do it now!",
-    description: "ChatGPT, Perplexity, Gemini, Claude가 당신의 콘텐츠를 인용하도록 만드는 실전 최적화 도구",
+    description: "ChatGPT, Perplexity, Grok, Gemini, Claude가 당신의 콘텐츠를 인용하도록 만드는 실전 최적화 도구",
     images: [
       {
         url: `${baseUrl}/og-image.png`,
@@ -162,7 +163,7 @@ export default function RootLayout({
               "name": "GAEO Analysis",
               "url": baseUrl,
               "logo": `${baseUrl}/og-image.png`,
-              "description": "ChatGPT, Perplexity, Gemini, Claude가 당신의 콘텐츠를 인용하도록 만드는 실전 최적화 도구",
+              "description": "ChatGPT, Perplexity, Grok, Gemini, Claude가 당신의 콘텐츠를 인용하도록 만드는 실전 최적화 도구",
               "sameAs": [
                 process.env.NEXT_PUBLIC_TWITTER_URL,
                 process.env.NEXT_PUBLIC_GITHUB_URL,
@@ -216,7 +217,7 @@ export default function RootLayout({
                 "ratingValue": "4.8",
                 "ratingCount": "100",
               },
-              "description": "ChatGPT, Perplexity, Gemini, Claude가 당신의 콘텐츠를 인용하도록 만드는 실전 최적화 도구",
+              "description": "ChatGPT, Perplexity, Grok, Gemini, Claude가 당신의 콘텐츠를 인용하도록 만드는 실전 최적화 도구",
               "featureList": [
                 "AEO, GEO, SEO 종합 점수 분석",
                 "AI 모델별 인용 확률 시뮬레이션",

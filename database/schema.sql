@@ -55,6 +55,7 @@ CREATE TABLE IF NOT EXISTS analyses (
   insights TEXT NOT NULL, -- JSON 문자열
   chatgpt_score INTEGER CHECK(chatgpt_score IS NULL OR (chatgpt_score >= 0 AND chatgpt_score <= 100)),
   perplexity_score INTEGER CHECK(perplexity_score IS NULL OR (perplexity_score >= 0 AND perplexity_score <= 100)),
+  grok_score INTEGER CHECK(grok_score IS NULL OR (grok_score >= 0 AND grok_score <= 100)),
   gemini_score INTEGER CHECK(gemini_score IS NULL OR (gemini_score >= 0 AND gemini_score <= 100)),
   claude_score INTEGER CHECK(claude_score IS NULL OR (claude_score >= 0 AND claude_score <= 100)),
   ai_visibility_score INTEGER CHECK(ai_visibility_score IS NULL OR (ai_visibility_score >= 0 AND ai_visibility_score <= 100)),
@@ -106,7 +107,7 @@ CREATE TABLE IF NOT EXISTS ai_agent_usage (
   user_id TEXT,
   analysis_id TEXT,
   conversation_id TEXT,
-  agent_type TEXT NOT NULL, -- 'chatgpt', 'perplexity', 'gemini', 'claude'
+  agent_type TEXT NOT NULL, -- 'chatgpt', 'perplexity', 'grok', 'gemini', 'claude'
   action TEXT NOT NULL, -- 'query', 'response', 'error'
   input_tokens INTEGER DEFAULT 0,
   output_tokens INTEGER DEFAULT 0,
@@ -270,4 +271,3 @@ SELECT
   COUNT(*) as total_count
 FROM analyses
 GROUP BY DATE(created_at);
-

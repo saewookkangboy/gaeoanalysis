@@ -15,6 +15,8 @@ import {
   generateAIOCitationAnalysis, 
   AIOCitationAnalysis 
 } from './ai-citation-analyzer';
+import { DEFAULT_AIO_WEIGHTS } from './algorithm-defaults';
+import { getResolvedAlgorithmWeights } from './algorithm-weights';
 import { 
   calculateAIVisibilityScore, 
   generateAIVisibilityRecommendations 
@@ -104,7 +106,8 @@ export async function analyzeNaverBlogContent(
   const overallScore = Math.round((aeoScore + geoScore + seoScore) / 3);
   
   // AI 모델별 인용 확률 계산
-  const aioScores = calculateAIOCitationScores($, aeoScore, geoScore, seoScore);
+  const aioWeights = getResolvedAlgorithmWeights('aio', DEFAULT_AIO_WEIGHTS);
+  const aioScores = calculateAIOCitationScores($, aeoScore, geoScore, seoScore, aioWeights);
   const aioAnalysis = generateAIOCitationAnalysis(aioScores);
   
   // AI Visibility 점수 계산
@@ -1059,4 +1062,3 @@ function getNaverBlogContentGuidelines(
   
   return guidelines;
 }
-

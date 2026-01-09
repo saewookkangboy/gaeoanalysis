@@ -83,6 +83,8 @@ export function extractAEOFeatures($: cheerio.CheerioAPI): Record<string, number
     term_explanation: hasAbbr,
     statistics: hasStatistics,
     quotations: hasQuotations,
+    statistics_bonus: hasStatistics,
+    quotations_bonus: hasQuotations,
   };
 }
 
@@ -293,4 +295,3 @@ export function learnFromImprovement(
     console.error('❌ [Auto Learning] 개선 기반 학습 실패:', error);
   }
 }
-
