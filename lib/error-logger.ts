@@ -1,4 +1,3 @@
-import { Headers } from 'next/dist/compiled/@edge-runtime/primitives/headers';
 import { v4 as uuidv4 } from 'uuid';
 import db from './db';
 import { isPostgreSQL, query } from './db-adapter';
@@ -13,7 +12,7 @@ export interface ServerErrorLogOptions {
   userId?: string | null;
   severity?: Severity;
   metadata?: any;
-  headers?: Headers | HeadersInit | null;
+  headers?: any; // Headers, HeadersInit, 또는 Record<string, string | string[]>
 }
 
 /**
@@ -39,20 +38,29 @@ export async function logServerError(options: ServerErrorLogOptions): Promise<vo
     let userAgent: string | null = null;
 
     try {
-      if (headers instanceof Headers) {
-        ipAddress =
-          headers.get('x-forwarded-for')?.split(',')[0].trim() ||
-          headers.get('x-real-ip') ||
-          null;
-        userAgent = headers.get('user-agent');
-      } else if (headers && typeof (headers as any).get === 'function') {
-        const h = headers as any;
-        const xf = h.get('x-forwarded-for') as string | null;
-        ipAddress =
-          (xf && xf.split(',')[0].trim()) ||
-          (h.get('x-real-ip') as string | null) ||
-          null;
-        userAgent = h.get('user-agent') as string | null;
+      if (headers) {
+        // Headers 객체인 경우 (get 메서드가 있는 경우)
+        if (typeof (headers as any).get === 'function') {
+          const h = headers as any;
+          const xf = h.get('x-forwarded-for') as string | null;
+          ipAddress =
+            (xf && xf.split(',')[0].trim()) ||
+            (h.get('x-real-ip') as string | null) ||
+            null;
+          userAgent = h.get('user-agent') as string | null;
+        } 
+        // Record 형태인 경우
+        else if (typeof headers === 'object' && !Array.isArray(headers)) {
+          const h = headers as Record<string, string | string[]>;
+          const xf = Array.isArray(h['x-forwarded-for']) 
+            ? h['x-forwarded-for'][0] 
+            : h['x-forwarded-for'];
+          ipAddress =
+            (xf && xf.split(',')[0].trim()) ||
+            (Array.isArray(h['x-real-ip']) ? h['x-real-ip'][0] : h['x-real-ip']) ||
+            null;
+          userAgent = Array.isArray(h['user-agent']) ? h['user-agent'][0] : h['user-agent'] || null;
+        }
       }
     } catch {
       // 헤더 파싱 실패는 무시
