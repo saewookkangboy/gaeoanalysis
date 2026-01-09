@@ -36,6 +36,14 @@ export default function RevisionPreviewModal({
   const [error, setError] = useState<string | null>(null);
   const [copySuccess, setCopySuccess] = useState(false);
 
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
+
   const handleGeneratePreview = async () => {
     if (!analysisData || !url) return;
 
@@ -226,8 +234,12 @@ export default function RevisionPreviewModal({
                     onClick={async () => {
                       try {
                         await navigator.clipboard.writeText(preview.revisedMarkdown);
+                        // 이전 타이머가 있으면 정리
+                        if (timeoutRef.current) {
+                          clearTimeout(timeoutRef.current);
+                        }
                         setCopySuccess(true);
-                        setTimeout(() => setCopySuccess(false), 2000);
+                        timeoutRef.current = setTimeout(() => setCopySuccess(false), 2000);
                       } catch (err) {
                         console.error('복사 실패:', err);
                       }
