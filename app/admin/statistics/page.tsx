@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import AdminDailyTrendChart from '@/components/AdminDailyTrendChart';
 
 interface StatisticsData {
   overview: {
@@ -308,6 +309,20 @@ export default function StatisticsPage() {
                 <p className="text-sm text-gray-600 mt-1">SEO</p>
               </div>
             </div>
+          </div>
+
+          {/* 일별 트렌드 (그래프) */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              일별 트렌드 (그래프)
+            </h3>
+            <p className="mb-4 text-sm text-gray-600">
+              선택한 기간 동안의 일일 신규 사용자(방문) 및 분석 수 변화를 그래프로 확인합니다.
+            </p>
+            <AdminDailyTrendChart
+              dailyUsers={statistics.trends.dailyUsers}
+              dailyAnalyses={statistics.trends.dailyAnalyses}
+            />
           </div>
 
           {/* 트렌드 (일별 통계) */}
