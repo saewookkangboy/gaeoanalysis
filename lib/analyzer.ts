@@ -51,6 +51,23 @@ export interface Insight {
 }
 
 /**
+ * 공용 텍스트/단어 정보 캐시
+ * - 같은 HTML에 대해 여러 번 body 텍스트를 계산하지 않도록 최적화
+ */
+interface TextContext {
+  text: string;
+  words: string[];
+  wordCount: number;
+}
+
+function getTextContext($: cheerio.CheerioAPI): TextContext {
+  const text = $('body').text();
+  const words = text.split(/\s+/).filter(Boolean);
+  const wordCount = words.length;
+  return { text, words, wordCount };
+}
+
+/**
  * URL 유효성 검사 및 플랫폼별 안내 메시지 생성
  */
 function validateAndGetPlatformMessage(url: string): { isValid: boolean; message?: string } {
@@ -182,6 +199,19 @@ export async function analyzeContent(url: string): Promise<AnalysisResult> {
 
           clearTimeout(timeoutId);
 
+          // 프리플라이트: Content-Type 검사 (HTML이 아닌 경우 조기 실패)
+          const contentType = response.headers.get('content-type') || '';
+          if (response.ok && contentType) {
+            const isHtml =
+              contentType.includes('text/html') ||
+              contentType.includes('application/xhtml+xml');
+            if (!isHtml) {
+              throw new Error(
+                `HTML 페이지가 아닙니다 (Content-Type: ${contentType}).\n\n해결 방법:\n1. 웹 페이지(HTML) URL을 입력했는지 확인해주세요\n2. PDF/이미지/문서 파일은 현재 지원하지 않습니다.`
+              );
+            }
+          }
+
           if (!response.ok) {
             // 특정 상태 코드에 대한 더 나은 메시지
             if (response.status === 403) {
@@ -200,7 +230,14 @@ export async function analyzeContent(url: string): Promise<AnalysisResult> {
           }
 
           const html = await response.text();
-          
+
+          // HTML이 너무 큰 경우 (비정상적인 용량) - 보호 차원에서 제한
+          if (html.length > 5_000_000) {
+            throw new Error(
+              '페이지 용량이 너무 커서 분석할 수 없습니다. (약 5MB 초과)\n\n해결 방법:\n1. 페이지를 섹션별로 나누어 분석해 주세요\n2. 불필요한 스크립트/콘텐츠를 줄여 페이지를 경량화해 주세요.'
+            );
+          }
+
           // HTML이 비어있거나 너무 짧은 경우 (JavaScript로 동적 로드되는 경우)
           if (html.length < 500) {
             const urlObj = new URL(url);
@@ -250,97 +287,133 @@ export async function analyzeContent(url: string): Promise<AnalysisResult> {
     // HTML 파싱
     const $ = cheerio.load(html);
 
-    // SEO 점수 계산
-    const seoScore = calculateSEOScore($);
-    
-    // AEO 점수 계산
-    const aeoScore = calculateAEOScore($);
-    
-    // GEO 점수 계산
-    const geoScore = calculateGEOScore($);
+    // 공용 텍스트 컨텍스트 (여러 점수/인사이트에서 재사용)
+    const textContext = getTextContext($);
 
-    // 종합 점수
+    // === 1) 핵심 점수 계산 (필수 단계) ===
+    const seoScore = calculateSEOScore($);
+    const aeoScore = calculateAEOScore($, textContext);
+    const geoScore = calculateGEOScore($, textContext);
+
     const overallScore = Math.round((aeoScore + geoScore + seoScore) / 3);
 
-    // AI 모델별 인용 확률 계산
-    const aioScores = calculateAIOCitationScores($, aeoScore, geoScore, seoScore);
-    const aioAnalysis = generateAIOCitationAnalysis(aioScores);
-
-    // AI Visibility 점수 계산
-    const aiVisibilityScore = calculateAIVisibilityScore($, aioScores, aeoScore, geoScore, seoScore);
-    
-    // 구조화된 데이터 점수 계산 (추천사항 생성용)
-    const structuredDataText = $('script[type="application/ld+json"]').text();
-    const hasStructuredData = $('script[type="application/ld+json"]').length > 0;
-    const structuredDataScore = hasStructuredData ? 
-      (structuredDataText.includes('FAQPage') ? 90 :
-       structuredDataText.includes('"Article"') || structuredDataText.includes('"BlogPosting"') ? 70 :
-       50) : 0;
-    
-    const text = $('body').text();
-    const wordCount = text.split(/\s+/).length;
-    const qualityScore = Math.min(100, 
-      ((aeoScore + geoScore + seoScore) / 3) * 0.5 +
-      (wordCount >= 2000 ? 20 : wordCount >= 1500 ? 15 : wordCount >= 1000 ? 10 : wordCount >= 500 ? 5 : 0) +
-      (structuredDataText.includes('author') && /자격|credential|전문가/i.test(text) ? 15 : 0)
-    );
-    
-    const hasDate = $('time, [datetime], [class*="date"]').length > 0;
-    const hasRecentYear = /(202[4-9]|최근|recent|updated)/i.test(text);
-    const freshnessScore = (hasDate ? 30 : 0) + (hasRecentYear ? 25 : 0) + 
-                          (/업데이트|update/i.test(text) ? 20 : 0);
-    
-    const aiVisibilityRecommendations = generateAIVisibilityRecommendations(
-      aiVisibilityScore,
-      aioScores,
-      structuredDataScore,
-      qualityScore,
-      freshnessScore
-    );
-
-    // 인용 소스 추출
-    const citationSources = extractCitationSources(html, url);
-    
-    // 타겟 도메인 추출
-    let targetDomain = '';
-    try {
-      const targetUrlObj = new URL(url);
-      targetDomain = targetUrlObj.hostname.replace('www.', '');
-    } catch (error) {
-      console.warn('⚠️ [Analyzer] 타겟 URL 파싱 실패:', error);
-    }
-    
-    // 도메인별 통계 계산
-    const domainStatistics = calculateDomainStatistics(citationSources.sources, targetDomain);
-    
-    // 도메인 권위성 평가
-    const domainAuthorities = calculateAllDomainAuthorities(
-      citationSources.sources,
-      domainStatistics
-    );
-    
-    // 인용 획득 기회 발견
-    const citationOpportunities = findCitationOpportunities(
-      domainAuthorities,
-      targetDomain
-    );
-    
-    // 품질 관리: 이슈 감지
-    const qualityIssues = detectQualityIssues(citationSources.sources);
-
-    // 인사이트 생성 (개선 우선순위에 사용)
-    const insights = generateInsights($, aeoScore, geoScore, seoScore);
-
-    // 개선 우선순위 및 콘텐츠 작성 가이드라인 생성 (insights 기반)
-    const improvementPriorities = getImprovementPriority(aeoScore, geoScore, seoScore, insights);
-    const contentGuidelines = getContentWritingGuidelines(aeoScore, geoScore, seoScore);
-
-    return {
+    // 결과 객체를 점진적으로 구성 (Fail-soft 전략)
+    const baseResult: AnalysisResult = {
       aeoScore,
       geoScore,
       seoScore,
       overallScore,
-      insights,
+      insights: [],
+    };
+
+    // === 2) AIO / AI Visibility / 추천 (선택 단계) ===
+    let aioAnalysis: AIOCitationAnalysis | undefined;
+    let aiVisibilityScore: number | undefined;
+    let aiVisibilityRecommendations: string[] | undefined;
+    let contentGuidelines: string[] | undefined;
+    let improvementPriorities:
+      | Array<{
+          category: string;
+          priority: number;
+          reason: string;
+          actionableTips?: Array<{
+            title: string;
+            steps: string[];
+            expectedImpact: string;
+          }>;
+        }>
+      | undefined;
+
+    try {
+      const aioScores = calculateAIOCitationScores($, aeoScore, geoScore, seoScore);
+      aioAnalysis = generateAIOCitationAnalysis(aioScores);
+
+      aiVisibilityScore = calculateAIVisibilityScore($, aioScores, aeoScore, geoScore, seoScore);
+
+      const structuredDataText = $('script[type="application/ld+json"]').text();
+      const hasStructuredData = $('script[type="application/ld+json"]').length > 0;
+      const structuredDataScore = hasStructuredData
+        ? structuredDataText.includes('FAQPage')
+          ? 90
+          : structuredDataText.includes('"Article"') || structuredDataText.includes('"BlogPosting"')
+          ? 70
+          : 50
+        : 0;
+
+      const qualityScore = Math.min(
+        100,
+        ((aeoScore + geoScore + seoScore) / 3) * 0.5 +
+          (textContext.wordCount >= 2000
+            ? 20
+            : textContext.wordCount >= 1500
+            ? 15
+            : textContext.wordCount >= 1000
+            ? 10
+            : textContext.wordCount >= 500
+            ? 5
+            : 0) +
+          (structuredDataText.includes('author') &&
+          /자격|credential|전문가/i.test(textContext.text)
+            ? 15
+            : 0)
+      );
+
+      const hasDate = $('time, [datetime], [class*="date"]').length > 0;
+      const hasRecentYear = /(202[4-9]|최근|recent|updated)/i.test(textContext.text);
+      const freshnessScore =
+        (hasDate ? 30 : 0) +
+        (hasRecentYear ? 25 : 0) +
+        (/업데이트|update/i.test(textContext.text) ? 20 : 0);
+
+      aiVisibilityRecommendations = generateAIVisibilityRecommendations(
+        aiVisibilityScore,
+        aioScores,
+        structuredDataScore,
+        qualityScore,
+        freshnessScore
+      );
+
+      // 인사이트 및 가이드라인 (이 단계에서 함께 생성)
+      const insights = generateInsights($, aeoScore, geoScore, seoScore, textContext);
+      baseResult.insights = insights;
+      improvementPriorities = getImprovementPriority(aeoScore, geoScore, seoScore, insights);
+      contentGuidelines = getContentWritingGuidelines(aeoScore, geoScore, seoScore);
+    } catch (subError) {
+      console.warn('⚠️ [Analyzer] AIO/AI Visibility/인사이트 계산 중 오류 (계속 진행):', subError);
+      // 이 단계가 실패해도 나머지 분석은 계속 진행
+    }
+
+    // === 3) 인용/도메인/품질 이슈 (선택 단계) ===
+    let citationSources: CitationExtractionResult | undefined;
+    let domainStatistics: DomainStatistics[] | undefined;
+    let domainAuthorities: DomainAuthority[] | undefined;
+    let citationOpportunities: CitationOpportunity[] | undefined;
+    let qualityIssues: QualityIssue[] | undefined;
+
+    try {
+      citationSources = extractCitationSources(html, url);
+
+      let targetDomain = '';
+      try {
+        const targetUrlObj = new URL(url);
+        targetDomain = targetUrlObj.hostname.replace('www.', '');
+      } catch (error) {
+        console.warn('⚠️ [Analyzer] 타겟 URL 파싱 실패:', error);
+      }
+
+      if (citationSources && citationSources.sources.length > 0) {
+        domainStatistics = calculateDomainStatistics(citationSources.sources, targetDomain);
+        domainAuthorities = calculateAllDomainAuthorities(citationSources.sources, domainStatistics);
+        citationOpportunities = findCitationOpportunities(domainAuthorities, targetDomain);
+        qualityIssues = detectQualityIssues(citationSources.sources);
+      }
+    } catch (subError) {
+      console.warn('⚠️ [Analyzer] 인용/도메인/품질 이슈 계산 중 오류 (계속 진행):', subError);
+      // 인용 관련 기능 실패 시 기본 점수/인사이트만 제공
+    }
+
+    return {
+      ...baseResult,
       aioAnalysis,
       aiVisibilityScore,
       aiVisibilityRecommendations,
@@ -446,10 +519,10 @@ function calculateSEOScore($: cheerio.CheerioAPI): number {
   return Math.min(100, Math.max(0, score));
 }
 
-function calculateAEOScore($: cheerio.CheerioAPI): number {
+function calculateAEOScore($: cheerio.CheerioAPI, textContext?: TextContext): number {
   let score = 0;
   const checks: { weight: number; passed: boolean }[] = [];
-  const text = $('body').text();
+  const { text, wordCount } = textContext || getTextContext($);
 
   // 질문 형식의 콘텐츠 (20점) - 강화
   const hasQuestions = /[?？]/.test(text) || /\b(what|how|why|when|where|who|어떻게|왜|언제|어디서|누가)\b/i.test(text);
@@ -469,7 +542,6 @@ function calculateAEOScore($: cheerio.CheerioAPI): number {
   checks.push({ weight: 20, passed: hasH2H3Bullets || (hasList && hasParagraphs) });
 
   // 키워드 밀도 (10점)
-  const wordCount = text.split(/\s+/).length;
   checks.push({ weight: 10, passed: wordCount >= 300 });
 
   // 구조화된 답변 (15점)
@@ -500,13 +572,12 @@ function calculateAEOScore($: cheerio.CheerioAPI): number {
   return Math.min(100, Math.max(0, score));
 }
 
-function calculateGEOScore($: cheerio.CheerioAPI): number {
+function calculateGEOScore($: cheerio.CheerioAPI, textContext?: TextContext): number {
   let score = 0;
   const checks: { weight: number; passed: boolean }[] = [];
-  const text = $('body').text();
+  const { text, wordCount } = textContext || getTextContext($);
 
   // 콘텐츠 길이 (20점) - ChatGPT 최적화: 1500-2500 words
-  const wordCount = text.split(/\s+/).length;
   if (wordCount >= 2000) {
     score += 20; // 최적 (2000+ words)
   } else if (wordCount >= 1500) {
@@ -539,7 +610,7 @@ function calculateGEOScore($: cheerio.CheerioAPI): number {
   }
 
   // 키워드 다양성 (15점)
-  const words = text.toLowerCase().split(/\s+/);
+  const words = (textContext?.words || text.split(/\s+/)).map(w => w.toLowerCase());
   const uniqueWords = new Set(words);
   const diversity = uniqueWords.size / words.length;
   checks.push({ weight: 15, passed: diversity > 0.3 });
@@ -588,10 +659,15 @@ function calculateGEOScore($: cheerio.CheerioAPI): number {
   return Math.min(100, Math.max(0, score));
 }
 
-function generateInsights($: cheerio.CheerioAPI, aeoScore: number, geoScore: number, seoScore: number): Insight[] {
+function generateInsights(
+  $: cheerio.CheerioAPI,
+  aeoScore: number,
+  geoScore: number,
+  seoScore: number,
+  textContext?: TextContext
+): Insight[] {
   const insights: Insight[] = [];
-  const text = $('body').text();
-  const wordCount = text.split(/\s+/).length;
+  const { text, wordCount } = textContext || getTextContext($);
 
   // SEO 인사이트 (강화)
   if (seoScore < 70) {
@@ -663,7 +739,6 @@ function generateInsights($: cheerio.CheerioAPI, aeoScore: number, geoScore: num
 
   // AEO 인사이트
   if (aeoScore < 70) {
-    const text = $('body').text();
     const hasQuestions = /[?？]/.test(text);
     if (!hasQuestions) {
       insights.push({
@@ -694,8 +769,6 @@ function generateInsights($: cheerio.CheerioAPI, aeoScore: number, geoScore: num
 
   // GEO 인사이트
   if (geoScore < 70) {
-    const text = $('body').text();
-    const wordCount = text.split(/\s+/).length;
     if (wordCount < 500) {
       insights.push({
         severity: 'Medium',
