@@ -43,7 +43,7 @@ function normalizeWeightGroup(weights: AIOWeights, keys: Array<keyof AIOWeights>
   }
 
   for (const key of keys) {
-    weights[key] = weights[key] / total;
+    (weights as any)[key] = weights[key] / total;
   }
 }
 
