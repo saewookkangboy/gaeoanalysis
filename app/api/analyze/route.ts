@@ -53,8 +53,6 @@ const getRateLimitKey = async (request: NextRequest): Promise<string> => {
              'unknown';
   return `ip:${normalizeIpAddress(ip)}`;
 };
-<｜tool▁calls▁begin｜><｜tool▁call▁begin｜>
-read_file
 
 async function handleAnalyze(request: NextRequest) {
   console.log('🚀 [Analyze API] 분석 요청 시작');

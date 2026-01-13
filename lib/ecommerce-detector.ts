@@ -117,8 +117,8 @@ export function detectEcommercePage(url: string, html: string): EcommerceDetecti
   return {
     isEcommerce: confidence >= 50,
     confidence: Math.min(100, confidence),
-    detectedPlatform,
-    productId,
+    detectedPlatform: detectedPlatform ?? undefined,
+    productId: productId ?? undefined,
     detectionMethods,
   };
 }
