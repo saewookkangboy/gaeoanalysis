@@ -16,7 +16,8 @@ export function buildRevisionPrompt(request: RevisionRequest): string {
   // 블로그 플랫폼 감지
   const blogPlatform = getBlogPlatformFromURL(url);
   const isNaverBlog = blogPlatform?.type === 'naver';
-  const hasIframe = originalContent.includes('<iframe') || originalContent.toLowerCase().includes('frameset');
+  const originalContentLower = originalContent.toLowerCase();
+  const hasIframe = originalContentLower.includes('<iframe') || originalContentLower.includes('frameset');
   
   // 체크리스트 항목 추출
   const checklistItems: string[] = [];
