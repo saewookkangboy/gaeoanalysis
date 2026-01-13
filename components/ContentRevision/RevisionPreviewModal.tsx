@@ -3,7 +3,6 @@
 import { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import rehypeHighlight from 'rehype-highlight';
 import { AnalysisResult } from '@/lib/analyzer';
 import { useToast } from '@/components/Toast';
 
@@ -304,6 +303,44 @@ export default function RevisionPreviewModal({
     return markdown;
   };
 
+  // 마크다운 텍스트 정리 (HTML 태그 제거 및 텍스트 중심으로)
+  const cleanMarkdownForDisplay = (markdown: string): string => {
+    // HTML 태그가 많이 포함된 경우 텍스트만 추출
+    if (markdown.match(/<[^>]+>/g)?.length && markdown.match(/<[^>]+>/g)!.length > markdown.length / 20) {
+      // HTML 태그를 제거하고 텍스트만 추출
+      let cleaned = markdown
+        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '') // script 태그 제거
+        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '') // style 태그 제거
+        .replace(/<[^>]+>/g, ' ') // 나머지 HTML 태그 제거
+        .replace(/\s+/g, ' ') // 연속된 공백 정리
+        .trim();
+      
+      // 마크다운 형식으로 변환 시도
+      cleaned = cleaned
+        .replace(/^#\s+(.+)$/gm, '# $1') // 헤더 정리
+        .replace(/\*\*(.+?)\*\*/g, '**$1**') // 볼드 유지
+        .replace(/\*(.+?)\*/g, '*$1*'); // 이탤릭 유지
+      
+      return cleaned;
+    }
+    
+    // 일반 마크다운은 그대로 반환
+    return markdown;
+  };
+
+  // 텍스트 콘텐츠만 추출 (HTML 태그 제거)
+  const extractTextContent = (html: string): string => {
+    // HTML 태그 제거
+    let text = html
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    
+    return text;
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -556,37 +593,36 @@ export default function RevisionPreviewModal({
                     </div>
                   </div>
                   <div className="rounded-lg border-2 border-gray-200 bg-white p-6 max-h-[60vh] overflow-y-auto shadow-inner" data-allow-copy="true">
-                    <div className="markdown-content" data-allow-copy="true">
+                    <div className="markdown-content prose prose-sky max-w-none" data-allow-copy="true">
                       <ReactMarkdown
                         remarkPlugins={[remarkGfm]}
-                        rehypePlugins={[rehypeHighlight]}
                         components={{
-                          h1: ({node, ...props}) => <h1 className="text-3xl font-bold text-gray-900 mt-6 mb-4 pb-2 border-b border-gray-200" {...props} />,
+                          h1: ({node, ...props}) => <h1 className="text-3xl font-bold text-gray-900 mt-6 mb-4 pb-3 border-b-2 border-gray-300" {...props} />,
                           h2: ({node, ...props}) => <h2 className="text-2xl font-bold text-gray-900 mt-5 mb-3 pb-2 border-b border-gray-200" {...props} />,
                           h3: ({node, ...props}) => <h3 className="text-xl font-semibold text-gray-900 mt-4 mb-2" {...props} />,
                           h4: ({node, ...props}) => <h4 className="text-lg font-semibold text-gray-900 mt-3 mb-2" {...props} />,
-                          p: ({node, ...props}) => <p className="text-gray-700 mb-4 leading-relaxed" {...props} />,
-                          a: ({node, ...props}) => <a className="text-sky-600 hover:text-sky-700 underline font-medium" {...props} />,
+                          p: ({node, ...props}) => <p className="text-gray-800 mb-4 leading-relaxed text-base" {...props} />,
+                          a: ({node, ...props}) => <a className="text-sky-600 hover:text-sky-700 underline font-medium" target="_blank" rel="noopener noreferrer" {...props} />,
                           strong: ({node, ...props}) => <strong className="font-bold text-gray-900" {...props} />,
                           em: ({node, ...props}) => <em className="italic text-gray-800" {...props} />,
-                          ul: ({node, ...props}) => <ul className="list-disc list-inside mb-4 space-y-2 text-gray-700" {...props} />,
-                          ol: ({node, ...props}) => <ol className="list-decimal list-inside mb-4 space-y-2 text-gray-700" {...props} />,
-                          li: ({node, ...props}) => <li className="ml-4" {...props} />,
-                          blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-sky-500 pl-4 italic text-gray-600 my-4" {...props} />,
+                          ul: ({node, ...props}) => <ul className="list-disc list-outside mb-4 space-y-2 text-gray-800 ml-6" {...props} />,
+                          ol: ({node, ...props}) => <ol className="list-decimal list-outside mb-4 space-y-2 text-gray-800 ml-6" {...props} />,
+                          li: ({node, ...props}) => <li className="text-gray-800 leading-relaxed" {...props} />,
+                          blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-sky-500 pl-4 italic text-gray-700 my-4 bg-sky-50 py-2 rounded-r" {...props} />,
                           code: ({node, inline, ...props}: any) => 
                             inline ? (
-                              <code className="bg-sky-50 text-sky-700 px-1.5 py-0.5 rounded text-sm font-mono" {...props} />
+                              <code className="bg-sky-100 text-sky-800 px-2 py-0.5 rounded text-sm font-mono border border-sky-200" {...props} />
                             ) : (
-                              <code className="block bg-gray-50 text-gray-800 p-4 rounded-lg overflow-x-auto text-sm font-mono" {...props} />
+                              <code className="block bg-gray-100 text-gray-800 p-4 rounded-lg overflow-x-auto text-sm font-mono border border-gray-300 mb-4" {...props} />
                             ),
-                          pre: ({node, ...props}) => <pre className="bg-gray-50 p-4 rounded-lg overflow-x-auto mb-4" {...props} />,
+                          pre: ({node, ...props}) => <pre className="bg-gray-100 text-gray-800 p-4 rounded-lg overflow-x-auto mb-4 border border-gray-300" {...props} />,
                           hr: ({node, ...props}) => <hr className="my-6 border-gray-300" {...props} />,
-                          table: ({node, ...props}) => <table className="w-full border-collapse border border-gray-300 mb-4" {...props} />,
+                          table: ({node, ...props}) => <div className="overflow-x-auto mb-4"><table className="w-full border-collapse border border-gray-300" {...props} /></div>,
                           th: ({node, ...props}) => <th className="border border-gray-300 bg-gray-100 px-4 py-2 text-left font-semibold text-gray-900" {...props} />,
-                          td: ({node, ...props}) => <td className="border border-gray-300 px-4 py-2 text-gray-700" {...props} />,
+                          td: ({node, ...props}) => <td className="border border-gray-300 px-4 py-2 text-gray-800" {...props} />,
                         }}
                       >
-                        {preview.revisedMarkdown}
+                        {cleanMarkdownForDisplay(preview.revisedMarkdown)}
                       </ReactMarkdown>
                     </div>
                   </div>
@@ -602,26 +638,42 @@ export default function RevisionPreviewModal({
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* 원본 */}
-                    <div className="rounded-lg border-2 border-gray-200 bg-gray-50">
-                      <div className="sticky top-0 bg-gray-100 border-b border-gray-200 px-4 py-2 rounded-t-lg">
+                    <div className="rounded-lg border-2 border-gray-200 bg-white">
+                      <div className="sticky top-0 bg-gray-100 border-b-2 border-gray-200 px-4 py-3 rounded-t-lg">
                         <h4 className="font-semibold text-gray-900">원본 콘텐츠</h4>
                       </div>
-                      <div className="p-4 max-h-[60vh] overflow-y-auto">
-                        <div className="text-sm text-gray-700 whitespace-pre-wrap">
-                          {preview.originalContent.substring(0, 2000)}
-                          {preview.originalContent.length > 2000 && '...'}
+                      <div className="p-6 max-h-[60vh] overflow-y-auto">
+                        <div className="prose prose-sm max-w-none text-gray-800 leading-relaxed">
+                          <div className="whitespace-pre-wrap text-base">
+                            {extractTextContent(preview.originalContent).substring(0, 3000)}
+                            {extractTextContent(preview.originalContent).length > 3000 && '...'}
+                          </div>
                         </div>
                       </div>
                     </div>
                     {/* 수정본 */}
-                    <div className="rounded-lg border-2 border-sky-200 bg-sky-50">
-                      <div className="sticky top-0 bg-sky-100 border-b border-sky-200 px-4 py-2 rounded-t-lg">
+                    <div className="rounded-lg border-2 border-sky-200 bg-white">
+                      <div className="sticky top-0 bg-sky-100 border-b-2 border-sky-200 px-4 py-3 rounded-t-lg">
                         <h4 className="font-semibold text-gray-900">수정된 콘텐츠</h4>
                       </div>
-                      <div className="p-4 max-h-[60vh] overflow-y-auto">
-                        <div className="text-sm text-gray-700 whitespace-pre-wrap">
-                          {preview.revisedMarkdown.substring(0, 2000)}
-                          {preview.revisedMarkdown.length > 2000 && '...'}
+                      <div className="p-6 max-h-[60vh] overflow-y-auto">
+                        <div className="prose prose-sm max-w-none text-gray-800 leading-relaxed">
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            components={{
+                              h1: ({node, ...props}) => <h1 className="text-2xl font-bold text-gray-900 mt-4 mb-3 pb-2 border-b border-gray-200" {...props} />,
+                              h2: ({node, ...props}) => <h2 className="text-xl font-bold text-gray-900 mt-3 mb-2 pb-1 border-b border-gray-200" {...props} />,
+                              h3: ({node, ...props}) => <h3 className="text-lg font-semibold text-gray-900 mt-3 mb-2" {...props} />,
+                              p: ({node, ...props}) => <p className="text-gray-800 mb-3 leading-relaxed text-base" {...props} />,
+                              strong: ({node, ...props}) => <strong className="font-bold text-gray-900" {...props} />,
+                              ul: ({node, ...props}) => <ul className="list-disc list-outside mb-3 space-y-1 text-gray-800 ml-5" {...props} />,
+                              ol: ({node, ...props}) => <ol className="list-decimal list-outside mb-3 space-y-1 text-gray-800 ml-5" {...props} />,
+                              li: ({node, ...props}) => <li className="text-gray-800 leading-relaxed" {...props} />,
+                            }}
+                          >
+                            {cleanMarkdownForDisplay(preview.revisedMarkdown).substring(0, 3000)}
+                            {cleanMarkdownForDisplay(preview.revisedMarkdown).length > 3000 && '...'}
+                          </ReactMarkdown>
                         </div>
                       </div>
                     </div>

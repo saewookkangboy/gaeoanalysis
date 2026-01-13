@@ -69,15 +69,43 @@
   transition-duration: 150ms;
 }
 
-/* 코드 블록 하이라이팅 스타일 */
+/* 코드 블록 하이라이팅 스타일 - 텍스트 중심으로 개선 */
 .hljs {
-  background: #1e1e1e !important;
-  color: #d4d4d4 !important;
+  background: #f3f4f6 !important;
+  color: #1f2937 !important;
+  border: 1px solid #e5e7eb !important;
 }
 
 .dark .hljs {
-  background: #0d1117 !important;
-  color: #c9d1d9 !important;
+  background: #1f2937 !important;
+  color: #f3f4f6 !important;
+  border: 1px solid #374151 !important;
+}
+
+/* 마크다운 콘텐츠 영역 스타일 개선 */
+.markdown-content {
+  color: #1f2937 !important;
+}
+
+.markdown-content * {
+  color: inherit;
+}
+
+.markdown-content pre {
+  background: #f3f4f6 !important;
+  color: #1f2937 !important;
+  border: 1px solid #e5e7eb !important;
+}
+
+.markdown-content pre code {
+  background: transparent !important;
+  color: #1f2937 !important;
+}
+
+.markdown-content code:not(pre code) {
+  background: #e0f2fe !important;
+  color: #0369a1 !important;
+  border: 1px solid #bae6fd !important;
 }
 
 .hljs-keyword,
