@@ -52,7 +52,7 @@ const getRateLimitKey = async (request: NextRequest): Promise<string> => {
              request.headers.get('x-real-ip') || 
              'unknown';
   return `ip:${normalizeIpAddress(ip)}`;
-};
+}
 
 async function handleAnalyze(request: NextRequest) {
   console.log('🚀 [Analyze API] 분석 요청 시작');
