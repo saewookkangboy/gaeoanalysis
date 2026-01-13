@@ -45,13 +45,13 @@ function normalizeWeightGroup(weights: AIOWeights, keys: Array<keyof AIOWeights>
     // Set equal weights if total is invalid
     const equalWeight = 1 / keys.length;
     for (const key of keys) {
-      weights[key] = equalWeight;
+      (weights as any)[key] = equalWeight;
     }
     return;
   }
 
   for (const key of keys) {
-    weights[key] = weights[key] / total;
+    (weights as any)[key] = weights[key] / total;
   }
 }
 
