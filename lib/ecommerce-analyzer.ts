@@ -31,8 +31,13 @@ export function calculateEcommerceSEOScore(
   // 1. Product Schema (20점)
   if (structure.seo.hasProductSchema) score += 20;
   
-  // 2. 가격 정보 (15점)
-  if (structure.pricing.hasPrice) score += 15;
+  // 2. 가격 정보 (15점) - 소비자가와 판매가 모두 있으면 보너스
+  if (structure.pricing.hasPrice) {
+    score += 10;
+    if (structure.pricing.originalPrice && structure.pricing.salePrice) {
+      score += 5; // 할인 정보가 명확하면 보너스
+    }
+  }
   
   // 3. 이미지 최적화 (15점)
   if (structure.images.totalCount >= 3) score += 10;
@@ -41,11 +46,24 @@ export function calculateEcommerceSEOScore(
   // 4. 리뷰/평점 Schema (10점)
   if (structure.reviews.hasRatingSchema) score += 10;
   
+  // 4-1. 리뷰 개수 (5점) - 리뷰가 많을수록 신뢰도 향상
+  if (structure.reviews.reviewCount) {
+    if (structure.reviews.reviewCount >= 100) score += 5;
+    else if (structure.reviews.reviewCount >= 50) score += 3;
+    else if (structure.reviews.reviewCount >= 10) score += 1;
+  }
+  
   // 5. Breadcrumb (5점)
   if (structure.seo.hasBreadcrumb) score += 5;
   
   // 6. Open Graph (5점)
   if (structure.seo.hasOgTags) score += 5;
+  
+  // 7. 배송 정보 (5점) - 커머스 특화
+  if (structure.details.hasShippingInfo) score += 5;
+  
+  // 8. 반품 정책 (5점) - 신뢰도 향상
+  if (structure.details.hasReturnPolicy) score += 5;
   
   return Math.min(100, score);
 }
@@ -252,6 +270,39 @@ export function generateEcommerceInsights(
       severity: 'High',
       category: '커머스 GEO',
       message: 'Product Schema를 추가하세요. AI 검색 엔진이 상품 정보를 구조화하여 이해할 수 있습니다.',
+    });
+  }
+  
+  // 추가 커머스 특화 인사이트
+  if (!structure.details.hasShippingInfo) {
+    insights.push({
+      severity: 'Medium',
+      category: '커머스 SEO',
+      message: '배송 정보를 추가하세요. 구매 결정에 중요한 정보입니다.',
+    });
+  }
+  
+  if (!structure.details.hasReturnPolicy) {
+    insights.push({
+      severity: 'Medium',
+      category: '커머스 SEO',
+      message: '반품/교환 정책을 명시하세요. 신뢰도와 전환율 향상에 도움이 됩니다.',
+    });
+  }
+  
+  if (structure.reviews.reviewCount && structure.reviews.reviewCount < 10) {
+    insights.push({
+      severity: 'Low',
+      category: '커머스 SEO',
+      message: `리뷰가 ${structure.reviews.reviewCount}개로 적습니다. 리뷰를 늘리면 신뢰도가 향상됩니다.`,
+    });
+  }
+  
+  if (structure.pricing.hasPrice && !structure.pricing.originalPrice && !structure.pricing.discountRate) {
+    insights.push({
+      severity: 'Low',
+      category: '커머스 SEO',
+      message: '할인 정보를 명시하세요. 소비자가와 할인율을 표시하면 전환율이 향상됩니다.',
     });
   }
   
