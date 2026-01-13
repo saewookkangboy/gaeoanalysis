@@ -15,7 +15,7 @@ export default function AboutPage() {
           "name": "GAEO Analysis는 무엇인가요?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "GAEO Analysis는 ChatGPT, Perplexity, Grok, Gemini, Claude가 당신의 콘텐츠를 인용하도록 만드는 실전 최적화 도구입니다. AEO, GEO, SEO 점수를 30초 안에 종합 진단하고, AI 모델별 인용 확률과 개선 가이드를 제공합니다."
+            "text": "GAEO Analysis는 ChatGPT, Perplexity, Grok, Gemini, Claude가 당신의 콘텐츠를 인용하도록 만드는 실전 최적화 도구입니다. AEO, GEO, SEO 점수를 30초 안에 종합 진단하고, AI 모델별 인용 확률, 콘텐츠 수정안 생성, 깊이 있는 분석 기능을 제공합니다."
           }
         },
         {
@@ -217,6 +217,22 @@ export default function AboutPage() {
                   실무에 바로 활용할 수 있는 기능을 제공합니다.
                 </p>
               </div>
+              <div className="rounded-lg border border-sky-200 bg-sky-50 p-6">
+                <div className="mb-3 text-3xl">✍️</div>
+                <h3 className="mb-2 text-lg font-semibold text-gray-900">AI 기반 콘텐츠 수정안 생성</h3>
+                <p className="text-sm text-gray-700 leading-relaxed">
+                  분석 결과를 바탕으로 AI가 개선된 콘텐츠 수정안을 자동 생성합니다. 
+                  수정 전후 점수 비교와 개선 사항을 확인한 후 바로 적용할 수 있습니다.
+                </p>
+              </div>
+              <div className="rounded-lg border border-sky-200 bg-sky-50 p-6">
+                <div className="mb-3 text-3xl">🔍</div>
+                <h3 className="mb-2 text-lg font-semibold text-gray-900">깊이 있는 콘텐츠 분석</h3>
+                <p className="text-sm text-gray-700 leading-relaxed">
+                  콘텐츠 구조, E-E-A-T 신호, 비즈니스 신뢰도, 상호작용 요소를 종합적으로 분석하여 
+                  더 정확하고 실용적인 개선 방안을 제시합니다.
+                </p>
+              </div>
             </div>
           </div>
         </section>
@@ -302,7 +318,7 @@ export default function AboutPage() {
           <h2 className="mb-8 text-center text-2xl sm:text-3xl font-bold text-gray-900">
             모든 기능
           </h2>
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             <div className="rounded-lg border border-gray-300 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
               <div className="mb-3 text-3xl">📊</div>
               <h3 className="mb-2 text-lg font-semibold text-gray-900">종합 점수 분석</h3>
@@ -324,6 +340,27 @@ export default function AboutPage() {
               <p className="text-sm text-gray-600 leading-relaxed">
                 마크다운 형식 답변 렌더링, 답변 복사 기능, 동적 추천 질문 생성, 대화 이력 저장 등 
                 실무에 바로 활용할 수 있는 고급 기능을 제공합니다.
+              </p>
+            </div>
+            <div className="rounded-lg border border-gray-300 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
+              <div className="mb-3 text-3xl">✍️</div>
+              <h3 className="mb-2 text-lg font-semibold text-gray-900">콘텐츠 수정안 미리보기</h3>
+              <p className="text-sm text-gray-600 leading-relaxed">
+                AI가 제안한 개선 사항을 반영한 콘텐츠 수정안을 미리 확인하고, 예상 점수 향상을 확인한 후 적용할 수 있습니다.
+              </p>
+            </div>
+            <div className="rounded-lg border border-gray-300 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
+              <div className="mb-3 text-3xl">🔍</div>
+              <h3 className="mb-2 text-lg font-semibold text-gray-900">깊이 있는 콘텐츠 분석</h3>
+              <p className="text-sm text-gray-600 leading-relaxed">
+                콘텐츠 구조, E-E-A-T 신호, 비즈니스 신뢰도, 상호작용 요소를 깊이 있게 분석하여 종합적인 개선 방안을 제시합니다.
+              </p>
+            </div>
+            <div className="rounded-lg border border-gray-300 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
+              <div className="mb-3 text-3xl">🛒</div>
+              <h3 className="mb-2 text-lg font-semibold text-gray-900">이커머스 제품 분석</h3>
+              <p className="text-sm text-gray-600 leading-relaxed">
+                커머스 상품 페이지를 전용으로 분석하여 제품 구조, UX, 이커머스 특화 SEO/AEO/GEO 점수를 제공합니다.
               </p>
             </div>
             <div className="rounded-lg border border-gray-300 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
@@ -361,6 +398,13 @@ export default function AboutPage() {
               <h3 className="mb-2 text-lg font-semibold text-gray-900">알고리즘 자동 학습</h3>
               <p className="text-sm text-gray-600 leading-relaxed">
                 분석 결과 기반 자동 가중치 학습으로 지속적으로 정확도가 향상됩니다.
+              </p>
+            </div>
+            <div className="rounded-lg border border-gray-300 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
+              <div className="mb-3 text-3xl">🌙</div>
+              <h3 className="mb-2 text-lg font-semibold text-gray-900">다크 모드 지원</h3>
+              <p className="text-sm text-gray-600 leading-relaxed">
+                시스템 테마 자동 감지 및 수동 전환으로 눈의 피로를 줄이고 사용자 경험을 향상시킵니다.
               </p>
             </div>
             <div className="rounded-lg border border-gray-300 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
