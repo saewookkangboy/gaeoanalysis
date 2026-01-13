@@ -28,8 +28,11 @@ function mergeAioWeights(overrides?: AIOWeightOverrides): AIOWeights {
   }
 
   for (const [key, value] of Object.entries(overrides)) {
-    if (typeof value === 'number' && Number.isFinite(value)) {
+    // Validate key exists in default weights and value is non-negative
+    if (key in DEFAULT_AIO_WEIGHTS && typeof value === 'number' && Number.isFinite(value) && value >= 0) {
       (merged as Record<string, number>)[key] = value;
+    } else if (key in DEFAULT_AIO_WEIGHTS && typeof value === 'number') {
+      console.warn(`Invalid weight value for ${key}: ${value}. Must be non-negative and finite.`);
     }
   }
 
@@ -39,11 +42,16 @@ function mergeAioWeights(overrides?: AIOWeightOverrides): AIOWeights {
 function normalizeWeightGroup(weights: AIOWeights, keys: Array<keyof AIOWeights>): void {
   const total = keys.reduce((sum, key) => sum + weights[key], 0);
   if (total <= 0) {
+    // Set equal weights if total is invalid
+    const equalWeight = 1 / keys.length;
+    for (const key of keys) {
+      weights[key] = equalWeight;
+    }
     return;
   }
 
   for (const key of keys) {
-    (weights as any)[key] = weights[key] / total;
+    weights[key] = weights[key] / total;
   }
 }
 
@@ -242,9 +250,10 @@ function calculateGrokBonus($: cheerio.CheerioAPI): number {
   if (twitterTags >= 2) bonus += 6;
   else if (ogTags >= 3) bonus += 4;
 
-  // 짧은 핵심 답변 블록 (3점)
-  const hasShortAnswer = $('h2, h3').length > 0 && text.length < 300;
-  if (hasShortAnswer) bonus += 3;
+  // 짧은 핵심 답변 블록 (3점) - Check for summary/TL;DR sections with concise content
+  const summarySection = $('*:contains("TL;DR"), *:contains("요약"), [class*="summary"]').first();
+  const hasConciseSummary = summarySection.length > 0 && summarySection.text().length < 300;
+  if (hasConciseSummary) bonus += 3;
 
   return Math.min(40, bonus);
 }

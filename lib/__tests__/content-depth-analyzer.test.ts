@@ -301,7 +301,7 @@ describe('Content Depth Analyzer', () => {
       const insights = generateWebsiteInsights(contentStructure, trustSignals, interactions);
       
       // E-E-A-T 점수가 낮으므로 관련 인사이트가 있어야 함
-      const eaatInsights = insights.filter((i: any) => 
+      const eaatInsights = insights.filter((i: Insight) => 
         i.category === '신뢰도' || 
         i.category === '전문성' || 
         i.category === '권위성'

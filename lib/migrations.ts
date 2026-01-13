@@ -214,7 +214,7 @@ const migrations: Migration[] = [
     },
   },
   {
-    version: 14,
+    version: 18,
     name: 'add_grok_score',
     up: () => {
       const tableInfo = db.prepare("PRAGMA table_info(analyses)").all() as Array<{ name: string }>;
