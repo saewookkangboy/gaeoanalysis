@@ -32,7 +32,7 @@ import {
   analyzeTrustSignals,
   analyzeInteractions,
   generateWebsiteInsights,
-} from './content-depth-analyzer';
+} from '@/lib/content-depth-analyzer';
 
 // Import types for use in this file
 import type { DomainAuthority, CitationOpportunity, QualityIssue } from './citation-analyzer';
