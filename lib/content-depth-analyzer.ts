@@ -160,9 +160,14 @@ export function analyzeTrustSignals($: cheerio.CheerioAPI, url: string): TrustSi
   };
   
   // 보안 신호
-  const urlObj = new URL(url);
+  let urlObj: URL | null = null;
+  try {
+    urlObj = new URL(url);
+  } catch {
+    // URL 파싱 실패 시 기본값 사용
+  }
   const security = {
-    hasSSL: urlObj.protocol === 'https:',
+    hasSSL: urlObj?.protocol === 'https:',
     hasSecurityBadge: $('[class*="security"], [class*="ssl"], [class*="trust"], [class*="verified"]').length > 0,
     hasPrivacyPolicy: hasPrivacyPolicy($, url, text),
   };
