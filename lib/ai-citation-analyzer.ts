@@ -41,7 +41,7 @@ function mergeAioWeights(overrides?: AIOWeightOverrides): AIOWeights {
 
 function normalizeWeightGroup(weights: AIOWeights, keys: Array<keyof AIOWeights>): void {
   const total = keys.reduce((sum, key) => sum + weights[key], 0);
-  // Use type assertion to bypass readonly constraint
+  // Use type assertion to bypass readonly constraint (Railway build fix)
   const mutableWeights = weights as Record<string, number>;
   
   if (total <= 0) {
