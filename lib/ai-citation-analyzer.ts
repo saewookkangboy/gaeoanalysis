@@ -42,16 +42,19 @@ function mergeAioWeights(overrides?: AIOWeightOverrides): AIOWeights {
 function normalizeWeightGroup(weights: AIOWeights, keys: Array<keyof AIOWeights>): void {
   const total = keys.reduce((sum, key) => sum + weights[key], 0);
   if (total <= 0) {
-    // Set equal weights if total is invalid
+    // Set equal weights if total is invalid (use type assertion to bypass readonly)
     const equalWeight = 1 / keys.length;
+    const mutableWeights = weights as any;
     for (const key of keys) {
-      (weights as any)[key] = equalWeight;
+      mutableWeights[key] = equalWeight;
     }
     return;
   }
 
+  // Normalize weights (use type assertion to bypass readonly)
+  const mutableWeights = weights as any;
   for (const key of keys) {
-    (weights as any)[key] = weights[key] / total;
+    mutableWeights[key] = weights[key] / total;
   }
 }
 
