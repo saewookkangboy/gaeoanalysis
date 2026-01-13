@@ -28,10 +28,16 @@ function mergeAioWeights(baseWeights: AIOWeights, overrides?: AIOWeightOverrides
   }
 
   for (const [key, value] of Object.entries(overrides)) {
+    // Warn about unknown keys (keys not present in baseWeights)
+    if (!(key in baseWeights)) {
+      console.warn(`Unknown weight key in override: ${key} = ${value}. This key is not present in baseWeights and will be ignored.`);
+      continue;
+    }
+
     // Validate key exists in base weights and value is non-negative and finite
-    if (key in baseWeights && typeof value === 'number' && Number.isFinite(value) && value >= 0) {
+    if (typeof value === 'number' && Number.isFinite(value) && value >= 0) {
       (merged as Record<string, number>)[key] = value;
-    } else if (key in baseWeights && typeof value === 'number') {
+    } else if (typeof value === 'number') {
       console.warn(`Invalid weight value for ${key}: ${value}. Must be non-negative and finite.`);
     }
   }
