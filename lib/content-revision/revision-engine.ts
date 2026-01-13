@@ -57,8 +57,8 @@ export async function reviseContent(
     }
   );
 
-  // 마크다운으로 변환 (HTML이 포함되어 있으면 유지)
-  const revisedMarkdown = convertToMarkdown(revisedContent, request.originalContent);
+  // 텍스트 중심으로 변환 (HTML/마크다운 제거)
+  const revisedMarkdown = convertToPlainText(revisedContent);
   
   // 예상 점수 계산 (간단한 추정)
   const predictedScores = estimateScores(request.analysisResult, revisedMarkdown);
@@ -67,7 +67,7 @@ export async function reviseContent(
   const improvements = extractImprovements(request.analysisResult, revisedMarkdown);
 
   return {
-    revisedContent,
+    revisedContent: revisedMarkdown, // 텍스트 중심으로 통일
     revisedMarkdown,
     predictedScores,
     improvements,
@@ -75,59 +75,39 @@ export async function reviseContent(
 }
 
 /**
- * HTML을 마크다운으로 변환 (기본 태그는 유지)
+ * HTML/마크다운을 순수 텍스트로 변환 (구조 유지)
  */
-function convertToMarkdown(content: string, originalContent: string): string {
-  // 이미 마크다운 형식이면 그대로 반환
-  const htmlTags = content.match(/<[^>]+>/g);
-  if (!content.includes('<') || !htmlTags || htmlTags.length < 5) {
-    return content;
-  }
+function convertToPlainText(content: string): string {
+  // HTML 태그 제거
+  let text = content
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+    .replace(/<[^>]+>/g, ' ');
   
-  // HTML이 많이 포함되어 있으면 HTML 구조를 유지하면서 마크다운 요소 추가
-  try {
-    const $ = cheerio.load(content);
-    
-    // 기본 마크다운 변환
-    $('h1').each((_, el) => {
-      const text = $(el).text();
-      $(el).replaceWith(`# ${text}\n\n`);
-    });
-    
-    $('h2').each((_, el) => {
-      const text = $(el).text();
-      $(el).replaceWith(`## ${text}\n\n`);
-    });
-    
-    $('h3').each((_, el) => {
-      const text = $(el).text();
-      $(el).replaceWith(`### ${text}\n\n`);
-    });
-    
-    $('p').each((_, el) => {
-      const text = $(el).text();
-      if (text.trim()) {
-        $(el).replaceWith(`${text}\n\n`);
-      }
-    });
-    
-    $('ul li').each((_, el) => {
-      const text = $(el).text();
-      $(el).replaceWith(`- ${text}\n`);
-    });
-    
-    $('ol li').each((_, el) => {
-      const text = $(el).text();
-      $(el).replaceWith(`1. ${text}\n`);
-    });
-    
-    const markdown = $.text();
-    return markdown.replace(/\n{3,}/g, '\n\n').trim();
-  } catch (error) {
-    // 변환 실패 시 원본 반환
-    console.warn('마크다운 변환 실패:', error);
-    return content;
-  }
+  // 마크다운 문법 제거
+  text = text
+    .replace(/^#{1,6}\s+/gm, '') // 헤더 마크다운
+    .replace(/\*\*([^*]+)\*\*/g, '$1') // 볼드
+    .replace(/\*([^*]+)\*/g, '$1') // 이탤릭
+    .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1') // 링크
+    .replace(/`([^`]+)`/g, '$1') // 인라인 코드
+    .replace(/```[\s\S]*?```/g, '') // 코드 블록
+    .replace(/!\[([^\]]*)\]\([^\)]+\)/g, '') // 이미지
+    .replace(/^[-*+]\s+/gm, '') // 리스트 마크다운
+    .replace(/^\d+\.\s+/gm, '') // 번호 리스트
+    .replace(/^>\s+/gm, '') // 인용
+    .replace(/^---+\s*$/gm, '') // 구분선
+    .replace(/\n{3,}/g, '\n\n') // 연속된 줄바꿈 정리
+    .trim();
+  
+  // 공백 정리
+  text = text
+    .replace(/\s+/g, ' ') // 연속된 공백
+    .replace(/\n\s+/g, '\n') // 줄 시작 공백
+    .replace(/\s+\n/g, '\n') // 줄 끝 공백
+    .trim();
+  
+  return text;
 }
 
 /**

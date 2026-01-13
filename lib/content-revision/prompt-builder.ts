@@ -1,5 +1,6 @@
 import { AnalysisResult } from '@/lib/analyzer';
 import { getBlogPlatformFromURL } from '@/lib/blog-detector';
+import * as cheerio from 'cheerio';
 
 export interface RevisionRequest {
   originalContent: string;
@@ -77,11 +78,74 @@ export function buildRevisionPrompt(request: RevisionRequest): string {
     }
   });
 
+  // 원문에서 텍스트와 구조 추출
+  const { textContent, structure } = extractTextAndStructure(originalContent);
+  
   // 네이버 블로그 또는 iframe 구조인 경우 특별 처리
   if (isNaverBlog || hasIframe) {
-    const prompt = `당신은 SEO/AEO/GEO 전문 콘텐츠 개선 가이드 작성자입니다.
+    const prompt = `당신은 SEO/AEO/GEO 전문 콘텐츠 편집자입니다.
 현재 분석된 웹페이지는 ${isNaverBlog ? '네이버 블로그' : 'iframe 구조'}로 되어 있어 실제 콘텐츠가 iframe 내부에 있습니다.
-따라서 HTML 구조를 수정하는 것이 아니라, **실제 블로그 콘텐츠에 적용할 수 있는 구체적인 개선 포인트와 가이드**를 제공해야 합니다.
+**원문의 구조와 배열을 그대로 유지하면서**, 텍스트만 SEO/AEO/GEO 기준에 맞춰 개선해야 합니다.
+
+[현재 분석 점수]
+- SEO: ${analysisResult.seoScore}/100 (목표: 80점 이상)
+- AEO: ${analysisResult.aeoScore}/100 (목표: 80점 이상)
+- GEO: ${analysisResult.geoScore}/100 (목표: 80점 이상)
+- 종합: ${analysisResult.overallScore}/100
+
+[분석 결과 기반 개선이 필요한 사항]
+${Object.entries(improvementsByCategory)
+  .filter(([_, items]) => items.length > 0)
+  .map(([category, items]) => `\n## ${category} 개선 사항\n${items.join('\n')}`)
+  .join('\n')}
+
+[원문 콘텐츠 구조]
+${structure}
+
+[원문 텍스트 내용]
+${textContent.substring(0, 15000)}${textContent.length > 15000 ? '...' : ''}
+
+[출력 형식 요구사항]
+**원문의 구조와 배열을 정확히 유지하면서**, 텍스트만 개선된 버전을 제공해주세요.
+
+출력 형식:
+1. 원문의 제목, 소제목, 문단 구조를 그대로 유지
+2. 각 섹션의 순서와 배열을 동일하게 유지
+3. 텍스트만 SEO/AEO/GEO 기준에 맞춰 개선
+4. HTML 태그나 마크다운 문법 없이 **순수 텍스트**로 출력
+5. 블로그 플랫폼에 바로 붙여넣을 수 있는 형태로 제공
+
+[개선 지침]
+- 원문의 톤과 스타일 유지
+- 핵심 메시지와 의미 변경 금지
+- 자연스러운 문장 흐름 유지
+- 키워드 과도 삽입 금지
+- 사용자 경험 최우선
+
+[개선 포인트]
+${Object.entries(improvementsByCategory)
+  .filter(([_, items]) => items.length > 0)
+  .map(([category, items]) => `\n${category}:\n${items.slice(0, 5).join('\n')}`)
+  .join('\n')}
+
+**중요**: 
+- HTML 코드나 마크다운 문법을 사용하지 마세요
+- 원문 구조를 그대로 유지하세요
+- 순수 텍스트만 출력하세요
+- 블로그 에디터에 바로 붙여넣을 수 있는 형태로 제공하세요`;
+
+    return prompt;
+  }
+
+  // 일반 웹사이트의 경우도 텍스트 중심으로 개선
+  const prompt = `당신은 SEO/AEO/GEO 전문 콘텐츠 편집자입니다. 
+다음 웹페이지 콘텐츠를 분석 결과를 바탕으로 개선하여 수정해주세요.
+
+[원문 콘텐츠 구조]
+${structure}
+
+[원문 텍스트 내용]
+${textContent.substring(0, 15000)}${textContent.length > 15000 ? '...' : ''}
 
 [현재 분석 점수]
 - SEO: ${analysisResult.seoScore}/100 (목표: 80점 이상)
@@ -96,96 +160,143 @@ ${Object.entries(improvementsByCategory)
   .join('\n')}
 
 [출력 형식 요구사항]
-다음 형식으로 **개선 가이드 문서**를 작성해주세요:
+**원문의 구조와 배열을 정확히 유지하면서**, 텍스트만 개선된 버전을 제공해주세요.
 
-# 콘텐츠 개선 가이드
+출력 형식:
+1. 원문의 제목, 소제목, 문단 구조를 그대로 유지
+2. 각 섹션의 순서와 배열을 동일하게 유지
+3. 텍스트만 SEO/AEO/GEO 기준에 맞춰 개선
+4. HTML 태그나 마크다운 문법 없이 **순수 텍스트**로 출력
+5. 웹사이트나 블로그 플랫폼에 바로 붙여넣을 수 있는 형태로 제공
 
-## 현재 상태 분석
-- 현재 점수와 목표 점수의 차이를 명확히 제시
-- 가장 시급하게 개선해야 할 영역 3가지를 우선순위로 제시
+[개선 지침]
+- 원문의 톤과 스타일 유지
+- 핵심 메시지와 의미 변경 금지
+- 자연스러운 문장 흐름 유지
+- 키워드 과도 삽입 금지
+- 사용자 경험 최우선
 
-## 구체적인 개선 포인트
-
-### 1. SEO 개선 포인트
-각 개선 사항에 대해:
-- **개선 항목**: 무엇을 개선해야 하는지
-- **현재 상태**: 현재 어떤 문제가 있는지
-- **개선 방법**: 구체적으로 어떻게 개선할 수 있는지 (실행 가능한 단계)
-- **예상 효과**: 이 개선으로 기대되는 점수 향상
-
-### 2. AEO 개선 포인트
-(동일한 형식)
-
-### 3. GEO 개선 포인트
-(동일한 형식)
-
-## 실제 적용 가이드
-각 개선 포인트를 실제 블로그 콘텐츠에 적용하는 방법을 단계별로 안내:
-- 블로그 에디터에서 어떻게 수정할 수 있는지
-- 어떤 섹션에 추가하면 좋은지
-- 예시 텍스트나 구조 제시
-
-## 예상 개선 효과
-- SEO 점수: ${analysisResult.seoScore} → 예상 80+ 점
-- AEO 점수: ${analysisResult.aeoScore} → 예상 80+ 점
-- GEO 점수: ${analysisResult.geoScore} → 예상 80+ 점
-
-**중요**: HTML 코드를 보여주지 말고, 실제 블로그 콘텐츠 작성자가 바로 적용할 수 있는 **실행 가능한 개선 가이드**를 제공하세요.`;
-
-    return prompt;
-  }
-
-  // 일반 웹사이트의 경우 기존 방식 유지하되 개선
-  const prompt = `당신은 SEO/AEO/GEO 전문 콘텐츠 편집자입니다. 
-다음 웹페이지 콘텐츠를 분석 결과를 바탕으로 개선하여 수정해주세요.
-
-[원본 콘텐츠]
-${originalContent.substring(0, 10000)}${originalContent.length > 10000 ? '...' : ''}
-
-[현재 분석 점수]
-- SEO: ${analysisResult.seoScore}/100 (목표: 80점 이상)
-- AEO: ${analysisResult.aeoScore}/100 (목표: 80점 이상)
-- GEO: ${analysisResult.geoScore}/100 (목표: 80점 이상)
-- 종합: ${analysisResult.overallScore}/100
-
-[분석 결과 기반 개선이 필요한 사항]
+[개선 포인트]
 ${Object.entries(improvementsByCategory)
   .filter(([_, items]) => items.length > 0)
-  .map(([category, items]) => `\n## ${category} 개선 사항\n${items.join('\n')}`)
+  .map(([category, items]) => `\n${category}:\n${items.slice(0, 5).join('\n')}`)
   .join('\n')}
 
-[출력 형식]
-다음 형식으로 개선된 콘텐츠와 개선 포인트를 함께 제공해주세요:
-
-# 개선된 콘텐츠
-
-## 주요 개선 포인트 요약
-- SEO: [개선된 항목 3-5개]
-- AEO: [개선된 항목 3-5개]
-- GEO: [개선된 항목 3-5개]
-
-## 개선된 콘텐츠
-[실제 개선된 콘텐츠 내용 - 마크다운 형식]
-
-## 개선 상세 설명
-각 개선 사항에 대해:
-- **개선 항목**: 무엇을 개선했는지
-- **개선 방법**: 어떻게 개선했는지
-- **예상 효과**: 이 개선으로 기대되는 점수 향상
-
-[수정 지침]
-1. 원본 콘텐츠의 톤, 스타일, 핵심 메시지를 유지하세요
-2. HTML 구조와 태그 형식을 보존하세요 (태그를 삭제하거나 구조를 망가뜨리지 마세요)
-3. 위 개선 사항을 자연스럽게 통합하세요
-4. 변경 사항은 명확하고 구체적으로 하되, 원본의 의도를 해치지 마세요
-5. 마크다운 형식으로 출력하세요
-
-[중요]
-- 원본 콘텐츠의 핵심 내용은 변경하지 마세요
-- 모든 변경 사항은 자연스럽고 읽기 쉽게 통합하세요
-- 과도한 키워드 삽입은 피하세요
-- 사용자 경험을 최우선으로 고려하세요`;
+**중요**: 
+- HTML 코드나 마크다운 문법을 사용하지 마세요
+- 원문 구조를 그대로 유지하세요
+- 순수 텍스트만 출력하세요
+- 플랫폼에 바로 붙여넣을 수 있는 형태로 제공하세요`;
 
   return prompt;
+}
+
+/**
+ * 원문에서 텍스트와 구조 추출
+ */
+function extractTextAndStructure(html: string): { textContent: string; structure: string } {
+  try {
+    const $ = cheerio.load(html);
+    
+    // 불필요한 태그 제거
+    $('script, style, nav, footer, header, aside, .ad, .advertisement').remove();
+    
+    // 구조 정보 추출
+    const structure: string[] = [];
+    const headings: Array<{ level: number; text: string }> = [];
+    
+    // 제목 구조 추출
+    $('h1, h2, h3, h4, h5, h6').each((_, el) => {
+      const tagName = el.tagName.toLowerCase();
+      const level = parseInt(tagName.charAt(1));
+      const text = $(el).text().trim();
+      if (text) {
+        headings.push({ level, text });
+        structure.push(`${'  '.repeat(level - 1)}${tagName.toUpperCase()}: ${text}`);
+      }
+    });
+    
+    // 본문 텍스트 추출 (구조 유지)
+    const textContent = extractTextWithStructure($);
+    
+    const structureText = structure.length > 0 
+      ? `문서 구조:\n${structure.join('\n')}\n\n총 ${headings.length}개의 제목 구조가 있습니다.`
+      : '제목 구조가 명확하지 않습니다. 문단 중심으로 구조를 유지해주세요.';
+    
+    return {
+      textContent,
+      structure: structureText,
+    };
+  } catch (error) {
+    console.warn('구조 추출 실패:', error);
+    // 실패 시 간단한 텍스트 추출
+    const text = html
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    
+    return {
+      textContent: text,
+      structure: '구조 추출 실패. 원문 텍스트를 기반으로 구조를 유지해주세요.',
+    };
+  }
+}
+
+/**
+ * 구조를 유지하면서 텍스트 추출
+ */
+function extractTextWithStructure($: cheerio.CheerioAPI): string {
+  const body = $('body');
+  if (body.length === 0) {
+    return $.text();
+  }
+  
+  const textParts: string[] = [];
+  
+  // 본문 영역 찾기
+  const mainContent = body.find('main, article, .content, #content, .post-content, .entry-content').first();
+  const contentArea = mainContent.length > 0 ? mainContent : body;
+  
+  // 구조를 유지하면서 텍스트 추출
+  contentArea.contents().each((_, node) => {
+    if (node.type === 'text') {
+      const text = $(node).text().trim();
+      if (text) {
+        textParts.push(text);
+      }
+    } else if (node.type === 'tag') {
+      const tagName = node.tagName.toLowerCase();
+      const $el = $(node);
+      const text = $el.text().trim();
+      
+      if (text) {
+        // 제목 태그
+        if (['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].includes(tagName)) {
+          textParts.push(`\n\n${text}\n`);
+        }
+        // 문단
+        else if (tagName === 'p') {
+          textParts.push(`\n${text}\n`);
+        }
+        // 리스트
+        else if (['ul', 'ol'].includes(tagName)) {
+          $el.find('li').each((_, li) => {
+            const liText = $(li).text().trim();
+            if (liText) {
+              textParts.push(`\n- ${liText}`);
+            }
+          });
+        }
+        // 기타
+        else {
+          textParts.push(text);
+        }
+      }
+    }
+  });
+  
+  return textParts.join(' ').replace(/\n{3,}/g, '\n\n').trim();
 }
 

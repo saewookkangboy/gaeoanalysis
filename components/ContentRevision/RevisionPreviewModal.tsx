@@ -257,15 +257,8 @@ export default function RevisionPreviewModal({
           textToCopy = await convertMarkdownToHtml(preview.revisedMarkdown);
           break;
         case 'text':
-          // HTML 태그 및 마크다운 문법 제거
-          textToCopy = preview.revisedMarkdown
-            .replace(/<[^>]*>/g, '') // HTML 태그 제거
-            .replace(/#{1,6}\s+/g, '') // 헤더 마크다운 제거
-            .replace(/\*\*([^*]+)\*\*/g, '$1') // 볼드 제거
-            .replace(/\*([^*]+)\*/g, '$1') // 이탤릭 제거
-            .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1') // 링크 제거
-            .replace(/`([^`]+)`/g, '$1') // 인라인 코드 제거
-            .trim();
+          // 이미 텍스트 중심으로 변환되어 있으므로 그대로 사용
+          textToCopy = cleanTextForDisplay(preview.revisedMarkdown);
           break;
       }
 
@@ -336,6 +329,40 @@ export default function RevisionPreviewModal({
       .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
       .replace(/<[^>]+>/g, ' ')
       .replace(/\s+/g, ' ')
+      .trim();
+    
+    return text;
+  };
+
+  // 텍스트 중심으로 정리 (HTML/마크다운 제거)
+  const cleanTextForDisplay = (content: string): string => {
+    // HTML 태그 제거
+    let text = content
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+      .replace(/<[^>]+>/g, ' ');
+    
+    // 마크다운 문법 제거
+    text = text
+      .replace(/^#{1,6}\s+/gm, '') // 헤더 마크다운
+      .replace(/\*\*([^*]+)\*\*/g, '$1') // 볼드
+      .replace(/\*([^*]+)\*/g, '$1') // 이탤릭
+      .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1') // 링크
+      .replace(/`([^`]+)`/g, '$1') // 인라인 코드
+      .replace(/```[\s\S]*?```/g, '') // 코드 블록
+      .replace(/!\[([^\]]*)\]\([^\)]+\)/g, '') // 이미지
+      .replace(/^[-*+]\s+/gm, '') // 리스트 마크다운
+      .replace(/^\d+\.\s+/gm, '') // 번호 리스트
+      .replace(/^>\s+/gm, '') // 인용
+      .replace(/^---+\s*$/gm, '') // 구분선
+      .replace(/\n{3,}/g, '\n\n') // 연속된 줄바꿈 정리
+      .trim();
+    
+    // 공백 정리
+    text = text
+      .replace(/\s+/g, ' ') // 연속된 공백
+      .replace(/\n\s+/g, '\n') // 줄 시작 공백
+      .replace(/\s+\n/g, '\n') // 줄 끝 공백
       .trim();
     
     return text;
@@ -597,40 +624,11 @@ export default function RevisionPreviewModal({
                     </div>
                   </div>
                   <div className="rounded-lg border-2 border-gray-200 bg-white p-6 max-h-[60vh] overflow-y-auto shadow-inner" data-allow-copy="true">
-                    <div className="markdown-content prose prose-sky max-w-none" data-allow-copy="true">
-                      <ReactMarkdown
-                        remarkPlugins={[remarkGfm]}
-                        components={{
-                          h3: ({node, children, ...props}) => (
-                            <h3 className="text-xl font-semibold text-gray-900 mt-4 mb-2 flex items-center gap-2" {...props}>
-                              <span className="text-sky-600">▸</span>
-                              <span>{children}</span>
-                            </h3>
-                          ),
-                          h4: ({node, ...props}) => <h4 className="text-lg font-semibold text-gray-900 mt-3 mb-2" {...props} />,
-                          p: ({node, ...props}) => <p className="text-gray-800 mb-4 leading-relaxed text-base" {...props} />,
-                          a: ({node, ...props}) => <a className="text-sky-600 hover:text-sky-700 underline font-medium" target="_blank" rel="noopener noreferrer" {...props} />,
-                          strong: ({node, ...props}) => <strong className="font-bold text-gray-900 bg-yellow-100 px-1 rounded" {...props} />,
-                          em: ({node, ...props}) => <em className="italic text-gray-800" {...props} />,
-                          ul: ({node, ...props}) => <ul className="list-disc list-outside mb-4 space-y-2 text-gray-800 ml-6" {...props} />,
-                          ol: ({node, ...props}) => <ol className="list-decimal list-outside mb-4 space-y-2 text-gray-800 ml-6" {...props} />,
-                          li: ({node, ...props}) => <li className="text-gray-800 leading-relaxed" {...props} />,
-                          blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-sky-500 pl-4 italic text-gray-700 my-4 bg-sky-50 py-2 rounded-r" {...props} />,
-                          code: ({node, inline, ...props}: any) => 
-                            inline ? (
-                              <code className="bg-sky-100 text-sky-800 px-2 py-0.5 rounded text-sm font-mono border border-sky-200" {...props} />
-                            ) : (
-                              <code className="block bg-gray-100 text-gray-800 p-4 rounded-lg overflow-x-auto text-sm font-mono border border-gray-300 mb-4" {...props} />
-                            ),
-                          pre: ({node, ...props}) => <pre className="bg-gray-100 text-gray-800 p-4 rounded-lg overflow-x-auto mb-4 border border-gray-300" {...props} />,
-                          hr: ({node, ...props}) => <hr className="my-6 border-gray-300" {...props} />,
-                          table: ({node, ...props}) => <div className="overflow-x-auto mb-4"><table className="w-full border-collapse border border-gray-300" {...props} /></div>,
-                          th: ({node, ...props}) => <th className="border border-gray-300 bg-gray-100 px-4 py-2 text-left font-semibold text-gray-900" {...props} />,
-                          td: ({node, ...props}) => <td className="border border-gray-300 px-4 py-2 text-gray-800" {...props} />,
-                        }}
-                      >
-                        {cleanMarkdownForDisplay(preview.revisedMarkdown)}
-                      </ReactMarkdown>
+                    <div className="text-content" data-allow-copy="true">
+                      {/* 텍스트 중심 표시 - HTML/마크다운 없이 순수 텍스트 */}
+                      <div className="whitespace-pre-wrap text-base text-gray-800 leading-relaxed font-sans">
+                        {cleanTextForDisplay(preview.revisedMarkdown)}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -669,31 +667,14 @@ export default function RevisionPreviewModal({
                       </div>
                       <div className="p-6 max-h-[60vh] overflow-y-auto">
                         <div className="prose prose-sm max-w-none text-gray-800 leading-relaxed">
-                          <ReactMarkdown
-                            remarkPlugins={[remarkGfm]}
-                            components={{
-                              h1: ({node, ...props}) => <h1 className="text-2xl font-bold text-gray-900 mt-4 mb-3 pb-2 border-b border-gray-200" {...props} />,
-                              h2: ({node, ...props}) => <h2 className="text-xl font-bold text-gray-900 mt-3 mb-2 pb-1 border-b border-gray-200" {...props} />,
-                              h3: ({node, children, ...props}) => (
-                                <h3 className="text-lg font-semibold text-gray-900 mt-3 mb-2 flex items-center gap-2" {...props}>
-                                  <span className="text-sky-600">▸</span>
-                                  <span>{children}</span>
-                                </h3>
-                              ),
-                              p: ({node, ...props}) => <p className="text-gray-800 mb-3 leading-relaxed text-base" {...props} />,
-                              strong: ({node, ...props}) => <strong className="font-bold text-gray-900 bg-yellow-100 px-1 rounded" {...props} />,
-                              ul: ({node, ...props}) => <ul className="list-disc list-outside mb-3 space-y-1 text-gray-800 ml-5" {...props} />,
-                              ol: ({node, ...props}) => <ol className="list-decimal list-outside mb-3 space-y-1 text-gray-800 ml-5" {...props} />,
-                              li: ({node, ...props}) => <li className="text-gray-800 leading-relaxed" {...props} />,
-                            }}
-                          >
+                          <div className="whitespace-pre-wrap text-base text-gray-800 leading-relaxed">
                             {(() => {
-                              const cleaned = cleanMarkdownForDisplay(preview.revisedMarkdown);
+                              const cleaned = cleanTextForDisplay(preview.revisedMarkdown);
                               return cleaned.length > 3000 
                                 ? `${cleaned.substring(0, 3000)}...`
                                 : cleaned;
                             })()}
-                          </ReactMarkdown>
+                          </div>
                         </div>
                       </div>
                     </div>
