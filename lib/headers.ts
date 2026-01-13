@@ -48,6 +48,11 @@ export function addSecurityHeaders(
   response.headers.set('X-XSS-Protection', '1; mode=block');
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   
+  // HTTPS 강제 (프로덕션 환경에서만)
+  if (process.env.NODE_ENV === 'production') {
+    response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
+  }
+  
   // Trusted Types 오류 해결을 위한 CSP 헤더 (OAuth 콜백 경로에만)
   if (request.nextUrl.pathname.startsWith('/api/auth')) {
     response.headers.set(

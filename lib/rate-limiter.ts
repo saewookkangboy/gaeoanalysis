@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { normalizeIpAddress } from './security-utils';
 
 /**
  * 간단한 메모리 기반 레이트 리미터

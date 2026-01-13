@@ -25,14 +25,15 @@ const chatSchema = z.object({
 });
 
 // 레이트 리미트 키 생성
-const getChatRateLimitKey = (request: NextRequest, userId?: string): string => {
+const getChatRateLimitKey = async (request: NextRequest, userId?: string): Promise<string> => {
   if (userId) {
     return `chat:user:${userId}`;
   }
+  const { normalizeIpAddress } = await import('@/lib/security-utils');
   const ip = request.headers.get('x-forwarded-for') || 
              request.headers.get('x-real-ip') || 
              'unknown';
-  return `chat:ip:${ip}`;
+  return `chat:ip:${normalizeIpAddress(ip)}`;
 };
 
 async function handleChat(request: NextRequest) {
@@ -214,7 +215,7 @@ async function handleChat(request: NextRequest) {
 // 레이트 리미트 키 생성 함수
 const getChatRateLimitKeyAsync = async (request: NextRequest): Promise<string> => {
   const session = await auth();
-  return getChatRateLimitKey(request, session?.user?.id);
+  return await getChatRateLimitKey(request, session?.user?.id);
 };
 
 // 레이트 리미트 적용된 핸들러 (사용자당 1분에 20회)

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { logServerError } from './error-logger';
+import { getSafeErrorMessage, sanitizeUrlForLogging, sanitizeHeadersForLogging } from './security-utils';
 
 /**
  * 표준화된 에러 응답 타입
@@ -120,15 +121,15 @@ export function withErrorHandling(
           severity = 'high';
         }
 
-        // Fire-and-forget 로깅
+        // Fire-and-forget 로깅 (민감한 정보 제거)
         Promise.resolve().then(() =>
           logServerError({
             errorType,
             error,
-            url,
+            url: sanitizeUrlForLogging(url),
             method,
             severity,
-            headers: request.headers,
+            headers: sanitizeHeadersForLogging(request.headers),
             metadata: {
               pathname,
             },
@@ -166,16 +167,20 @@ export function withErrorHandling(
           );
         }
         
+        // 프로덕션에서는 상세한 에러 메시지 숨김
+        const safeMessage = getSafeErrorMessage(error, errorMessage);
         return createErrorResponse(
           'INTERNAL_ERROR',
-          error.message || errorMessage,
+          safeMessage,
           500
         );
       }
       
+      // 프로덕션에서는 상세한 에러 메시지 숨김
+      const safeMessage = getSafeErrorMessage(error, errorMessage);
       return createErrorResponse(
         'INTERNAL_ERROR',
-        errorMessage,
+        safeMessage,
         500
       );
     }

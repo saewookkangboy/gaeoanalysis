@@ -47,11 +47,14 @@ const getRateLimitKey = async (request: NextRequest): Promise<string> => {
   if (userId) {
     return `user:${userId}`;
   }
+  const { normalizeIpAddress } = await import('@/lib/security-utils');
   const ip = request.headers.get('x-forwarded-for') || 
              request.headers.get('x-real-ip') || 
              'unknown';
-  return `ip:${ip}`;
+  return `ip:${normalizeIpAddress(ip)}`;
 };
+<｜tool▁calls▁begin｜><｜tool▁call▁begin｜>
+read_file
 
 async function handleAnalyze(request: NextRequest) {
   console.log('🚀 [Analyze API] 분석 요청 시작');

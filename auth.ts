@@ -4,6 +4,7 @@ import GitHub from "next-auth/providers/github";
 import { createUser, getUser, getUserByEmail, saveAuthLog, migrateUserEmail } from "@/lib/db-helpers";
 import { v4 as uuidv4 } from "uuid";
 import { createHash } from "crypto";
+import { validateRequiredEnvVars } from "@/lib/security-utils";
 
 /**
  * 이메일과 Provider 기반으로 일관된 사용자 ID 생성
@@ -29,6 +30,29 @@ const authSecret = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET;
 // 빌드 타임 체크 (Next.js 빌드 중에는 에러를 던지지 않음)
 const isBuildTime = process.env.NEXT_PHASE === 'phase-production-build' || 
                     process.env.NEXT_PHASE === 'phase-development-build';
+
+// 환경 변수 검증 (런타임)
+if (!isBuildTime) {
+  const envValidation = validateRequiredEnvVars([
+    'AUTH_SECRET', // 또는 NEXTAUTH_SECRET
+  ]);
+  
+  // AUTH_SECRET이 없으면 NEXTAUTH_SECRET 확인
+  if (envValidation.missing.includes('AUTH_SECRET') && !process.env.NEXTAUTH_SECRET) {
+    envValidation.valid = false;
+    envValidation.errors.push('AUTH_SECRET 또는 NEXTAUTH_SECRET 중 하나는 필수입니다.');
+  }
+  
+  if (!envValidation.valid && process.env.NODE_ENV === 'production') {
+    const errorMsg = '❌ 필수 환경 변수가 설정되지 않았습니다. PKCE 코드 검증이 실패할 수 있습니다.';
+    console.error(errorMsg);
+    console.error('💡 해결 방법: 환경 변수에 다음을 추가하세요:');
+    console.error('   AUTH_SECRET=$(openssl rand -base64 32)');
+    console.error('   또는 Railway/Vercel 대시보드에서 환경 변수 설정');
+    console.error('   Vercel: Settings → Environment Variables → AUTH_SECRET 추가');
+    throw new Error(errorMsg);
+  }
+}
 
 if (!authSecret) {
   const errorMsg = '❌ AUTH_SECRET 또는 NEXTAUTH_SECRET이 설정되지 않았습니다. PKCE 코드 검증이 실패할 수 있습니다.';
