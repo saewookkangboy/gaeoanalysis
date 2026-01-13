@@ -1,6 +1,8 @@
 /**
  * 커머스 사이트 상품 페이지 자동 감지 모듈
  * URL 패턴, HTML 구조, 콘텐츠 패턴을 분석하여 커머스 상품 페이지를 자동으로 감지합니다.
+ * 
+ * Railway 빌드 호환성을 위해 유지
  */
 
 import * as cheerio from 'cheerio';
