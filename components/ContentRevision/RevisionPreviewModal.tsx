@@ -553,8 +553,10 @@ export default function RevisionPreviewModal({
                   <div className="mb-3 flex items-center justify-between flex-wrap gap-2">
                     <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                       <span>📄</span>
-                      {preview.revisedMarkdown.includes('# 콘텐츠 개선 가이드') || preview.revisedMarkdown.includes('# 개선된 콘텐츠')
+                      {preview.revisedMarkdown.includes('# 콘텐츠 개선 가이드')
                         ? '콘텐츠 개선 가이드'
+                        : preview.revisedMarkdown.includes('# 개선된 콘텐츠')
+                        ? '개선된 콘텐츠'
                         : '수정된 콘텐츠 (완성형)'}
                     </h3>
                     <div className="flex items-center gap-2">
@@ -599,12 +601,12 @@ export default function RevisionPreviewModal({
                       <ReactMarkdown
                         remarkPlugins={[remarkGfm]}
                         components={{
-                          h1: ({node, ...props}) => <h1 className="text-3xl font-bold text-gray-900 mt-6 mb-4 pb-3 border-b-2 border-gray-300" {...props} />,
-                          h2: ({node, ...props}) => <h2 className="text-2xl font-bold text-gray-900 mt-5 mb-3 pb-2 border-b border-gray-200" {...props} />,
-                          h3: ({node, ...props}) => <h3 className="text-xl font-semibold text-gray-900 mt-4 mb-2 flex items-center gap-2">
-                            <span className="text-sky-600">▸</span>
-                            <span {...props} />
-                          </h3>,
+                          h3: ({node, children, ...props}) => (
+                            <h3 className="text-xl font-semibold text-gray-900 mt-4 mb-2 flex items-center gap-2" {...props}>
+                              <span className="text-sky-600">▸</span>
+                              <span>{children}</span>
+                            </h3>
+                          ),
                           h4: ({node, ...props}) => <h4 className="text-lg font-semibold text-gray-900 mt-3 mb-2" {...props} />,
                           p: ({node, ...props}) => <p className="text-gray-800 mb-4 leading-relaxed text-base" {...props} />,
                           a: ({node, ...props}) => <a className="text-sky-600 hover:text-sky-700 underline font-medium" target="_blank" rel="noopener noreferrer" {...props} />,
@@ -650,8 +652,12 @@ export default function RevisionPreviewModal({
                       <div className="p-6 max-h-[60vh] overflow-y-auto">
                         <div className="prose prose-sm max-w-none text-gray-800 leading-relaxed">
                           <div className="whitespace-pre-wrap text-base">
-                            {extractTextContent(preview.originalContent).substring(0, 3000)}
-                            {extractTextContent(preview.originalContent).length > 3000 && '...'}
+                            {(() => {
+                              const originalText = extractTextContent(preview.originalContent);
+                              return originalText.length > 3000 
+                                ? `${originalText.substring(0, 3000)}...`
+                                : originalText;
+                            })()}
                           </div>
                         </div>
                       </div>
@@ -668,9 +674,14 @@ export default function RevisionPreviewModal({
                             components={{
                               h1: ({node, ...props}) => <h1 className="text-2xl font-bold text-gray-900 mt-4 mb-3 pb-2 border-b border-gray-200" {...props} />,
                               h2: ({node, ...props}) => <h2 className="text-xl font-bold text-gray-900 mt-3 mb-2 pb-1 border-b border-gray-200" {...props} />,
-                              h3: ({node, ...props}) => <h3 className="text-lg font-semibold text-gray-900 mt-3 mb-2" {...props} />,
+                              h3: ({node, children, ...props}) => (
+                                <h3 className="text-lg font-semibold text-gray-900 mt-3 mb-2 flex items-center gap-2" {...props}>
+                                  <span className="text-sky-600">▸</span>
+                                  <span>{children}</span>
+                                </h3>
+                              ),
                               p: ({node, ...props}) => <p className="text-gray-800 mb-3 leading-relaxed text-base" {...props} />,
-                              strong: ({node, ...props}) => <strong className="font-bold text-gray-900" {...props} />,
+                              strong: ({node, ...props}) => <strong className="font-bold text-gray-900 bg-yellow-100 px-1 rounded" {...props} />,
                               ul: ({node, ...props}) => <ul className="list-disc list-outside mb-3 space-y-1 text-gray-800 ml-5" {...props} />,
                               ol: ({node, ...props}) => <ol className="list-decimal list-outside mb-3 space-y-1 text-gray-800 ml-5" {...props} />,
                               li: ({node, ...props}) => <li className="text-gray-800 leading-relaxed" {...props} />,
