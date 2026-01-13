@@ -75,7 +75,9 @@ export async function GET(request: NextRequest) {
 
     // 캐시 크기 제한 (최대 50개)
     if (contentCache.size > 50) {
-      const firstKey = contentCache.keys().next().value;
+      // 첫 번째 키 가져오기 (Map이 비어있지 않으므로 첫 번째 키는 항상 존재)
+      const keysArray = Array.from(contentCache.keys());
+      const firstKey: string = keysArray[0]!;
       contentCache.delete(firstKey);
     }
 

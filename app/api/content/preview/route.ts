@@ -136,7 +136,9 @@ export async function POST(request: NextRequest) {
 
     // 캐시 크기 제한 (최대 30개)
     if (previewCache.size > 30) {
-      const firstKey = previewCache.keys().next().value;
+      // 첫 번째 키 가져오기 (Map이 비어있지 않으므로 첫 번째 키는 항상 존재)
+      const keysArray = Array.from(previewCache.keys());
+      const firstKey: string = keysArray[0]!;
       previewCache.delete(firstKey);
     }
 
