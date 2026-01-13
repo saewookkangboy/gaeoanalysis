@@ -183,7 +183,7 @@ function estimateScores(
 }
 
 /**
- * 개선 사항 추출
+ * 개선 사항 추출 (분석 결과 기반)
  */
 function extractImprovements(
   originalAnalysis: AnalysisResult,
@@ -193,31 +193,72 @@ function extractImprovements(
   const $ = cheerio.load(revisedContent);
   
   // SEO 개선 사항
-  if ($('h1').length >= 1 && originalAnalysis.seoScore < 70) {
-    improvements.push('H1 태그 추가됨');
+  const h1Count = ($('h1').length + (revisedContent.match(/^#\s+/gm)?.length || 0));
+  if (h1Count >= 1 && originalAnalysis.seoScore < 70) {
+    improvements.push('H1 태그 추가/개선됨 - 검색 엔진 최적화');
   }
-  if (revisedContent.includes('<title>') || revisedContent.includes('title')) {
-    improvements.push('Title 태그 추가/개선됨');
+  if (revisedContent.includes('<title>') || revisedContent.includes('title') || revisedContent.match(/^#\s+/)) {
+    improvements.push('제목 구조 개선됨 - SEO 점수 향상');
   }
-  if (revisedContent.includes('meta name="description"') || revisedContent.includes('description')) {
+  if (revisedContent.includes('meta name="description"') || revisedContent.includes('description') || revisedContent.includes('메타 설명')) {
     improvements.push('Meta Description 추가/개선됨');
   }
   
+  // 이미지 alt 속성 확인
+  const imgCount = ($('img').length + (revisedContent.match(/!\[/g)?.length || 0));
+  const altCount = ($('img[alt]').length + (revisedContent.match(/!\[[^\]]+\]/g)?.length || 0));
+  if (imgCount > 0 && altCount === imgCount) {
+    improvements.push('모든 이미지에 alt 속성 추가됨');
+  }
+  
   // AEO 개선 사항
-  if (revisedContent.includes('FAQ') || revisedContent.includes('자주 묻는 질문')) {
-    improvements.push('FAQ 섹션 추가됨');
+  if (revisedContent.includes('FAQ') || revisedContent.includes('자주 묻는 질문') || revisedContent.includes('질문과 답변')) {
+    improvements.push('FAQ 섹션 추가됨 - AI 검색 엔진 최적화');
   }
   const questionCount = revisedContent.match(/[?？]/g)?.length || 0;
   if (questionCount > 3) {
-    improvements.push('질문 형식 콘텐츠 추가됨');
+    improvements.push(`질문 형식 콘텐츠 추가됨 (${questionCount}개 질문 발견)`);
   }
   
   // GEO 개선 사항
   const wordCount = revisedContent.split(/\s+/).length;
   if (wordCount > 1500) {
-    improvements.push('콘텐츠 길이 확장됨');
+    improvements.push(`콘텐츠 길이 확장됨 (${wordCount}단어) - 깊이 있는 정보 제공`);
+  }
+  if (wordCount > 2000) {
+    improvements.push('상세한 콘텐츠로 확장됨 - 전문성 강화');
   }
   
-  return improvements.length > 0 ? improvements : ['콘텐츠가 개선되었습니다'];
+  // 구조화된 데이터 확인
+  if (revisedContent.includes('schema.org') || revisedContent.includes('application/ld+json') || revisedContent.includes('구조화된 데이터')) {
+    improvements.push('구조화된 데이터 추가됨 - 검색 결과 향상');
+  }
+  
+  // 인용 및 출처 확인
+  const citationCount = (revisedContent.match(/출처|인용|참고|reference/gi)?.length || 0);
+  if (citationCount > 0) {
+    improvements.push('신뢰성 있는 출처 및 인용 추가됨');
+  }
+  
+  // 분석 결과 기반 개선 사항 추가
+  if (originalAnalysis.insights) {
+    const highPriorityInsights = originalAnalysis.insights
+      .filter((insight) => insight.severity === 'High')
+      .slice(0, 3);
+    
+    highPriorityInsights.forEach((insight) => {
+      if (insight.category === 'SEO' && !improvements.some(i => i.includes('SEO'))) {
+        improvements.push(`SEO 개선: ${insight.message.substring(0, 50)}...`);
+      }
+      if (insight.category === 'AEO' && !improvements.some(i => i.includes('AEO'))) {
+        improvements.push(`AEO 개선: ${insight.message.substring(0, 50)}...`);
+      }
+      if (insight.category === 'GEO' && !improvements.some(i => i.includes('GEO'))) {
+        improvements.push(`GEO 개선: ${insight.message.substring(0, 50)}...`);
+      }
+    });
+  }
+  
+  return improvements.length > 0 ? improvements : ['콘텐츠가 분석 결과를 바탕으로 개선되었습니다'];
 }
 

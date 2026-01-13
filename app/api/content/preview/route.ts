@@ -3,6 +3,15 @@ import { auth } from '@/auth';
 import { reviseContent } from '@/lib/content-revision/revision-engine';
 import { withRetry } from '@/lib/retry';
 import { sanitizeUrl } from '@/lib/api-utils';
+import * as cheerio from 'cheerio';
+
+// 미리보기 결과 캐시
+const previewCache = new Map<string, { 
+  preview: any; 
+  timestamp: number;
+  analysisId?: string;
+}>();
+const CACHE_TTL = 10 * 60 * 1000; // 10분
 
 export async function POST(request: NextRequest) {
   try {
@@ -30,6 +39,26 @@ export async function POST(request: NextRequest) {
     // URL 검증
     const sanitizedUrl = sanitizeUrl(url);
     
+    // 캐시 키 생성 (URL + 분석 결과 해시)
+    const analysisHash = JSON.stringify({
+      seo: analysisResult.seoScore,
+      aeo: analysisResult.aeoScore,
+      geo: analysisResult.geoScore,
+      overall: analysisResult.overallScore,
+    });
+    const cacheKey = `${sanitizedUrl}:${analysisHash}`;
+    
+    // 캐시 확인
+    const cached = previewCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      console.log('✅ [Content Preview] 캐시에서 반환');
+      return NextResponse.json({
+        success: true,
+        preview: cached.preview,
+        cached: true,
+      });
+    }
+    
     // Gemini API 키 확인
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
@@ -39,7 +68,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 원본 콘텐츠 가져오기 (간단한 요약만)
+    const startTime = Date.now();
+    
+    // 원본 콘텐츠 가져오기 (최적화: 필요한 부분만)
     const html = await withRetry(
       async () => {
         const response = await fetch(sanitizedUrl, {
@@ -60,10 +91,22 @@ export async function POST(request: NextRequest) {
       }
     );
     
+    // HTML 파싱 및 본문 추출 (더 정확한 콘텐츠 추출)
+    const $ = cheerio.load(html);
+    
+    // 불필요한 태그 제거
+    $('script, style, nav, footer, header, aside, .ad, .advertisement').remove();
+    
+    // 본문 콘텐츠 추출
+    const mainContent = $('main, article, .content, #content, .post-content, .entry-content').first();
+    const bodyText = mainContent.length > 0 ? mainContent.html() || '' : $('body').html() || '';
+    
     // 전체 콘텐츠 사용 (완성형 미리보기를 위해)
-    // 너무 긴 경우를 대비해 최대 10000자로 제한
-    const maxLength = 10000;
-    const originalContent = html.length > maxLength ? html.substring(0, maxLength) : html;
+    // 너무 긴 경우를 대비해 최대 12000자로 제한 (약간 증가)
+    const maxLength = 12000;
+    const originalContent = bodyText.length > maxLength 
+      ? bodyText.substring(0, maxLength) + '...' 
+      : bodyText;
 
     // 완성형 미리보기 생성
     const previewResult = await reviseContent(
@@ -75,13 +118,33 @@ export async function POST(request: NextRequest) {
       apiKey
     );
 
+    const elapsedTime = Date.now() - startTime;
+    console.log(`✅ [Content Preview] 생성 완료 (${elapsedTime}ms)`);
+
+    const previewData = {
+      revisedMarkdown: previewResult.revisedMarkdown,
+      predictedScores: previewResult.predictedScores,
+      improvements: previewResult.improvements,
+    };
+
+    // 캐시 저장
+    previewCache.set(cacheKey, {
+      preview: previewData,
+      timestamp: Date.now(),
+      analysisId: (analysisResult as any).id,
+    });
+
+    // 캐시 크기 제한 (최대 30개)
+    if (previewCache.size > 30) {
+      const firstKey = previewCache.keys().next().value;
+      previewCache.delete(firstKey);
+    }
+
     return NextResponse.json({
       success: true,
-      preview: {
-        revisedMarkdown: previewResult.revisedMarkdown, // 전체 콘텐츠 반환
-        predictedScores: previewResult.predictedScores,
-        improvements: previewResult.improvements,
-      },
+      preview: previewData,
+      cached: false,
+      processingTime: elapsedTime,
     });
   } catch (error: any) {
     console.error('❌ [Content Preview] 오류:', error);

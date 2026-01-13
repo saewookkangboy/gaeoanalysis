@@ -3,6 +3,10 @@
 import { useState } from 'react';
 import { AnalysisResult } from '@/lib/analyzer';
 import { useToast } from '@/components/Toast';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+
+type CopyFormat = 'markdown' | 'html' | 'text';
 
 interface RevisionResultProps {
   isOpen: boolean;
@@ -29,18 +33,59 @@ export default function RevisionResult({
   improvements,
 }: RevisionResultProps) {
   const [copied, setCopied] = useState(false);
+  const [copyFormat, setCopyFormat] = useState<CopyFormat>('markdown');
   const { showToast } = useToast();
 
-  const handleCopy = async () => {
+  const handleCopy = async (format: CopyFormat = copyFormat) => {
     try {
-      await navigator.clipboard.writeText(revisedMarkdown);
+      let textToCopy = '';
+      
+      switch (format) {
+        case 'markdown':
+          textToCopy = revisedMarkdown;
+          break;
+        case 'html':
+          // 간단한 HTML 변환
+          textToCopy = await convertMarkdownToHtml(revisedMarkdown);
+          break;
+        case 'text':
+          textToCopy = revisedMarkdown
+            .replace(/<[^>]*>/g, '')
+            .replace(/#{1,6}\s+/g, '')
+            .replace(/\*\*([^*]+)\*\*/g, '$1')
+            .replace(/\*([^*]+)\*/g, '$1')
+            .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1')
+            .replace(/`([^`]+)`/g, '$1')
+            .trim();
+          break;
+      }
+
+      await navigator.clipboard.writeText(textToCopy);
       setCopied(true);
-      showToast('마크다운 형식으로 복사되었습니다.', 'success');
+      showToast(`${format.toUpperCase()} 형식으로 복사되었습니다!`, 'success');
       setTimeout(() => setCopied(false), 2000);
     } catch (error) {
       console.error('복사 실패:', error);
       showToast('복사에 실패했습니다. 다시 시도해주세요.', 'error');
     }
+  };
+
+  const convertMarkdownToHtml = async (markdown: string): Promise<string> => {
+    try {
+      const response = await fetch('/api/content/markdown-to-html', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ markdown }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        return data.html;
+      }
+    } catch (error) {
+      console.warn('HTML 변환 실패:', error);
+    }
+    return markdown;
   };
 
   if (!isOpen) return null;
@@ -164,24 +209,70 @@ export default function RevisionResult({
           )}
 
           {/* 수정된 콘텐츠 */}
-          <div className="rounded-lg border border-gray-200 bg-white">
-            <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
-              <h3 className="font-semibold text-gray-900">수정된 콘텐츠 (마크다운)</h3>
-              <button
-                onClick={handleCopy}
-                className={`rounded-md px-4 py-2 text-sm font-medium transition-colors ${
-                  copied
-                    ? 'bg-green-100 text-green-700'
-                    : 'bg-sky-100 text-sky-700 hover:bg-sky-200'
-                }`}
-              >
-                {copied ? '✓ 복사됨' : '📋 복사'}
-              </button>
+          <div className="rounded-lg border-2 border-gray-200 bg-white shadow-sm">
+            <div className="flex items-center justify-between border-b-2 border-gray-200 px-4 py-3 bg-gradient-to-r from-gray-50 to-gray-100">
+              <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                <span>📄</span>
+                수정된 콘텐츠
+              </h3>
+              <div className="flex items-center gap-2">
+                <select
+                  value={copyFormat}
+                  onChange={(e) => setCopyFormat(e.target.value as CopyFormat)}
+                  className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-sky-500"
+                >
+                  <option value="markdown">Markdown</option>
+                  <option value="html">HTML</option>
+                  <option value="text">텍스트</option>
+                </select>
+                <button
+                  onClick={() => handleCopy()}
+                  className={`rounded-md px-4 py-2 text-sm font-medium transition-colors flex items-center gap-1 ${
+                    copied
+                      ? 'bg-green-100 text-green-700'
+                      : 'bg-sky-100 text-sky-700 hover:bg-sky-200'
+                  }`}
+                >
+                  {copied ? (
+                    <>
+                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      복사됨
+                    </>
+                  ) : (
+                    <>
+                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                      복사 ({copyFormat.toUpperCase()})
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
-            <div className="max-h-96 overflow-y-auto p-4">
-              <pre className="whitespace-pre-wrap text-sm text-gray-700 font-mono leading-relaxed">
-                {revisedMarkdown}
-              </pre>
+            <div className="max-h-96 overflow-y-auto p-6">
+              <div className="prose prose-sm max-w-none">
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    h1: ({node, ...props}) => <h1 className="text-2xl font-bold text-gray-900 mt-4 mb-2" {...props} />,
+                    h2: ({node, ...props}) => <h2 className="text-xl font-bold text-gray-900 mt-3 mb-2" {...props} />,
+                    h3: ({node, ...props}) => <h3 className="text-lg font-semibold text-gray-900 mt-2 mb-1" {...props} />,
+                    p: ({node, ...props}) => <p className="text-gray-700 mb-3 leading-relaxed" {...props} />,
+                    a: ({node, ...props}) => <a className="text-sky-600 hover:text-sky-700 underline" {...props} />,
+                    strong: ({node, ...props}) => <strong className="font-bold text-gray-900" {...props} />,
+                    code: ({node, inline, ...props}: any) => 
+                      inline ? (
+                        <code className="bg-sky-50 text-sky-700 px-1.5 py-0.5 rounded text-sm font-mono" {...props} />
+                      ) : (
+                        <code className="block bg-gray-50 text-gray-800 p-3 rounded-lg overflow-x-auto text-sm font-mono" {...props} />
+                      ),
+                  }}
+                >
+                  {revisedMarkdown}
+                </ReactMarkdown>
+              </div>
             </div>
           </div>
         </div>
