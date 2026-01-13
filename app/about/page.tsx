@@ -531,17 +531,6 @@ export default function AboutPage() {
           </div>
         </section>
 
-        {/* 공지 사항 */}
-        <section className="mt-16 mb-8">
-          <div className="rounded-lg border-2 border-amber-200 bg-gradient-to-br from-amber-50 to-yellow-50 p-6 text-center">
-            <div className="mb-2 text-amber-600 text-lg font-semibold">
-              📢 공지
-            </div>
-            <p className="text-sm sm:text-base text-gray-700">
-              특정 블로그는 진단이 어려울 수 있습니다 (네이버, 브런치 등)
-            </p>
-          </div>
-        </section>
       </div>
     </div>
   );
