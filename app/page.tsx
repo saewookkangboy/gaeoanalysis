@@ -755,16 +755,14 @@ function HomeContent() {
 
             {/* 액션 버튼 */}
             <div className="flex flex-wrap justify-end gap-2">
-              {/* 콘텐츠 수정안 미리보기 버튼 - localhost에서만 표시 */}
-              {process.env.NODE_ENV === 'development' && (
-                <button
-                  onClick={() => setIsRevisionPreviewOpen(true)}
-                  className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 px-4 py-2 text-sm font-semibold text-white shadow-md transition-all hover:from-purple-600 hover:to-pink-600 hover:shadow-lg hover:scale-105"
-                >
-                  <span>✍️</span>
-                  <span>콘텐츠 수정안 미리 보기 (개발 모드)</span>
-                </button>
-              )}
+              {/* 콘텐츠 수정안 미리보기 버튼 */}
+              <button
+                onClick={() => setIsRevisionPreviewOpen(true)}
+                className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 px-4 py-2 text-sm font-semibold text-white shadow-md transition-all hover:from-purple-600 hover:to-pink-600 hover:shadow-lg hover:scale-105"
+              >
+                <span>✍️</span>
+                <span>콘텐츠 수정안 미리 보기</span>
+              </button>
               <ShareButton analysisData={analysisData} url={url} />
               <CopyButton analysisData={analysisData} url={url} />
             </div>
