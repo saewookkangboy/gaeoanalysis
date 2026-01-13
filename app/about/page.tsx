@@ -55,8 +55,7 @@ export default function AboutPage() {
             AI 검색 시대, 콘텐츠가 AI에게 선택받으려면?
           </h1>
           <p className="mx-auto max-w-3xl text-xl sm:text-2xl text-gray-600 leading-relaxed mb-6">
-            ChatGPT, Perplexity, Grok, Gemini, Claude가 당신의 콘텐츠를 인용하도록 만드는<br />
-            <span className="font-semibold text-sky-600">실전 최적화 도구</span>
+            ChatGPT, Perplexity, Grok, Gemini, Claude가 당신의 콘텐츠를 인용하도록 만드는 <span className="font-semibold text-sky-600">실전 최적화 도구</span>
           </p>
           
           {/* 마케터가 직접 만든 도구 강조 */}
