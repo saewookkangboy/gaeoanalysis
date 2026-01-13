@@ -31,6 +31,14 @@ const nextConfig: NextConfig = {
   },
   // Chunk 로딩 에러 방지 (webpack은 fallback으로 유지)
   webpack: (config, { isServer }) => {
+    // Path alias 설정 (Railway 빌드 환경에서 모듈 해결 문제 해결)
+    if (config.resolve) {
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        '@': require('path').resolve(__dirname),
+      };
+    }
+    
     if (!isServer) {
       // 클라이언트 사이드 chunk 로딩 최적화
       config.optimization = {
