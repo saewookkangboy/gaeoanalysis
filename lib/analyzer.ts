@@ -18,9 +18,9 @@ import { withRetry } from './retry';
 import { FRESHNESS_OPTIMIZATION, STATISTICS_QUOTATIONS_GUIDE, CONTENT_STRUCTURE_GUIDE } from './seo-guidelines-enhanced';
 import { analyzeNaverBlogContent } from './naver-blog-analyzer';
 import { detectBlogPlatform, getBlogPlatformName } from './blog-detector';
-// Ecommerce 분석 모듈 (절대 경로 사용)
-import { detectEcommercePage } from '@/lib/ecommerce-detector';
-import { analyzeEcommerceProductPage } from '@/lib/ecommerce-product-analyzer';
+// Ecommerce analysis modules
+import { detectEcommercePage } from './ecommerce-detector';
+import { analyzeEcommerceProductPage } from './ecommerce-product-analyzer';
 import {
   calculateEnhancedSEOScore,
   calculateEnhancedAEOScore,
@@ -33,7 +33,7 @@ import {
   analyzeTrustSignals,
   analyzeInteractions,
   generateWebsiteInsights,
-} from '@/lib/content-depth-analyzer';
+} from './content-depth-analyzer';
 
 // Import types for use in this file
 import type { DomainAuthority, CitationOpportunity, QualityIssue } from './citation-analyzer';

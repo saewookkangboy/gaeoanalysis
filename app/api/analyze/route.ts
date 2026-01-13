@@ -40,7 +40,7 @@ const analyzeSchema = z.object({
 });
 
 // 레이트 리미트 설정: IP당 1분에 10회, 사용자당 1시간에 50회
-const getRateLimitKey = async (request: NextRequest): Promise<string> => {
+async function getRateLimitKey(request: NextRequest): Promise<string> {
   const session = await auth();
   const userId = session?.user?.id;
   
@@ -55,7 +55,7 @@ const getRateLimitKey = async (request: NextRequest): Promise<string> => {
   const normalizedIp = normalizeIpAddress(ip);
   const rateLimitKey = `ip:${normalizedIp}`;
   return rateLimitKey;
-};
+}
 
 // 분석 요청 핸들러
 async function handleAnalyze(request: NextRequest) {
