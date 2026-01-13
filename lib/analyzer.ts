@@ -18,8 +18,8 @@ import { withRetry } from './retry';
 import { FRESHNESS_OPTIMIZATION, STATISTICS_QUOTATIONS_GUIDE, CONTENT_STRUCTURE_GUIDE } from './seo-guidelines-enhanced';
 import { analyzeNaverBlogContent } from './naver-blog-analyzer';
 import { detectBlogPlatform, getBlogPlatformName } from './blog-detector';
-import { detectEcommercePage } from './ecommerce-detector';
-import { analyzeEcommerceProductPage } from './ecommerce-product-analyzer';
+import { detectEcommercePage } from '@/lib/ecommerce-detector';
+import { analyzeEcommerceProductPage } from '@/lib/ecommerce-product-analyzer';
 import {
   calculateEnhancedSEOScore,
   calculateEnhancedAEOScore,
@@ -27,6 +27,12 @@ import {
   normalizeScore,
   type TextContext as EnhancedTextContext,
 } from './enhanced-scoring';
+import {
+  analyzeContentStructure,
+  analyzeTrustSignals,
+  analyzeInteractions,
+  generateWebsiteInsights,
+} from './content-depth-analyzer';
 
 // Import types for use in this file
 import type { DomainAuthority, CitationOpportunity, QualityIssue } from './citation-analyzer';
@@ -463,7 +469,39 @@ export async function analyzeContent(url: string): Promise<AnalysisResult> {
       );
 
       // 인사이트 및 가이드라인 (이 단계에서 함께 생성)
-      const insights = generateInsights($, aeoScore, geoScore, seoScore, textContext);
+      let insights = generateInsights($, aeoScore, geoScore, seoScore, textContext);
+      
+      // 일반 사이트인 경우 깊이 있는 콘텐츠 분석 추가
+      if (isWebsite) {
+        console.log('🔍 [Analyzer] 일반 사이트 깊이 있는 콘텐츠 분석 시작');
+        try {
+          const contentStructure = analyzeContentStructure($);
+          const trustSignals = analyzeTrustSignals($, url);
+          const interactions = analyzeInteractions($);
+          
+          // 일반 사이트 특화 인사이트 추가
+          const websiteInsights = generateWebsiteInsights(contentStructure, trustSignals, interactions);
+          insights = [...insights, ...websiteInsights];
+          
+          console.log('🔍 [Analyzer] 깊이 있는 콘텐츠 분석 완료', {
+            structure: {
+              hierarchyScore: contentStructure.hierarchy.hierarchyScore,
+              sectionCount: contentStructure.sections.count,
+              connectivity: contentStructure.sections.connectivity,
+            },
+            trust: {
+              eaatOverall: trustSignals.eaat.overall,
+              business: trustSignals.business,
+              security: trustSignals.security,
+            },
+            interactions,
+            additionalInsights: websiteInsights.length,
+          });
+        } catch (error) {
+          console.warn('⚠️ [Analyzer] 깊이 있는 콘텐츠 분석 중 오류 (계속 진행):', error);
+        }
+      }
+      
       baseResult.insights = insights;
       improvementPriorities = getImprovementPriority(aeoScore, geoScore, seoScore, insights);
       contentGuidelines = getContentWritingGuidelines(aeoScore, geoScore, seoScore);
