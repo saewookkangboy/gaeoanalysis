@@ -11,6 +11,7 @@ import {
   analyzeInteractions,
   generateWebsiteInsights,
 } from '../content-depth-analyzer';
+import type { Insight } from '../analyzer';
 
 describe('Content Depth Analyzer', () => {
   describe('analyzeContentStructure', () => {
@@ -237,10 +238,10 @@ describe('Content Depth Analyzer', () => {
       const insights = generateWebsiteInsights(contentStructure, trustSignals, interactions);
       
       expect(insights.length).toBeGreaterThanOrEqual(1);
-      const hasStructure = insights.some((i: any) => i.category === '구조');
-      const hasTrust = insights.some((i: any) => i.category === '신뢰도');
-      const hasBusiness = insights.some((i: any) => i.category === '비즈니스');
-      const hasSecurity = insights.some((i: any) => i.category === '보안');
+      const hasStructure = insights.some((i: Insight) => i.category === '구조');
+      const hasTrust = insights.some((i: Insight) => i.category === '신뢰도');
+      const hasBusiness = insights.some((i: Insight) => i.category === '비즈니스');
+      const hasSecurity = insights.some((i: Insight) => i.category === '보안');
       expect(hasStructure || hasTrust || hasBusiness || hasSecurity).toBe(true);
     });
 
@@ -344,17 +345,6 @@ function expect(value: any) {
       }
     },
   };
-  
-  // 배열인 경우 배열 메서드 추가
-  if (Array.isArray(value)) {
-    result.some = (predicate: (item: any) => boolean) => {
-      return value.some(predicate);
-    };
-    result.filter = (predicate: (item: any) => boolean) => {
-      return value.filter(predicate);
-    };
-    result.length = value.length;
-  }
   
   return result;
 }
