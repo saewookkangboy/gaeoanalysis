@@ -18,7 +18,7 @@ import { withRetry } from './retry';
 import { FRESHNESS_OPTIMIZATION, STATISTICS_QUOTATIONS_GUIDE, CONTENT_STRUCTURE_GUIDE } from './seo-guidelines-enhanced';
 import { analyzeNaverBlogContent } from './naver-blog-analyzer';
 import { detectBlogPlatform, getBlogPlatformName } from './blog-detector';
-// Ecommerce 분석 모듈
+// Ecommerce 분석 모듈 (절대 경로 사용)
 import { detectEcommercePage } from '@/lib/ecommerce-detector';
 import { analyzeEcommerceProductPage } from '@/lib/ecommerce-product-analyzer';
 import {
