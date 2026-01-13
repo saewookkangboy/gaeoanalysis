@@ -76,12 +76,18 @@ function resolveAioWeights(overrides?: AIOWeightOverrides): AIOWeights {
  * 
  * @param $ Cheerio API 인스턴스
  * @param aeoScore AEO 점수
- * @param geoScore GEO 점수
- * @param seoScore SEO 점수
- * @param weightOverrides 가중치 오버라이드 (선택)
- * @param isWebsite 일반 사이트 여부 (일반 사이트인 경우 강화 가중치 사용)
- */
-export function calculateAIOCitationScores(
+  // 일반 사이트인 경우 강화 가중치 사용
+  const baseWeights = isWebsite ? ENHANCED_AIO_WEIGHTS as AIOWeights : DEFAULT_AIO_WEIGHTS;
+  // Apply overrides with validation
+  const mergedWeights: AIOWeights = { ...baseWeights };
+  if (weightOverrides) {
+    for (const [key, value] of Object.entries(weightOverrides)) {
+      if (typeof value === 'number' && Number.isFinite(value)) {
+        (mergedWeights as Record<string, number>)[key] = value;
+      }
+    }
+  }
+  const weights = resolveAioWeights(mergedWeights);
   $: cheerio.CheerioAPI,
   aeoScore: number,
   geoScore: number,
