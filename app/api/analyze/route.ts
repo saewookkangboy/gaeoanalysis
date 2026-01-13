@@ -52,7 +52,8 @@ const getRateLimitKey = async (request: NextRequest): Promise<string> => {
   const forwardedFor = request.headers.get('x-forwarded-for');
   const realIp = request.headers.get('x-real-ip');
   const ip = forwardedFor || realIp || 'unknown';
-  return `ip:${normalizeIpAddress(ip)}`;
+  const normalizedIp = normalizeIpAddress(ip);
+  return `ip:${normalizedIp}`;
 };
 
 // 분석 요청 핸들러
