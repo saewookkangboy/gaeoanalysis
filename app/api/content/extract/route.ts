@@ -77,12 +77,10 @@ export async function GET(request: NextRequest) {
     if (contentCache.size > 50) {
       // 첫 번째 키 가져오기 (Map이 비어있지 않으므로 첫 번째 키는 항상 존재)
       const keysArray = Array.from(contentCache.keys());
-      if (keysArray.length > 0) {
-        const firstKey = keysArray[0];
-        // TypeScript 타입 가드: firstKey가 string인지 확인
-        if (firstKey && typeof firstKey === 'string') {
-          contentCache.delete(firstKey);
-        }
+      const firstKey = keysArray[0];
+      // TypeScript 타입 가드: firstKey가 string인지 명확히 확인
+      if (typeof firstKey === 'string') {
+        contentCache.delete(firstKey);
       }
     }
 
