@@ -62,6 +62,28 @@ describe('Blog Detector Integration', () => {
     expect(result.platform.type).toBe('none');
   });
 
+  it('watchshell.com과 같은 일반 쇼핑몰 사이트는 네이버 블로그로 감지되지 않아야 함', () => {
+    const url = 'https://watchshell.com/';
+    const html = `
+      <html>
+        <head>
+          <title>WatchShell - 시계 쇼핑몰</title>
+        </head>
+        <body>
+          <h1>WatchShell</h1>
+          <p>Rolex, Omega 등 다양한 시계를 판매합니다</p>
+          <div>블로그 섹션</div>
+          <a href="https://se.naver.com/search">네이버 검색</a>
+        </body>
+      </html>
+    `;
+    const result = detectBlogPlatform(url, html);
+    
+    // watchshell.com은 일반 사이트이므로 블로그로 감지되지 않아야 함
+    expect(result.isBlog).toBe(false);
+    expect(result.platform.type).toBe('none');
+  });
+
   it('실제 일반 사이트 URL을 올바르게 감지해야 함', () => {
     const testUrls = [
       'https://example.com',

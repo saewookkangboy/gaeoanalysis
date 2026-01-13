@@ -91,12 +91,18 @@ export function getBlogPlatformFromURL(url: string): BlogPlatform | null {
 
 /**
  * HTML 메타데이터 및 구조 기반 블로그 플랫폼 감지
+ * 
+ * @param html 페이지 HTML 내용
+ * @param url 페이지 URL (선택, URL 기반 추가 검증용)
  */
-export function getBlogPlatformFromHTML(html: string): BlogPlatform | null {
+export function getBlogPlatformFromHTML(html: string, url?: string): BlogPlatform | null {
   const htmlLower = html.toLowerCase();
   const indicators: string[] = [];
   let confidence = 0;
   let platformType: BlogPlatformType | null = null;
+  
+  // URL이 제공된 경우, URL이 blog.naver.com이 아니면 HTML 기반 네이버 블로그 감지를 더 엄격하게
+  const isNaverBlogUrl = url ? url.toLowerCase().includes('blog.naver.com') : false;
 
   // Generator 메타 태그 확인
   const generatorMatch = html.match(/<meta[^>]*name=["']generator["'][^>]*content=["']([^"']+)["']/i);
@@ -114,25 +120,43 @@ export function getBlogPlatformFromHTML(html: string): BlogPlatform | null {
   }
 
   // 네이버 블로그 특정 패턴 확인 (더 엄격한 조건)
-  // URL에 blog.naver.com이 포함되어 있거나, HTML에 네이버 블로그 특정 패턴이 있어야 함
+  // 일반 사이트에서도 네이버 검색 엔진 링크(se.naver.com)가 있을 수 있으므로 제외
+  // 네이버 블로그만의 고유한 패턴만 감지해야 함
   const naverBlogPatterns = [
-    /blog\.naver\.com/i,           // blog.naver.com 도메인
+    /blog\.naver\.com/i,           // blog.naver.com 도메인 (가장 확실한 패턴)
     /postview\.naver/i,            // PostView.naver 패턴
     /naver\.com\/blog/i,           // naver.com/blog 패턴
-    /blogid=/i,                    // blogId 파라미터
-    /logno=/i,                     // logNo 파라미터
-    /se\.naver\.com/i,             // 네이버 검색 엔진
+    /blogid=/i,                    // blogId 파라미터 (네이버 블로그 고유)
+    /logno=/i,                     // logNo 파라미터 (네이버 블로그 고유)
   ];
   
   const hasNaverBlogPattern = naverBlogPatterns.some(pattern => pattern.test(html));
   
-  // 단순히 "naver"와 "blog" 단어만으로는 감지하지 않음
-  // 네이버 블로그 특정 패턴이 있어야 함
+  // URL이 blog.naver.com이 아닌 경우, 더 엄격한 검증 필요
   if (hasNaverBlogPattern) {
-    if (!platformType || confidence < 0.70) {
-      platformType = 'naver';
-      confidence = Math.max(confidence, 0.75);
-      indicators.push('네이버 블로그 특정 패턴 감지');
+    // URL이 blog.naver.com인 경우: HTML 패턴만으로도 충분
+    // URL이 blog.naver.com이 아닌 경우: 더 명확한 패턴이 필요
+    if (isNaverBlogUrl) {
+      // URL이 blog.naver.com이면 HTML 패턴만으로도 감지
+      if (!platformType || confidence < 0.70) {
+        platformType = 'naver';
+        confidence = Math.max(confidence, 0.80);
+        indicators.push('네이버 블로그 URL + HTML 패턴 감지');
+      }
+    } else {
+      // URL이 blog.naver.com이 아닌 경우, 더 명확한 패턴만 감지
+      // blog.naver.com이 HTML에 직접 포함되어 있거나, PostView.naver 같은 명확한 패턴이 있어야 함
+      const hasExplicitNaverBlogPattern = /blog\.naver\.com|postview\.naver/i.test(html);
+      
+      if (hasExplicitNaverBlogPattern) {
+        if (!platformType || confidence < 0.70) {
+          platformType = 'naver';
+          confidence = Math.max(confidence, 0.75);
+          indicators.push('네이버 블로그 명확한 패턴 감지');
+        }
+      }
+      // blogId나 logNo만 있는 경우는 URL이 blog.naver.com일 때만 신뢰
+      // (일반 사이트에서 우연히 매칭될 수 있음)
     }
   }
 
@@ -221,8 +245,8 @@ export function detectBlogPlatform(url: string, html: string): BlogDetectionResu
     };
   }
 
-  // 2. HTML 메타데이터 기반 감지
-  const htmlPlatform = getBlogPlatformFromHTML(html);
+  // 2. HTML 메타데이터 기반 감지 (URL 정보도 전달하여 더 정확한 감지)
+  const htmlPlatform = getBlogPlatformFromHTML(html, url);
   
   if (htmlPlatform && htmlPlatform.confidence >= 0.70) {
     // URL과 HTML 결과가 일치하는 경우 신뢰도 향상

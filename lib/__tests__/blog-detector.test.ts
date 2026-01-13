@@ -105,17 +105,35 @@ describe('Blog Detector', () => {
     it('Naver 블로그 특정 패턴을 감지해야 함', () => {
       // blog.naver.com 패턴이 있는 경우
       const html = '<div><a href="https://blog.naver.com/example">네이버 블로그</a></div>';
-      const result = getBlogPlatformFromHTML(html);
+      const result = getBlogPlatformFromHTML(html, 'https://blog.naver.com/example');
       
       expect(result).not.toBeNull();
       expect(result?.type).toBe('naver');
       expect(result?.confidence).toBeGreaterThanOrEqual(0.7);
     });
 
+    it('watchshell.com과 같은 일반 쇼핑몰은 네이버 블로그로 감지되지 않아야 함', () => {
+      // watchshell.com과 유사한 쇼핑몰 사이트 시나리오
+      const html = `
+        <html>
+          <body>
+            <h1>WatchShell - 시계 쇼핑몰</h1>
+            <p>Rolex, Omega 등 다양한 시계를 판매합니다</p>
+            <div>블로그 섹션</div>
+            <a href="https://se.naver.com/search">네이버 검색</a>
+          </body>
+        </html>
+      `;
+      const result = getBlogPlatformFromHTML(html, 'https://watchshell.com/');
+      
+      // watchshell.com은 일반 사이트이므로 네이버 블로그로 감지되지 않아야 함
+      expect(result).toBeNull();
+    });
+
     it('단순히 "naver"와 "blog" 단어만으로는 네이버 블로그로 감지되지 않아야 함', () => {
       // whipped.co.kr과 유사한 쇼핑몰 사이트 시나리오
       const html = '<div class="naver-login">네이버 로그인</div><div>블로그 섹션</div>';
-      const result = getBlogPlatformFromHTML(html);
+      const result = getBlogPlatformFromHTML(html, 'https://whipped.co.kr/');
       
       // 네이버 블로그 특정 패턴이 없으므로 null이어야 함
       expect(result).toBeNull();
