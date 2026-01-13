@@ -20,6 +20,13 @@ import { analyzeNaverBlogContent } from './naver-blog-analyzer';
 import { detectBlogPlatform, getBlogPlatformName } from './blog-detector';
 import { detectEcommercePage } from './ecommerce-detector';
 import { analyzeEcommerceProductPage } from './ecommerce-product-analyzer';
+import {
+  calculateEnhancedSEOScore,
+  calculateEnhancedAEOScore,
+  calculateEnhancedGEOScore,
+  normalizeScore,
+  type TextContext as EnhancedTextContext,
+} from './enhanced-scoring';
 
 // Import types for use in this file
 import type { DomainAuthority, CitationOpportunity, QualityIssue } from './citation-analyzer';
@@ -297,11 +304,9 @@ export async function analyzeContent(url: string): Promise<AnalysisResult> {
       // 현재는 네이버 블로그만 지원하므로, 다른 블로그는 일반 분석으로 진행
       console.log(`⚠️ [Analyzer] ${platformName}는 현재 네이버 블로그만 지원됩니다. 일반 분석으로 진행합니다.`);
     } else {
-      console.log('✅ [Analyzer] 일반 사이트 감지 - 강화 분석 모듈 사용 예정', {
+      console.log('✅ [Analyzer] 일반 사이트 감지 - 강화 분석 모듈 사용', {
         reason: blogDetection.reason,
       });
-      // 향후 일반 사이트 강화 분석 모듈 연결
-      // Phase 2에서 구현 예정
     }
 
     // 커머스 상품 페이지 감지
@@ -340,11 +345,43 @@ export async function analyzeContent(url: string): Promise<AnalysisResult> {
 
     // 공용 텍스트 컨텍스트 (여러 점수/인사이트에서 재사용)
     const textContext = getTextContext($);
+    
+    // 일반 사이트인지 확인 (블로그도 아니고 커머스도 아닌 경우)
+    const isWebsite = !blogDetection.isBlog && !ecommerceDetection.isEcommerce;
 
     // === 1) 핵심 점수 계산 (필수 단계) ===
-    const seoScore = calculateSEOScore($);
-    const aeoScore = calculateAEOScore($, textContext);
-    const geoScore = calculateGEOScore($, textContext);
+    let seoScore: number;
+    let aeoScore: number;
+    let geoScore: number;
+    
+    if (isWebsite) {
+      // 일반 사이트: 강화된 점수 계산 사용
+      console.log('📊 [Analyzer] 일반 사이트 강화 점수 계산 시작');
+      const enhancedTextContext: EnhancedTextContext = {
+        text: textContext.text,
+        words: textContext.words,
+        wordCount: textContext.wordCount,
+      };
+      
+      const enhancedSEOScore = calculateEnhancedSEOScore($, url, { isWebsite: true });
+      const enhancedAEOScore = calculateEnhancedAEOScore($, enhancedTextContext, { isWebsite: true });
+      const enhancedGEOScore = calculateEnhancedGEOScore($, enhancedTextContext, { isWebsite: true });
+      
+      // 점수를 100점 기준으로 정규화 (기존 시스템과 호환)
+      seoScore = normalizeScore(enhancedSEOScore, 120);
+      aeoScore = normalizeScore(enhancedAEOScore, 130);
+      geoScore = normalizeScore(enhancedGEOScore, 140);
+      
+      console.log('📊 [Analyzer] 강화 점수 계산 완료', {
+        enhanced: { seo: enhancedSEOScore, aeo: enhancedAEOScore, geo: enhancedGEOScore },
+        normalized: { seo: seoScore, aeo: aeoScore, geo: geoScore },
+      });
+    } else {
+      // 블로그 또는 커머스: 기존 점수 계산 사용
+      seoScore = calculateSEOScore($);
+      aeoScore = calculateAEOScore($, textContext);
+      geoScore = calculateGEOScore($, textContext);
+    }
 
     const overallScore = Math.round((aeoScore + geoScore + seoScore) / 3);
 
