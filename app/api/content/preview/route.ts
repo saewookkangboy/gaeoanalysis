@@ -138,8 +138,8 @@ export async function POST(request: NextRequest) {
     if (previewCache.size > 30) {
       // 첫 번째 키 가져오기 (Map이 비어있지 않으므로 첫 번째 키는 항상 존재)
       const keysArray = Array.from(previewCache.keys());
-      const firstKey = keysArray[0];
-      if (typeof firstKey === 'string') {
+      const firstKey = keysArray[0] as string | undefined;
+      if (firstKey !== undefined) {
         previewCache.delete(firstKey);
       }
     }
