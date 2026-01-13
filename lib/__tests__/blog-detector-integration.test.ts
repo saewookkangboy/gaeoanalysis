@@ -41,6 +41,27 @@ describe('Blog Detector Integration', () => {
     });
   });
 
+  it('whipped.co.kr과 같은 쇼핑몰 사이트는 네이버 블로그로 감지되지 않아야 함', () => {
+    const url = 'https://whipped.co.kr/';
+    const html = `
+      <html>
+        <head>
+          <title>WHIPPED - 쇼핑몰</title>
+        </head>
+        <body>
+          <button>네이버 로그인</button>
+          <div>블로그 섹션</div>
+          <p>네이버 광고가 포함되어 있습니다</p>
+        </body>
+      </html>
+    `;
+    const result = detectBlogPlatform(url, html);
+    
+    // whipped.co.kr은 일반 사이트이므로 블로그로 감지되지 않아야 함
+    expect(result.isBlog).toBe(false);
+    expect(result.platform.type).toBe('none');
+  });
+
   it('실제 일반 사이트 URL을 올바르게 감지해야 함', () => {
     const testUrls = [
       'https://example.com',

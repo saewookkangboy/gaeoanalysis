@@ -102,13 +102,23 @@ describe('Blog Detector', () => {
       expect(result?.confidence).toBeGreaterThanOrEqual(0.7);
     });
 
-    it('Naver 블로그 클래스 패턴을 감지해야 함', () => {
-      const html = '<div class="naver-blog-post">Content</div>';
+    it('Naver 블로그 특정 패턴을 감지해야 함', () => {
+      // blog.naver.com 패턴이 있는 경우
+      const html = '<div><a href="https://blog.naver.com/example">네이버 블로그</a></div>';
       const result = getBlogPlatformFromHTML(html);
       
       expect(result).not.toBeNull();
       expect(result?.type).toBe('naver');
       expect(result?.confidence).toBeGreaterThanOrEqual(0.7);
+    });
+
+    it('단순히 "naver"와 "blog" 단어만으로는 네이버 블로그로 감지되지 않아야 함', () => {
+      // whipped.co.kr과 유사한 쇼핑몰 사이트 시나리오
+      const html = '<div class="naver-login">네이버 로그인</div><div>블로그 섹션</div>';
+      const result = getBlogPlatformFromHTML(html);
+      
+      // 네이버 블로그 특정 패턴이 없으므로 null이어야 함
+      expect(result).toBeNull();
     });
 
     it('일반 HTML은 null을 반환해야 함', () => {

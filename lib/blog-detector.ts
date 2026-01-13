@@ -113,12 +113,26 @@ export function getBlogPlatformFromHTML(html: string): BlogPlatform | null {
     }
   }
 
-  // 특정 클래스/ID 패턴 확인
-  if (htmlLower.includes('naver') && (htmlLower.includes('blog') || htmlLower.includes('postview'))) {
+  // 네이버 블로그 특정 패턴 확인 (더 엄격한 조건)
+  // URL에 blog.naver.com이 포함되어 있거나, HTML에 네이버 블로그 특정 패턴이 있어야 함
+  const naverBlogPatterns = [
+    /blog\.naver\.com/i,           // blog.naver.com 도메인
+    /postview\.naver/i,            // PostView.naver 패턴
+    /naver\.com\/blog/i,           // naver.com/blog 패턴
+    /blogid=/i,                    // blogId 파라미터
+    /logno=/i,                     // logNo 파라미터
+    /se\.naver\.com/i,             // 네이버 검색 엔진
+  ];
+  
+  const hasNaverBlogPattern = naverBlogPatterns.some(pattern => pattern.test(html));
+  
+  // 단순히 "naver"와 "blog" 단어만으로는 감지하지 않음
+  // 네이버 블로그 특정 패턴이 있어야 함
+  if (hasNaverBlogPattern) {
     if (!platformType || confidence < 0.70) {
       platformType = 'naver';
-      confidence = Math.max(confidence, 0.70);
-      indicators.push('Naver 블로그 클래스/ID 패턴');
+      confidence = Math.max(confidence, 0.75);
+      indicators.push('네이버 블로그 특정 패턴 감지');
     }
   }
 
