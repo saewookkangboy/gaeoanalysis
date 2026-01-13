@@ -674,7 +674,7 @@ export default function RevisionPreviewModal({
                             {(() => {
                               const cleaned = cleanMarkdownForDisplay(preview.revisedMarkdown);
                               return cleaned.length > 3000 
-                                ? cleaned.substring(0, 3000) + '...'
+                                ? `${cleaned.substring(0, 3000)}...`
                                 : cleaned;
                             })()}
                           </ReactMarkdown>
