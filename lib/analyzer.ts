@@ -413,7 +413,8 @@ export async function analyzeContent(url: string): Promise<AnalysisResult> {
       | undefined;
 
     try {
-      const aioScores = calculateAIOCitationScores($, aeoScore, geoScore, seoScore);
+      // 일반 사이트인 경우 강화된 AIO 가중치 사용
+      const aioScores = calculateAIOCitationScores($, aeoScore, geoScore, seoScore, undefined, isWebsite);
       aioAnalysis = generateAIOCitationAnalysis(aioScores);
 
       aiVisibilityScore = calculateAIVisibilityScore($, aioScores, aeoScore, geoScore, seoScore);

@@ -1,5 +1,5 @@
 import * as cheerio from 'cheerio';
-import { DEFAULT_AIO_WEIGHTS, type AIOWeights } from './algorithm-defaults';
+import { DEFAULT_AIO_WEIGHTS, ENHANCED_AIO_WEIGHTS, type AIOWeights } from './algorithm-defaults';
 
 export interface AIOCitationScores {
   chatgpt: number;
@@ -60,22 +60,35 @@ function resolveAioWeights(overrides?: AIOWeightOverrides): AIOWeights {
 /**
  * AI 모델별 인용 확률을 계산합니다.
  * 각 AI 모델의 특성을 반영한 가중치와 특화 지표를 사용합니다.
+ * 
+ * @param $ Cheerio API 인스턴스
+ * @param aeoScore AEO 점수
+ * @param geoScore GEO 점수
+ * @param seoScore SEO 점수
+ * @param weightOverrides 가중치 오버라이드 (선택)
+ * @param isWebsite 일반 사이트 여부 (일반 사이트인 경우 강화 가중치 사용)
  */
 export function calculateAIOCitationScores(
   $: cheerio.CheerioAPI,
   aeoScore: number,
   geoScore: number,
   seoScore: number,
-  weightOverrides?: AIOWeightOverrides
+  weightOverrides?: AIOWeightOverrides,
+  isWebsite?: boolean
 ): AIOCitationScores {
-  const weights = resolveAioWeights(weightOverrides);
+  // 일반 사이트인 경우 강화 가중치 사용
+  const baseWeights = isWebsite ? (ENHANCED_AIO_WEIGHTS as unknown as AIOWeights) : DEFAULT_AIO_WEIGHTS;
+  const mergedWeights: AIOWeights = weightOverrides 
+    ? { ...baseWeights, ...weightOverrides } as AIOWeights
+    : baseWeights;
+  const weights = resolveAioWeights(mergedWeights);
 
-  // 각 AI 모델별 특화 지표 계산
-  const chatgptBonus = calculateChatGPTBonus($);
-  const perplexityBonus = calculatePerplexityBonus($);
-  const grokBonus = calculateGrokBonus($);
-  const geminiBonus = calculateGeminiBonus($);
-  const claudeBonus = calculateClaudeBonus($);
+  // 각 AI 모델별 특화 지표 계산 (일반 사이트인 경우 강화된 보너스)
+  const chatgptBonus = isWebsite ? calculateEnhancedChatGPTBonus($) : calculateChatGPTBonus($);
+  const perplexityBonus = isWebsite ? calculateEnhancedPerplexityBonus($) : calculatePerplexityBonus($);
+  const grokBonus = calculateGrokBonus($); // Grok은 유지
+  const geminiBonus = calculateGeminiBonus($); // Gemini는 유지
+  const claudeBonus = isWebsite ? calculateEnhancedClaudeBonus($) : calculateClaudeBonus($);
 
   // 기본 점수 계산 (가중치 기반)
   const chatgptBase =
@@ -329,6 +342,84 @@ function calculateClaudeBonus($: cheerio.CheerioAPI): number {
   else if (paragraphs >= 5) bonus += 4;
 
   return Math.min(40, bonus); // 최대 보너스 증가 (40점)
+}
+
+/**
+ * 강화된 ChatGPT 인용 확률 보너스 계산 (일반 사이트용)
+ * 일반 사이트의 전문성, 신뢰도, 구조적 완성도를 더 강하게 반영합니다.
+ */
+function calculateEnhancedChatGPTBonus($: cheerio.CheerioAPI): number {
+  let bonus = calculateChatGPTBonus($); // 기존 보너스
+
+  const text = $('body').text();
+  const structuredDataText = $('script[type="application/ld+json"]').text();
+
+  // 전문가 자격증명 강화 (+8점, 기존 +6점에서 추가 +2점)
+  const hasAuthor = structuredDataText.includes('Person') || structuredDataText.includes('author');
+  const hasCredentials = /자격|credential|전문가|expert|박사|Ph\.D|인증|certification/i.test(text);
+  if (hasAuthor && hasCredentials) bonus += 2; // 추가 +2점
+
+  // 연구 기반 콘텐츠 (+7점, 신규)
+  const hasResearch = /연구|research|study|논문|paper|journal/i.test(text);
+  const hasData = /\d+%|\d+\.\d+%|통계|statistics|데이터|data/i.test(text);
+  if (hasResearch && hasData) bonus += 7;
+
+  // 비즈니스 인증 (+5점, 신규)
+  const hasBusinessCert = /인증|certification|ISO|인정|승인|approved/i.test(text);
+  const hasCompanyInfo = /회사|company|기업|corporation/i.test(text);
+  if (hasBusinessCert && hasCompanyInfo) bonus += 5;
+
+  return Math.min(50, bonus); // 최대 보너스 증가 (40점 → 50점)
+}
+
+/**
+ * 강화된 Perplexity 인용 확률 보너스 계산 (일반 사이트용)
+ * 일반 사이트의 최신성, 출처 품질, 데이터 신뢰도를 더 강하게 반영합니다.
+ */
+function calculateEnhancedPerplexityBonus($: cheerio.CheerioAPI): number {
+  let bonus = calculatePerplexityBonus($); // 기존 보너스
+
+  const text = $('body').text();
+
+  // 최신 업데이트 강화 (+18점, 기존 +15점에서 추가 +3점)
+  const hasDate = $('time, [datetime], [class*="date"], [class*="updated"]').length > 0;
+  const hasRecentYear = /(202[4-9]|최근|recent|updated|latest)/i.test(text);
+  if (hasDate && hasRecentYear) bonus += 3; // 추가 +3점
+
+  // 출처 링크 강화 (+10점, 기존 +7점에서 추가 +3점)
+  const externalLinks = $('a[href^="http"]').length;
+  if (externalLinks >= 10) bonus += 3; // 추가 +3점
+
+  // 데이터/통계 포함 (+8점, 신규)
+  const hasStatistics = /\d+%|\d+\.\d+%|통계|statistics/i.test(text);
+  const hasCharts = $('canvas, svg, [class*="chart"]').length > 0;
+  if (hasStatistics && hasCharts) bonus += 8;
+
+  return Math.min(50, bonus); // 최대 보너스 증가 (40점 → 50점)
+}
+
+/**
+ * 강화된 Claude 인용 확률 보너스 계산 (일반 사이트용)
+ * 일반 사이트의 포괄성, 출처 품질, 방법론 투명성을 더 강하게 반영합니다.
+ */
+function calculateEnhancedClaudeBonus($: cheerio.CheerioAPI): number {
+  let bonus = calculateClaudeBonus($); // 기존 보너스
+
+  const text = $('body').text();
+  const wordCount = text.split(/\s+/).length;
+
+  // 주요 출처 강화 (+15점, 기존 +12점에서 추가 +3점)
+  const hasPrimarySources = /pubmed|arxiv|doi|\.edu|\.gov|primary source|주요 출처/i.test(text);
+  if (hasPrimarySources) bonus += 3; // 추가 +3점
+
+  // 콘텐츠 길이 강화 (+12점, 기존 +10점에서 추가 +2점)
+  if (wordCount >= 3000) bonus += 2; // 추가 +2점
+
+  // 방법론 명시 강화 (+10점, 기존 +8점에서 추가 +2점)
+  const hasMethodology = /방법론|methodology|방법|process|절차|프로세스/i.test(text);
+  if (hasMethodology) bonus += 2; // 추가 +2점
+
+  return Math.min(50, bonus); // 최대 보너스 증가 (40점 → 50점)
 }
 
 /**

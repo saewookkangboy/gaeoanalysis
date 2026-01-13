@@ -60,6 +60,37 @@ export const DEFAULT_AIO_WEIGHTS = {
   claude_seo_weight: 0.25,
 } as const;
 
+/**
+ * 일반 사이트 전용 강화된 AIO 가중치
+ * 일반 사이트의 특성(전문성, 신뢰도, 구조적 완성도)을 더 강하게 반영합니다.
+ */
+export const ENHANCED_AIO_WEIGHTS = {
+  // ChatGPT 가중치 강화: SEO와 AEO에 더 높은 가중치
+  chatgpt_seo_weight: 0.35,      // 기존 0.40 → 0.35 (약간 감소, 하지만 구조화 강화)
+  chatgpt_aeo_weight: 0.40,      // 기존 0.35 → 0.40 (증가)
+  chatgpt_geo_weight: 0.25,      // 기존 0.25 → 0.25 (유지)
+  
+  // Perplexity 가중치 강화: GEO와 신선도에 더 높은 가중치
+  perplexity_geo_weight: 0.45,   // 기존 0.45 → 0.45 (유지)
+  perplexity_seo_weight: 0.30,   // 기존 0.30 → 0.30 (유지)
+  perplexity_aeo_weight: 0.25,   // 기존 0.25 → 0.25 (유지)
+  
+  // Grok 가중치 (유지)
+  grok_geo_weight: 0.45,
+  grok_seo_weight: 0.3,
+  grok_aeo_weight: 0.25,
+  
+  // Gemini 가중치 (유지)
+  gemini_geo_weight: 0.4,
+  gemini_seo_weight: 0.35,
+  gemini_aeo_weight: 0.25,
+  
+  // Claude 가중치 강화: AEO와 깊이 있는 콘텐츠에 더 높은 가중치
+  claude_aeo_weight: 0.45,       // 기존 0.40 → 0.45 (증가)
+  claude_geo_weight: 0.30,       // 기존 0.35 → 0.30 (감소)
+  claude_seo_weight: 0.25,       // 기존 0.25 → 0.25 (유지)
+} as const;
+
 export type SEOWeights = typeof DEFAULT_SEO_WEIGHTS;
 export type AEOWeights = typeof DEFAULT_AEO_WEIGHTS;
 export type GEOWeights = typeof DEFAULT_GEO_WEIGHTS;
