@@ -21,17 +21,17 @@ export interface AIOCitationAnalysis {
 
 export type AIOWeightOverrides = Partial<AIOWeights>;
 
-function mergeAioWeights(overrides?: AIOWeightOverrides): AIOWeights {
-  const merged: AIOWeights = { ...DEFAULT_AIO_WEIGHTS };
+function mergeAioWeights(baseWeights: AIOWeights, overrides?: AIOWeightOverrides): AIOWeights {
+  const merged: AIOWeights = { ...baseWeights };
   if (!overrides) {
     return merged;
   }
 
   for (const [key, value] of Object.entries(overrides)) {
-    // Validate key exists in default weights and value is non-negative
-    if (key in DEFAULT_AIO_WEIGHTS && typeof value === 'number' && Number.isFinite(value) && value >= 0) {
+    // Validate key exists in base weights and value is non-negative and finite
+    if (key in baseWeights && typeof value === 'number' && Number.isFinite(value) && value >= 0) {
       (merged as Record<string, number>)[key] = value;
-    } else if (key in DEFAULT_AIO_WEIGHTS && typeof value === 'number') {
+    } else if (key in baseWeights && typeof value === 'number') {
       console.warn(`Invalid weight value for ${key}: ${value}. Must be non-negative and finite.`);
     }
   }
@@ -60,8 +60,7 @@ function normalizeWeightGroup(weights: AIOWeights, keys: Array<keyof AIOWeights>
   }
 }
 
-function resolveAioWeights(overrides?: AIOWeightOverrides): AIOWeights {
-  const weights = mergeAioWeights(overrides);
+function resolveAioWeights(weights: AIOWeights): AIOWeights {
   normalizeWeightGroup(weights, ['chatgpt_seo_weight', 'chatgpt_aeo_weight', 'chatgpt_geo_weight']);
   normalizeWeightGroup(weights, ['perplexity_geo_weight', 'perplexity_seo_weight', 'perplexity_aeo_weight']);
   normalizeWeightGroup(weights, ['grok_geo_weight', 'grok_seo_weight', 'grok_aeo_weight']);
@@ -92,9 +91,7 @@ export function calculateAIOCitationScores(
 ): AIOCitationScores {
   // 일반 사이트인 경우 강화 가중치 사용
   const baseWeights = isWebsite ? (ENHANCED_AIO_WEIGHTS as unknown as AIOWeights) : DEFAULT_AIO_WEIGHTS;
-  const mergedWeights: AIOWeights = weightOverrides 
-    ? { ...baseWeights, ...weightOverrides } as AIOWeights
-    : baseWeights;
+  const mergedWeights = mergeAioWeights(baseWeights, weightOverrides);
   const weights = resolveAioWeights(mergedWeights);
 
   // 각 AI 모델별 특화 지표 계산 (일반 사이트인 경우 강화된 보너스)
