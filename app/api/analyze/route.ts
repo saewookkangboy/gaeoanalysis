@@ -47,6 +47,7 @@ const getRateLimitKey = async (request: NextRequest): Promise<string> => {
   if (userId) {
     return `user:${userId}`;
   }
+  
   const { normalizeIpAddress } = await import('@/lib/security-utils');
   const ip = request.headers.get('x-forwarded-for') || 
              request.headers.get('x-real-ip') || 
