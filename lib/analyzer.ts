@@ -17,6 +17,9 @@ import { SEO_GUIDELINES, getImprovementPriority, getContentWritingGuidelines } f
 import { withRetry } from './retry';
 import { FRESHNESS_OPTIMIZATION, STATISTICS_QUOTATIONS_GUIDE, CONTENT_STRUCTURE_GUIDE } from './seo-guidelines-enhanced';
 import { analyzeNaverBlogContent } from './naver-blog-analyzer';
+import { detectBlogPlatform, getBlogPlatformName } from './blog-detector';
+import { detectEcommercePage } from './ecommerce-detector';
+import { analyzeEcommerceProductPage } from './ecommerce-product-analyzer';
 
 // Import types for use in this file
 import type { DomainAuthority, CitationOpportunity, QualityIssue } from './citation-analyzer';
@@ -118,13 +121,8 @@ export async function analyzeContent(url: string): Promise<AnalysisResult> {
       throw new Error(validation.message);
     }
 
-    // 네이버 블로그 감지
-    const urlObj = new URL(url);
-    const isNaverBlog = urlObj.hostname.includes('blog.naver.com');
-    
-    if (isNaverBlog) {
-      console.log('📝 [Analyzer] 네이버 블로그 감지 - 전용 분석 모듈 사용');
-    }
+    // 블로그 플랫폼 감지는 HTML을 가져온 후 수행
+    // (HTML이 필요하므로 여기서는 URL만 확인)
 
     // URL fetch (재시도 로직 포함, https 실패 시 http로 재시도)
     const html = await withRetry(
@@ -259,28 +257,81 @@ export async function analyzeContent(url: string): Promise<AnalysisResult> {
       }
     );
     
-    // 네이버 블로그인 경우 전용 분석 모듈 사용
-    if (isNaverBlog) {
-      console.log('✅ [Analyzer] 네이버 블로그 전용 분석 시작');
-      const naverResult = await analyzeNaverBlogContent(html, url);
+    // 블로그 플랫폼 감지 (URL + HTML 종합 분석)
+    const blogDetection = detectBlogPlatform(url, html);
+    
+    if (blogDetection.isBlog) {
+      const platformName = getBlogPlatformName(blogDetection.platform.type);
+      console.log(`📝 [Analyzer] ${platformName} 감지 - 전용 분석 모듈 사용`, {
+        platform: blogDetection.platform.type,
+        confidence: blogDetection.platform.confidence,
+        reason: blogDetection.reason,
+      });
       
-      // NaverBlogAnalysisResult를 AnalysisResult로 변환 (naverSpecific 제외)
+      // 네이버 블로그인 경우 전용 분석 모듈 사용
+      if (blogDetection.platform.type === 'naver') {
+        console.log('✅ [Analyzer] 네이버 블로그 전용 분석 시작');
+        const naverResult = await analyzeNaverBlogContent(html, url);
+        
+        // NaverBlogAnalysisResult를 AnalysisResult로 변환 (naverSpecific 제외)
+        return {
+          aeoScore: naverResult.aeoScore,
+          geoScore: naverResult.geoScore,
+          seoScore: naverResult.seoScore,
+          overallScore: naverResult.overallScore,
+          insights: naverResult.insights,
+          aioAnalysis: naverResult.aioAnalysis,
+          aiVisibilityScore: naverResult.aiVisibilityScore,
+          aiVisibilityRecommendations: naverResult.aiVisibilityRecommendations,
+          citationSources: naverResult.citationSources,
+          domainStatistics: naverResult.domainStatistics,
+          domainAuthorities: naverResult.domainAuthorities,
+          citationOpportunities: naverResult.citationOpportunities,
+          qualityIssues: naverResult.qualityIssues,
+          improvementPriorities: naverResult.improvementPriorities,
+          contentGuidelines: naverResult.contentGuidelines,
+        };
+      }
+      
+      // 향후 다른 블로그 플랫폼 지원 확장 가능
+      // 현재는 네이버 블로그만 지원하므로, 다른 블로그는 일반 분석으로 진행
+      console.log(`⚠️ [Analyzer] ${platformName}는 현재 네이버 블로그만 지원됩니다. 일반 분석으로 진행합니다.`);
+    } else {
+      console.log('✅ [Analyzer] 일반 사이트 감지 - 강화 분석 모듈 사용 예정', {
+        reason: blogDetection.reason,
+      });
+      // 향후 일반 사이트 강화 분석 모듈 연결
+      // Phase 2에서 구현 예정
+    }
+
+    // 커머스 상품 페이지 감지
+    const ecommerceDetection = detectEcommercePage(url, html);
+    if (ecommerceDetection.isEcommerce) {
+      console.log('🛒 [Analyzer] 커머스 상품 페이지 감지 - 전용 분석 모듈 사용', {
+        platform: ecommerceDetection.detectedPlatform,
+        confidence: ecommerceDetection.confidence,
+        methods: ecommerceDetection.detectionMethods,
+      });
+      
+      const ecommerceResult = await analyzeEcommerceProductPage(html, url);
+      
+      // EcommerceAnalysisResult를 AnalysisResult로 변환
       return {
-        aeoScore: naverResult.aeoScore,
-        geoScore: naverResult.geoScore,
-        seoScore: naverResult.seoScore,
-        overallScore: naverResult.overallScore,
-        insights: naverResult.insights,
-        aioAnalysis: naverResult.aioAnalysis,
-        aiVisibilityScore: naverResult.aiVisibilityScore,
-        aiVisibilityRecommendations: naverResult.aiVisibilityRecommendations,
-        citationSources: naverResult.citationSources,
-        domainStatistics: naverResult.domainStatistics,
-        domainAuthorities: naverResult.domainAuthorities,
-        citationOpportunities: naverResult.citationOpportunities,
-        qualityIssues: naverResult.qualityIssues,
-        improvementPriorities: naverResult.improvementPriorities,
-        contentGuidelines: naverResult.contentGuidelines,
+        aeoScore: ecommerceResult.aeoScore,
+        geoScore: ecommerceResult.geoScore,
+        seoScore: ecommerceResult.seoScore,
+        overallScore: ecommerceResult.overallScore,
+        insights: ecommerceResult.insights,
+        aioAnalysis: ecommerceResult.aioAnalysis,
+        aiVisibilityScore: ecommerceResult.aiVisibilityScore,
+        aiVisibilityRecommendations: ecommerceResult.aiVisibilityRecommendations,
+        citationSources: ecommerceResult.citationSources,
+        domainStatistics: ecommerceResult.domainStatistics,
+        domainAuthorities: ecommerceResult.domainAuthorities,
+        citationOpportunities: ecommerceResult.citationOpportunities,
+        qualityIssues: ecommerceResult.qualityIssues,
+        improvementPriorities: ecommerceResult.improvementPriorities,
+        contentGuidelines: ecommerceResult.contentGuidelines,
       };
     }
 
