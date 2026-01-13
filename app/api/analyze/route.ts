@@ -55,6 +55,7 @@ const getRateLimitKey = async (request: NextRequest): Promise<string> => {
   return `ip:${normalizeIpAddress(ip)}`;
 };
 
+// 분석 요청 핸들러
 async function handleAnalyze(request: NextRequest) {
   console.log('🚀 [Analyze API] 분석 요청 시작');
   
