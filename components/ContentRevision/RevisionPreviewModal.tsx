@@ -671,8 +671,12 @@ export default function RevisionPreviewModal({
                               li: ({node, ...props}) => <li className="text-gray-800 leading-relaxed" {...props} />,
                             }}
                           >
-                            {cleanMarkdownForDisplay(preview.revisedMarkdown).substring(0, 3000)}
-                            {cleanMarkdownForDisplay(preview.revisedMarkdown).length > 3000 && '...'}
+                            {(() => {
+                              const cleaned = cleanMarkdownForDisplay(preview.revisedMarkdown);
+                              return cleaned.length > 3000 
+                                ? cleaned.substring(0, 3000) + '...'
+                                : cleaned;
+                            })()}
                           </ReactMarkdown>
                         </div>
                       </div>
