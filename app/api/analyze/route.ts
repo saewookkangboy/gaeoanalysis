@@ -10,6 +10,25 @@ import db from '@/lib/db';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 
+/**
+ * 이메일 주소를 마스킹하여 PII 보호
+ * 로컬 파트의 처음 2자만 보이고 나머지는 ***로 대체, 도메인은 유지
+ * @param email - 마스킹할 이메일 주소 (null/undefined 가능)
+ * @returns 마스킹된 이메일 문자열 또는 null
+ */
+function maskEmail(email: string | null | undefined): string | null {
+  if (!email) return null;
+  
+  const [localPart, domain] = email.split('@');
+  if (!domain) return '****'; // @가 없는 경우 전체 마스킹
+  
+  if (localPart.length <= 2) {
+    return `${localPart}***@${domain}`;
+  }
+  
+  return `${localPart.substring(0, 2)}***@${domain}`;
+}
+
 // 입력 스키마 정의 - 유연한 URL 검증
 const analyzeSchema = z.object({
   url: z.string()
@@ -109,7 +128,7 @@ async function handleAnalyze(request: NextRequest) {
   console.log('🔐 [Analyze API] 세션 확인:', {
     hasSession: !!session,
     userId: userId,
-    userEmail: session?.user?.email,
+    userEmail: maskEmail(session?.user?.email),
     provider: session?.user?.provider
   });
 
@@ -171,14 +190,14 @@ async function handleAnalyze(request: NextRequest) {
           sessionId: userId, 
           providerBasedId: providerBasedUserId,
           actualUserId: finalUserId, 
-          email: normalizedEmail,
+          email: maskEmail(normalizedEmail),
           provider: provider
         });
       } else {
         // 1-3. 기존 사용자가 없으면 Provider 기반 ID로 생성
         try {
           console.log('👤 [Analyze API] Provider별 사용자 생성:', {
-            email: normalizedEmail,
+            email: maskEmail(normalizedEmail),
             providerBasedUserId: providerBasedUserId,
             provider: provider,
             sessionId: userId
@@ -205,16 +224,16 @@ async function handleAnalyze(request: NextRequest) {
               providerBasedUserId: providerBasedUserId,
               createdUserId: createdUserId,
               finalUserId: finalUserId,
-              email: normalizedEmail,
+              email: maskEmail(normalizedEmail),
               provider: provider,
-              userEmail: actualUser.email
+              userEmail: maskEmail(actualUser.email)
             });
           } else {
             console.error('❌ [Analyze API] createUser가 반환한 ID로 사용자를 찾을 수 없음:', {
               providerBasedUserId: providerBasedUserId,
               createdUserId: createdUserId,
               finalUserId: finalUserId,
-              email: normalizedEmail,
+              email: maskEmail(normalizedEmail),
               provider: provider
             });
             // 사용자를 찾을 수 없으면 Provider 기반 ID 사용
@@ -238,7 +257,7 @@ async function handleAnalyze(request: NextRequest) {
             console.log('✅ [Analyze API] 이메일로 사용자 확인 (provider 없음):', { 
               sessionId: userId, 
               actualUserId: finalUserId,
-              email: normalizedEmail,
+              email: maskEmail(normalizedEmail),
               foundProvider: emailUser.provider
             });
           } else {
@@ -253,7 +272,7 @@ async function handleAnalyze(request: NextRequest) {
             } else {
               console.warn('⚠️ [Analyze API] 세션 ID로 사용자를 찾을 수 없음:', {
                 sessionId: userId,
-                email: normalizedEmail,
+                email: maskEmail(normalizedEmail),
                 provider: provider
               });
             }
@@ -282,7 +301,7 @@ async function handleAnalyze(request: NextRequest) {
         } else {
           console.warn('⚠️ [Analyze API] 세션 ID로 사용자를 찾을 수 없음:', {
             sessionId: userId,
-            email: normalizedEmail,
+            email: maskEmail(normalizedEmail),
             provider: provider
           });
         }
@@ -297,7 +316,7 @@ async function handleAnalyze(request: NextRequest) {
         console.error('❌ [Analyze API] 저장 전 사용자 확인 실패:', {
           userId: finalUserId,
           sessionId: userId,
-          email: normalizedEmail
+          email: maskEmail(normalizedEmail)
         });
         throw new Error(`사용자가 존재하지 않습니다: ${finalUserId}`);
       }
@@ -306,8 +325,8 @@ async function handleAnalyze(request: NextRequest) {
         analysisId, 
         userId: finalUserId,
         sessionId: userId,
-        email: normalizedEmail,
-        userEmail: userBeforeSave.email,
+        email: maskEmail(normalizedEmail),
+        userEmail: maskEmail(userBeforeSave.email),
         url: sanitizedUrl
       });
       
@@ -346,7 +365,7 @@ async function handleAnalyze(request: NextRequest) {
         requestedId: analysisId,
         returnedId: savedId,
         userId: finalUserId,
-        email: normalizedEmail
+        email: maskEmail(normalizedEmail)
       });
       
       // saveAnalysis는 트랜잭션 내부에서 저장 확인이 성공하면 저장은 완료된 것으로 간주
@@ -355,7 +374,7 @@ async function handleAnalyze(request: NextRequest) {
         analysisId: savedId,
         userId: finalUserId,
         sessionId: userId,
-        email: normalizedEmail,
+        email: maskEmail(normalizedEmail),
         url: sanitizedUrl,
         note: '트랜잭션 내부에서 저장 확인이 성공했으므로 저장은 완료된 것으로 간주합니다.'
       });
@@ -432,7 +451,7 @@ async function handleAnalyze(request: NextRequest) {
             console.log('📧 재시도: Provider별 사용자 발견:', { 
               originalId: finalUserId, 
               foundId: retryUserId,
-              email: normalizedEmail,
+              email: maskEmail(normalizedEmail),
               provider: provider
             });
           } else {
@@ -451,7 +470,7 @@ async function handleAnalyze(request: NextRequest) {
             console.log('👤 재시도: Provider별 사용자 확인/생성 완료:', { 
               originalSessionId: userId, 
               finalUserId: retryUserId,
-              email: normalizedEmail,
+              email: maskEmail(normalizedEmail),
               provider: provider
             });
           }
