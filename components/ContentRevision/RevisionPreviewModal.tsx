@@ -553,7 +553,9 @@ export default function RevisionPreviewModal({
                   <div className="mb-3 flex items-center justify-between flex-wrap gap-2">
                     <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                       <span>📄</span>
-                      수정된 콘텐츠 (완성형)
+                      {preview.revisedMarkdown.includes('# 콘텐츠 개선 가이드') || preview.revisedMarkdown.includes('# 개선된 콘텐츠')
+                        ? '콘텐츠 개선 가이드'
+                        : '수정된 콘텐츠 (완성형)'}
                     </h3>
                     <div className="flex items-center gap-2">
                       {/* 복사 형식 선택 */}
@@ -599,11 +601,14 @@ export default function RevisionPreviewModal({
                         components={{
                           h1: ({node, ...props}) => <h1 className="text-3xl font-bold text-gray-900 mt-6 mb-4 pb-3 border-b-2 border-gray-300" {...props} />,
                           h2: ({node, ...props}) => <h2 className="text-2xl font-bold text-gray-900 mt-5 mb-3 pb-2 border-b border-gray-200" {...props} />,
-                          h3: ({node, ...props}) => <h3 className="text-xl font-semibold text-gray-900 mt-4 mb-2" {...props} />,
+                          h3: ({node, ...props}) => <h3 className="text-xl font-semibold text-gray-900 mt-4 mb-2 flex items-center gap-2">
+                            <span className="text-sky-600">▸</span>
+                            <span {...props} />
+                          </h3>,
                           h4: ({node, ...props}) => <h4 className="text-lg font-semibold text-gray-900 mt-3 mb-2" {...props} />,
                           p: ({node, ...props}) => <p className="text-gray-800 mb-4 leading-relaxed text-base" {...props} />,
                           a: ({node, ...props}) => <a className="text-sky-600 hover:text-sky-700 underline font-medium" target="_blank" rel="noopener noreferrer" {...props} />,
-                          strong: ({node, ...props}) => <strong className="font-bold text-gray-900" {...props} />,
+                          strong: ({node, ...props}) => <strong className="font-bold text-gray-900 bg-yellow-100 px-1 rounded" {...props} />,
                           em: ({node, ...props}) => <em className="italic text-gray-800" {...props} />,
                           ul: ({node, ...props}) => <ul className="list-disc list-outside mb-4 space-y-2 text-gray-800 ml-6" {...props} />,
                           ol: ({node, ...props}) => <ol className="list-decimal list-outside mb-4 space-y-2 text-gray-800 ml-6" {...props} />,
