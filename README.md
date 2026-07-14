@@ -71,7 +71,7 @@
 ### 백엔드
 - Next.js Route Handlers
 - Cheerio (HTML 파싱)
-- Google Gemini API 2.5 Flash (AI 챗봇 및 추천 질문 생성)
+- Google Gemini (통합 GenAI SDK `@google/genai`, 기본 `gemini-flash-latest`) — AI 챗봇·추천 질문·콘텐츠 수정·리포트 생성
 - NextAuth.js (인증)
 
 ### 데이터베이스
@@ -114,6 +114,15 @@ NEXT_PUBLIC_FIREBASE_APP_ID=your-app-id
 
 # Gemini API
 GEMINI_API_KEY=your-gemini-api-key
+
+# (선택) 모델 오버라이드 — 미설정 시 lib/llm/models.ts의 최신 별칭 사용
+# GEMINI_MODEL_CHAT=gemini-flash-latest
+# GEMINI_MODEL_SUGGESTIONS=gemini-flash-lite-latest
+# GEMINI_MODEL_REVISION=gemini-flash-latest
+# GEMINI_MODEL_REPORT=gemini-flash-latest
+# GEMINI_MODEL_PREVIEW=gemini-flash-lite-latest
+# GEMINI_EMBEDDING_MODEL=gemini-embedding-001
+# ENABLE_CITATION_GROUNDING=true   # 실제 검색 그라운딩으로 인용 검증(P1)
 
 # OAuth (선택 사항)
 # Google OAuth
@@ -351,7 +360,7 @@ URL을 입력하면 다음 항목들을 분석합니다:
 
 ### AI Agent (고도화된 챗봇)
 
-분석 결과를 기반으로 Google Gemini API 2.5 Flash를 사용하여 개선 방안에 대한 질문에 답변합니다.
+분석 결과를 기반으로 Google Gemini(`gemini-flash-latest`, 통합 GenAI SDK)를 사용하여 개선 방안에 대한 질문에 답변합니다. 모델 ID는 `lib/llm/models.ts`에서 중앙 관리되며 환경 변수로 오버라이드할 수 있습니다.
 
 **주요 기능:**
 - **마크다운 렌더링**: 제목, 리스트, 코드 블록, 링크 등 마크다운 형식 지원

@@ -1,7 +1,8 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { AnalysisResult } from '@/lib/analyzer';
 import { buildRevisionPrompt, RevisionRequest } from './prompt-builder';
 import { withRetry } from '@/lib/retry';
+import { generateText } from '@/lib/llm/gemini';
+import { modelForTask } from '@/lib/llm/models';
 import * as cheerio from 'cheerio';
 
 export interface RevisionResult {
@@ -21,33 +22,28 @@ export interface RevisionResult {
  */
 export async function reviseContent(
   request: RevisionRequest,
-  apiKey: string
+  // API 키는 이제 Gemini 클라이언트가 GEMINI_API_KEY 환경 변수에서 직접 읽습니다.
+  // 호출부 호환성을 위해 시그니처는 유지합니다.
+  _apiKey?: string
 ): Promise<RevisionResult> {
   // 프롬프트 생성
   const prompt = buildRevisionPrompt(request);
-  
-  // Gemini API 호출
-  const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ 
-    model: 'gemini-2.5-flash', // 최신 Flash 모델 사용
-    generationConfig: {
-      temperature: 0.7,
-      topK: 40,
-      topP: 0.95,
-      maxOutputTokens: 8192,
-    },
-  });
 
   const revisedContent = await withRetry(
     async () => {
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      const text = response.text();
-      
+      const { text } = await generateText({
+        model: modelForTask('revision'),
+        prompt,
+        temperature: 0.7,
+        topK: 40,
+        topP: 0.95,
+        maxOutputTokens: 8192,
+      });
+
       if (!text || text.trim().length === 0) {
         throw new Error('수정된 콘텐츠를 받지 못했습니다.');
       }
-      
+
       return text.trim();
     },
     {
