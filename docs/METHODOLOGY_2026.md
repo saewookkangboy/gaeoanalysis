@@ -30,6 +30,14 @@
   (GEO 0.40 유지). 그룹 합 1.0 불변식 유지.
 - 그 외 모델은 기존 프라이어 유지 — 라이브 데이터(2번) 확보 후 재보정 예정.
 
+## 5-1. 신호의 점수 반영 (`adjustScoresWithModernSignals`)
+휴리스틱 인용 점수를 실제 신호로 보정합니다(순수 함수·결정적, 신호 없으면 불변):
+- **크롤러 차단**: 모델별 대표 AI 크롤러(GPTBot→ChatGPT, PerplexityBot→Perplexity,
+  Google-Extended→Gemini, ClaudeBot→Claude)가 막히면 해당 모델을 최대 −20점.
+- **의미 신호**: 주제 일관성·질의 관련도가 높으면 전 모델 최대 +5점.
+- **그라운딩**: 활성 시 대상 도메인 실제 인용 +8, 미인용 −5.
+`analyzer.ts`가 신호 계산 후 이 함수로 점수를 보정하고 aioAnalysis를 재생성합니다.
+
 ## 6. 프로바이더 확장(로드맵)
 - `lib/llm/provider.ts` 공통 인터페이스. 현재 Gemini 실동작.
 - OpenAI/Anthropic(Claude)/Perplexity/xAI는 키 감지 가능한 스캐폴드 →

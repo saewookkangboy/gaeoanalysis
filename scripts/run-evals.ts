@@ -12,6 +12,7 @@ import { MODEL_FOR_TASK, EMBEDDING_MODEL } from '../lib/llm/models';
 import { DEFAULT_AIO_WEIGHTS, ENHANCED_AIO_WEIGHTS } from '../lib/algorithm-defaults';
 import { analyzeModernAISignals, isCrawlerBlocked } from '../lib/modern-ai-signals';
 import { providerStatus } from '../lib/llm/provider';
+import { adjustScoresWithModernSignals } from '../lib/ai-citation-analyzer';
 
 type Case = { name: string; run: () => Promise<void> | void };
 
@@ -80,6 +81,21 @@ const structuralCases: Case[] = [
     run: () => {
       const s = providerStatus();
       assert(['gemini', 'openai', 'anthropic', 'perplexity', 'xai'].every((k) => k in s), '프로바이더 누락');
+    },
+  },
+  {
+    name: '신호 반영: 신호 없으면 점수 불변, GPTBot 차단 시 chatgpt 감점',
+    run: () => {
+      const base = { chatgpt: 80, perplexity: 80, grok: 80, gemini: 80, claude: 80 };
+      const unchanged = adjustScoresWithModernSignals(base, {});
+      assert(JSON.stringify(unchanged) === JSON.stringify(base), '신호 없는데 점수 변함');
+
+      const blocked = adjustScoresWithModernSignals(base, { blockedCrawlers: ['GPTBot', 'OAI-SearchBot', 'ChatGPT-User'] });
+      assert(blocked.chatgpt < base.chatgpt, 'GPTBot 전면 차단인데 chatgpt 감점 없음');
+      assert(blocked.perplexity === base.perplexity, 'perplexity가 영향받음(오류)');
+
+      const cited = adjustScoresWithModernSignals(base, { groundingEnabled: true, targetDomainCited: true });
+      assert(cited.gemini > base.gemini, '실제 인용인데 가점 없음');
     },
   },
 ];
