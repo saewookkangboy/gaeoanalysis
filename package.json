@@ -25,6 +25,7 @@
     "test:user-flow": "npx tsx scripts/test-user-flow.ts",
     "test:user-flow:prod": "TEST_ENV=production npx tsx scripts/test-user-flow.ts",
     "stats:aggregate": "npx tsx scripts/daily-statistics-aggregator.ts",
+    "evals": "npx tsx scripts/run-evals.ts",
     "push": "bash scripts/auto-push.sh"
   },
   "dependencies": {

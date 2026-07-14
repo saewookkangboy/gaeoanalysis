@@ -123,6 +123,13 @@ GEMINI_API_KEY=your-gemini-api-key
 # GEMINI_MODEL_PREVIEW=gemini-flash-lite-latest
 # GEMINI_EMBEDDING_MODEL=gemini-embedding-001
 # ENABLE_CITATION_GROUNDING=true   # 실제 검색 그라운딩으로 인용 검증(P1)
+# ENABLE_AGENT_LIGHTNING=true      # 챗봇 프롬프트 자동 최적화(Agent Lightning)
+
+# (선택) 추가 LLM 프로바이더 — 설정 시 lib/llm/provider.ts에서 감지(어댑터는 스캐폴드)
+# OPENAI_API_KEY=
+# ANTHROPIC_API_KEY=
+# PERPLEXITY_API_KEY=
+# XAI_API_KEY=
 
 # OAuth (선택 사항)
 # Google OAuth
