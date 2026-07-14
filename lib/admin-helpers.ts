@@ -7,7 +7,8 @@
 import { query, prepare, isPostgreSQL } from './db-adapter';
 import { v4 as uuidv4 } from 'uuid';
 import { NextRequest } from 'next/server';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { generateText } from './llm/gemini';
+import { modelForTask } from './llm/models';
 import { Subscription, PlanType } from './subscription-helpers';
 
 /**
@@ -1474,17 +1475,6 @@ export async function generateAIReport(
       throw new Error('Gemini API 키가 설정되지 않았습니다.');
     }
 
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-2.5-flash',
-      generationConfig: {
-        temperature: 0.7,
-        topK: 40,
-        topP: 0.95,
-        maxOutputTokens: 8192, // 리포트는 더 긴 응답 필요
-      },
-    });
-
     const prompt = buildReportPrompt(reportData, reportType);
 
     console.log('🔄 [generateAIReport] 리포트 생성 시작...', {
@@ -1492,9 +1482,14 @@ export async function generateAIReport(
       hasUserStats: !!reportData.userStats,
     });
 
-    const result = await model.generateContent(prompt);
-    const response = result.response;
-    const text = response.text();
+    const { text } = await generateText({
+      model: modelForTask('report'),
+      prompt,
+      temperature: 0.7,
+      topK: 40,
+      topP: 0.95,
+      maxOutputTokens: 8192, // 리포트는 더 긴 응답 필요
+    });
 
     console.log('✅ [generateAIReport] 리포트 생성 완료');
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { generateText } from '@/lib/llm/gemini';
+import { modelForTask } from '@/lib/llm/models';
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,15 +13,6 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
-
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ 
-      model: 'gemini-2.5-flash',
-      generationConfig: {
-        temperature: 0.8,
-        maxOutputTokens: 512,
-      },
-    });
 
     // 분석 데이터 요약
     let contextSummary = '';
@@ -54,9 +46,13 @@ ${askedSummary ? `\n${askedSummary}` : ''}
 
 추천 질문:`;
 
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
+    const { text } = await generateText({
+      model: modelForTask('suggestions'),
+      prompt,
+      temperature: 0.8,
+      maxOutputTokens: 512,
+      thinkingBudget: 0, // 경량 태스크 — 추론 비활성으로 지연/비용 최소화
+    });
 
     // 질문들을 배열로 변환
     const questions = text

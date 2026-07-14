@@ -42,6 +42,15 @@ export const DEFAULT_GEO_WEIGHTS = {
   voice_search_bonus: 5,
 } as const;
 
+/**
+ * AI 모델별 인용 가중치 (2026-07 재보정).
+ *
+ * 각 모델 그룹의 3개 가중치 합은 1.0으로 유지됩니다(정규화 불변식).
+ * 2026 기준 조정:
+ *  - Gemini: AI Overviews가 구조화된 직답(AEO)을 더 강하게 보상 → SEO 0.35→0.30,
+ *    AEO 0.25→0.30 (GEO 0.40 유지). ChatGPT Search/Perplexity/Grok/Claude는
+ *    기존 프라이어를 유지(라이브 데이터 기반 재보정은 #7 그라운딩 신호로 별도 진행).
+ */
 export const DEFAULT_AIO_WEIGHTS = {
   chatgpt_seo_weight: 0.4,
   chatgpt_aeo_weight: 0.35,
@@ -53,8 +62,8 @@ export const DEFAULT_AIO_WEIGHTS = {
   grok_seo_weight: 0.3,
   grok_aeo_weight: 0.25,
   gemini_geo_weight: 0.4,
-  gemini_seo_weight: 0.35,
-  gemini_aeo_weight: 0.25,
+  gemini_seo_weight: 0.3,
+  gemini_aeo_weight: 0.3,
   claude_aeo_weight: 0.4,
   claude_geo_weight: 0.35,
   claude_seo_weight: 0.25,
@@ -80,10 +89,10 @@ export const ENHANCED_AIO_WEIGHTS = {
   grok_seo_weight: 0.3,
   grok_aeo_weight: 0.25,
   
-  // Gemini 가중치 (유지)
+  // Gemini 가중치 (2026 재보정: AI Overviews의 직답 선호 반영)
   gemini_geo_weight: 0.4,
-  gemini_seo_weight: 0.35,
-  gemini_aeo_weight: 0.25,
+  gemini_seo_weight: 0.3,
+  gemini_aeo_weight: 0.3,
   
   // Claude 가중치 강화: AEO와 깊이 있는 콘텐츠에 더 높은 가중치
   claude_aeo_weight: 0.45,       // 기존 0.40 → 0.45 (증가)

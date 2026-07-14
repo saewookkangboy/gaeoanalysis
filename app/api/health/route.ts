@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { dbHelpers } from '@/lib/db';
 import { cache } from '@/lib/cache';
+import { providerStatus } from '@/lib/llm/provider';
 
 /**
  * 헬스 체크 엔드포인트
@@ -20,6 +21,7 @@ export async function GET() {
         available: false,
         error: null as string | null,
       },
+      llmProviders: providerStatus(),
       cache: {
         stats: null as any,
       },

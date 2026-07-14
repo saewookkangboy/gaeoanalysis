@@ -1,8 +1,32 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { AnalysisResult } from '@/lib/analyzer';
 import { buildRevisionPrompt, RevisionRequest } from './prompt-builder';
 import { withRetry } from '@/lib/retry';
+import { generateJSON, Type, type Schema } from '@/lib/llm/gemini';
+import { modelForTask } from '@/lib/llm/models';
 import * as cheerio from 'cheerio';
+
+// 구조화 출력 스키마: 모델이 유효한 JSON만 반환하도록 강제합니다.
+// (기존: 자유 텍스트를 정규식으로 파싱 → 파싱 실패/누락 위험)
+const REVISION_SCHEMA: Schema = {
+  type: Type.OBJECT,
+  properties: {
+    revisedContent: {
+      type: Type.STRING,
+      description: '개선된 순수 텍스트 콘텐츠 (HTML/마크다운 없이, 원문 구조 유지)',
+    },
+    improvements: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      description: '실제로 적용한 개선 사항 목록 (각 항목은 한 문장)',
+    },
+  },
+  required: ['revisedContent', 'improvements'],
+};
+
+interface RevisionModelOutput {
+  revisedContent: string;
+  improvements: string[];
+}
 
 export interface RevisionResult {
   revisedContent: string;
@@ -21,34 +45,35 @@ export interface RevisionResult {
  */
 export async function reviseContent(
   request: RevisionRequest,
-  apiKey: string
+  // API 키는 이제 Gemini 클라이언트가 GEMINI_API_KEY 환경 변수에서 직접 읽습니다.
+  // 호출부 호환성을 위해 시그니처는 유지합니다.
+  _apiKey?: string
 ): Promise<RevisionResult> {
-  // 프롬프트 생성
-  const prompt = buildRevisionPrompt(request);
-  
-  // Gemini API 호출
-  const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ 
-    model: 'gemini-2.5-flash', // 최신 Flash 모델 사용
-    generationConfig: {
-      temperature: 0.7,
-      topK: 40,
-      topP: 0.95,
-      maxOutputTokens: 8192,
-    },
-  });
+  // 프롬프트 생성 + 구조화 출력 지시
+  const prompt = `${buildRevisionPrompt(request)}
 
-  const revisedContent = await withRetry(
+[출력]
+반드시 JSON 객체로만 응답하세요:
+- revisedContent: 위 지침에 따라 개선한 순수 텍스트 콘텐츠
+- improvements: 이번에 적용한 주요 개선 사항 (한국어 문장 배열)`;
+
+  const output = await withRetry(
     async () => {
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      const text = response.text();
-      
-      if (!text || text.trim().length === 0) {
+      const { data } = await generateJSON<RevisionModelOutput>({
+        model: modelForTask('revision'),
+        prompt,
+        schema: REVISION_SCHEMA,
+        temperature: 0.7,
+        topK: 40,
+        topP: 0.95,
+        maxOutputTokens: 8192,
+      });
+
+      if (!data?.revisedContent || data.revisedContent.trim().length === 0) {
         throw new Error('수정된 콘텐츠를 받지 못했습니다.');
       }
-      
-      return text.trim();
+
+      return data;
     },
     {
       maxAttempts: 3,
@@ -58,13 +83,19 @@ export async function reviseContent(
   );
 
   // 텍스트 중심으로 변환 (HTML/마크다운 제거)
-  const revisedMarkdown = convertToPlainText(revisedContent);
-  
-  // 예상 점수 계산 (간단한 추정)
+  const revisedMarkdown = convertToPlainText(output.revisedContent.trim());
+
+  // 예상 점수 계산 (간단한 추정 — 로컬 휴리스틱 유지)
   const predictedScores = estimateScores(request.analysisResult, revisedMarkdown);
-  
-  // 개선 사항 추출
-  const improvements = extractImprovements(request.analysisResult, revisedMarkdown);
+
+  // 개선 사항: 모델이 반환한 목록을 우선 사용하고, 비어 있으면 휴리스틱으로 폴백
+  const modelImprovements = (output.improvements ?? []).filter(
+    (s) => typeof s === 'string' && s.trim().length > 0,
+  );
+  const improvements =
+    modelImprovements.length > 0
+      ? modelImprovements
+      : extractImprovements(request.analysisResult, revisedMarkdown);
 
   return {
     revisedContent: revisedMarkdown, // 텍스트 중심으로 통일

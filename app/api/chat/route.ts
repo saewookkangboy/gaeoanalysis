@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { NextRequest } from 'next/server';
+import { generateText } from '@/lib/llm/gemini';
+import { modelForTask } from '@/lib/llm/models';
 import { buildAIAgentPrompt } from '@/lib/ai-agent-prompt';
 import { createErrorResponse, createSuccessResponse, withErrorHandling } from '@/lib/api-utils';
 import { withRateLimit } from '@/lib/rate-limiter';
@@ -62,18 +63,6 @@ async function handleChat(request: NextRequest) {
     );
   }
 
-    const genAI = new GoogleGenerativeAI(apiKey);
-    // 최신 Gemini 모델 사용 (gemini-2.5-flash)
-    const model = genAI.getGenerativeModel({ 
-      model: 'gemini-2.5-flash', // 최신 Flash 모델
-      generationConfig: {
-        temperature: 0.7,
-        topK: 40,
-        topP: 0.95,
-        maxOutputTokens: 4096, // 적절한 토큰 제한 (빠른 처리 + 충분한 응답)
-      },
-    });
-
     // 고도화된 프롬프트 생성
     const context = {
       messages: conversationHistory || [],
@@ -106,44 +95,17 @@ async function handleChat(request: NextRequest) {
     ? agentLightning.getOptimizedPrompt('chat', analysisData, aioAnalysis, context)
     : buildAIAgentPrompt(message, context);
 
-    // 스트리밍으로 전체 응답 수집
-    let fullText = '';
+    // 응답은 JSON으로 버퍼링되어 반환되므로 단일 호출로 전체 텍스트를 수집합니다.
     const startTime = Date.now();
-    
-    try {
-      const result = await model.generateContentStream(prompt);
-      
-      // 스트림에서 모든 청크 수집
-      for await (const chunk of result.stream) {
-        const chunkText = chunk.text();
-        if (chunkText) {
-          fullText += chunkText;
-        }
-      }
-    } catch (streamError) {
-      console.warn('스트리밍 실패, 일반 모드로 전환:', streamError);
-      // 스트리밍이 실패하면 일반 generateContent 사용
-      const fallbackResult = await model.generateContent(prompt);
-      const fallbackResponse = await fallbackResult.response;
-      
-      // 전체 응답 수집 - 여러 후보(candidates)가 있을 경우 모두 수집
-      if (fallbackResponse.candidates && fallbackResponse.candidates.length > 0) {
-        for (const candidate of fallbackResponse.candidates) {
-          if (candidate.content && candidate.content.parts) {
-            for (const part of candidate.content.parts) {
-              if (part.text) {
-                fullText += part.text;
-              }
-            }
-          }
-        }
-      }
-      
-      // 후보가 없거나 텍스트가 없으면 기본 text() 메서드 사용
-      if (!fullText) {
-        fullText = fallbackResponse.text();
-      }
-    }
+    const generation = await generateText({
+      model: modelForTask('chat'),
+      prompt,
+      temperature: 0.7,
+      topK: 40,
+      topP: 0.95,
+      maxOutputTokens: 4096,
+    });
+    const fullText = generation.text;
 
     const responseTime = Date.now() - startTime;
 
@@ -173,11 +135,13 @@ async function handleChat(request: NextRequest) {
     if (userId) {
       Promise.resolve().then(async () => {
         try {
-          // 토큰 사용량 추정 (Gemini API는 실제 토큰 수를 반환하지 않으므로 추정)
-          const estimatedInputTokens = Math.ceil((prompt.length + message.length) / 4); // 대략적인 토큰 추정
-          const estimatedOutputTokens = Math.ceil(fullText.length / 4);
-          
-          // 비용 추정 (Gemini 2.5 Flash 기준)
+          // 실제 usageMetadata 토큰 수 사용 (없으면 길이 기반으로 폴백)
+          const estimatedInputTokens =
+            generation.inputTokens || Math.ceil((prompt.length + message.length) / 4);
+          const estimatedOutputTokens =
+            generation.outputTokens || Math.ceil(fullText.length / 4);
+
+          // 비용 추정 (Gemini Flash 기준)
           // Input: $0.075 per 1M tokens, Output: $0.30 per 1M tokens
           const estimatedCost = (estimatedInputTokens / 1000000) * 0.075 + (estimatedOutputTokens / 1000000) * 0.30;
           
