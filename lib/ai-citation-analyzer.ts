@@ -441,6 +441,81 @@ function calculateEnhancedClaudeBonus($: cheerio.CheerioAPI): number {
 }
 
 /**
+ * 2026 AI 신호를 인용 점수에 반영하기 위한 입력.
+ * (modern-ai-signals / semantic-relevance / citation-grounding 결과에서 파생)
+ */
+export interface ModernSignalInputs {
+  /** robots.txt에서 차단된 AI 크롤러 User-Agent 목록 */
+  blockedCrawlers?: string[];
+  /** 임베딩 기반 주제 일관성 (0~100) */
+  topicalCoherence?: number;
+  /** 임베딩 기반 질의 관련도 (0~100) */
+  queryRelevance?: number | null;
+  /** 검색 그라운딩 활성 여부 */
+  groundingEnabled?: boolean;
+  /** 그라운딩에서 대상 도메인이 실제 인용되었는지 */
+  targetDomainCited?: boolean;
+}
+
+/** 모델별 대표 AI 크롤러 — 차단 시 해당 모델 인용 가능성에 직접 영향. */
+const MODEL_CRAWLERS: Record<keyof AIOCitationScores, string[]> = {
+  chatgpt: ['GPTBot', 'OAI-SearchBot', 'ChatGPT-User'],
+  perplexity: ['PerplexityBot', 'Perplexity-User'],
+  gemini: ['Google-Extended'],
+  claude: ['ClaudeBot', 'Claude-Web'],
+  grok: [], // xAI는 공개 크롤러 UA가 명확치 않아 크롤러 패널티 제외
+};
+
+function clampScore(n: number): number {
+  return Math.max(0, Math.min(100, Math.round(n)));
+}
+
+/**
+ * 휴리스틱 인용 점수에 실제 2026 신호를 반영합니다. (순수 함수 · 결정적)
+ *
+ * - 크롤러 차단: 해당 모델 크롤러가 막혀 있으면 인용은 사실상 불가 → 모델별 감점
+ *   (막힌 비율 × 최대 20점)
+ * - 의미 신호: 주제 일관성·질의 관련도가 높으면 전 모델 소폭 가점 (최대 +5)
+ * - 그라운딩: 활성 시, 대상 도메인이 실제 인용되면 +8, 인용 안 되면 −5 (증거 기반)
+ *
+ * 신호가 전혀 없으면 입력 점수를 그대로 반환합니다(동작 불변).
+ */
+export function adjustScoresWithModernSignals(
+  scores: AIOCitationScores,
+  inputs: ModernSignalInputs,
+): AIOCitationScores {
+  const blocked = new Set((inputs.blockedCrawlers ?? []).map((c) => c.toLowerCase()));
+
+  // 의미 신호 가점 (전 모델 공통)
+  const coherence = typeof inputs.topicalCoherence === 'number' ? inputs.topicalCoherence : null;
+  const relevance = typeof inputs.queryRelevance === 'number' ? inputs.queryRelevance : null;
+  const semanticParts = [coherence, relevance].filter((v): v is number => v !== null);
+  const semanticBoost =
+    semanticParts.length > 0
+      ? (semanticParts.reduce((a, b) => a + b, 0) / semanticParts.length / 100) * 5
+      : 0;
+
+  // 그라운딩 가감점 (전 모델 공통, 활성 시에만)
+  let groundingDelta = 0;
+  if (inputs.groundingEnabled) {
+    groundingDelta = inputs.targetDomainCited ? 8 : -5;
+  }
+
+  const adjusted = {} as AIOCitationScores;
+  (Object.keys(scores) as Array<keyof AIOCitationScores>).forEach((model) => {
+    const crawlers = MODEL_CRAWLERS[model];
+    let crawlerPenalty = 0;
+    if (crawlers.length > 0) {
+      const blockedCount = crawlers.filter((c) => blocked.has(c.toLowerCase())).length;
+      crawlerPenalty = (blockedCount / crawlers.length) * 20;
+    }
+    adjusted[model] = clampScore(scores[model] - crawlerPenalty + semanticBoost + groundingDelta);
+  });
+
+  return adjusted;
+}
+
+/**
  * AI 모델별 인용 확률 분석 및 가이드 생성
  */
 export function generateAIOCitationAnalysis(scores: AIOCitationScores): AIOCitationAnalysis {

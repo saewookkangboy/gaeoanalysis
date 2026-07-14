@@ -1,5 +1,5 @@
 import * as cheerio from 'cheerio';
-import { calculateAIOCitationScores, generateAIOCitationAnalysis, AIOCitationAnalysis } from './ai-citation-analyzer';
+import { calculateAIOCitationScores, generateAIOCitationAnalysis, adjustScoresWithModernSignals, AIOCitationAnalysis, type AIOCitationScores } from './ai-citation-analyzer';
 import { calculateAIVisibilityScore, generateAIVisibilityRecommendations } from './ai-visibility-calculator';
 import { extractCitationSources, CitationExtractionResult, calculateDomainStatistics, DomainStatistics } from './citation-extractor';
 import { 
@@ -413,6 +413,7 @@ export async function analyzeContent(url: string): Promise<AnalysisResult> {
 
     // === 2) AIO / AI Visibility / 추천 (선택 단계) ===
     let aioAnalysis: AIOCitationAnalysis | undefined;
+    let aioScores: AIOCitationScores | undefined; // 4) 단계에서 신호 반영 후 재생성용
     let aiVisibilityScore: number | undefined;
     let aiVisibilityRecommendations: string[] | undefined;
     let contentGuidelines: string[] | undefined;
@@ -431,7 +432,7 @@ export async function analyzeContent(url: string): Promise<AnalysisResult> {
 
     try {
       // 일반 사이트인 경우 강화된 AIO 가중치 사용
-      const aioScores = calculateAIOCitationScores($, aeoScore, geoScore, seoScore, undefined, isWebsite);
+      aioScores = calculateAIOCitationScores($, aeoScore, geoScore, seoScore, undefined, isWebsite);
       aioAnalysis = generateAIOCitationAnalysis(aioScores);
 
       aiVisibilityScore = calculateAIVisibilityScore($, aioScores, aeoScore, geoScore, seoScore);
@@ -598,6 +599,18 @@ export async function analyzeContent(url: string): Promise<AnalysisResult> {
           title: pageTitle,
           questions: [pageTitle, `${pageTitle}에 대해 알려줘`],
         });
+      }
+
+      // 신호를 실제 인용 점수에 반영 → aioAnalysis 재생성 (신호 없으면 값 불변)
+      if (aioScores) {
+        const adjusted = adjustScoresWithModernSignals(aioScores, {
+          blockedCrawlers: modernAISignals?.blockedCrawlers,
+          topicalCoherence: semanticRelevance?.topicalCoherence,
+          queryRelevance: semanticRelevance?.queryRelevance,
+          groundingEnabled: citationGrounding?.enabled,
+          targetDomainCited: citationGrounding?.targetDomainCited,
+        });
+        aioAnalysis = generateAIOCitationAnalysis(adjusted);
       }
     } catch (subError) {
       console.warn('⚠️ [Analyzer] 2026 AI 신호 보강 중 오류 (계속 진행):', subError);
