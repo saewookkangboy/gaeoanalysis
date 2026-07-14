@@ -9,9 +9,13 @@
  *   - Google Search 그라운딩 — 실제 인용/검색 근거 확보
  *   - 임베딩 — 의미 기반 점수 계산
  */
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, Type } from '@google/genai';
 import type { GenerateContentConfig, Schema } from '@google/genai';
 import { EMBEDDING_MODEL } from './models';
+
+// 구조화 출력 스키마 작성용 타입 열거형을 한 곳에서 재노출합니다.
+export { Type };
+export type { Schema };
 
 let client: GoogleGenAI | null = null;
 

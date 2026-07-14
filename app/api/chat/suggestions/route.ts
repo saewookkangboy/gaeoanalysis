@@ -51,6 +51,7 @@ ${askedSummary ? `\n${askedSummary}` : ''}
       prompt,
       temperature: 0.8,
       maxOutputTokens: 512,
+      thinkingBudget: 0, // 경량 태스크 — 추론 비활성으로 지연/비용 최소화
     });
 
     // 질문들을 배열로 변환
