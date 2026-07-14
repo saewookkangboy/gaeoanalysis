@@ -37,6 +37,9 @@ import {
 
 // Import types for use in this file
 import type { DomainAuthority, CitationOpportunity, QualityIssue } from './citation-analyzer';
+import { analyzeModernAISignals, type ModernAISignals } from './modern-ai-signals';
+import { computeSemanticRelevance, type SemanticRelevance } from './llm/semantic-relevance';
+import { verifyCitationGrounding, isGroundingEnabled, type GroundingResult } from './llm/citation-grounding';
 
 export interface AnalysisResult {
   aeoScore: number;
@@ -59,6 +62,13 @@ export interface AnalysisResult {
     actionableTips?: Array<{ title: string; steps: string[]; expectedImpact: string }>;
   }>;
   contentGuidelines?: string[];
+  // === 2026 AI 신호 보강 (선택 단계) ===
+  /** AI 크롤러 접근성·llms.txt·Speakable 신호 (#11) */
+  modernAISignals?: ModernAISignals;
+  /** 임베딩 기반 주제 일관성·질의 관련도 (#8, ENABLE_SEMANTIC_SCORING) */
+  semanticRelevance?: SemanticRelevance;
+  /** 실제 검색 그라운딩 인용 검증 (#7, ENABLE_CITATION_GROUNDING) */
+  citationGrounding?: GroundingResult;
 }
 
 export interface Insight {
@@ -540,6 +550,59 @@ export async function analyzeContent(url: string): Promise<AnalysisResult> {
       // 인용 관련 기능 실패 시 기본 점수/인사이트만 제공
     }
 
+    // === 4) 2026 AI 신호 보강 (선택 단계, fail-soft) ===
+    // 기본값은 현재 동작/비용을 유지합니다:
+    //  - modernAISignals: 저비용(robots.txt 1회 fetch) → 기본 활성
+    //  - semanticRelevance: 임베딩 비용 발생 → ENABLE_SEMANTIC_SCORING=true 일 때만
+    //  - citationGrounding: 검색 그라운딩 비용 발생 → ENABLE_CITATION_GROUNDING=true 일 때만
+    let modernAISignals: ModernAISignals | undefined;
+    let semanticRelevance: SemanticRelevance | undefined;
+    let citationGrounding: GroundingResult | undefined;
+
+    try {
+      // (#11) AI 크롤러 접근성/llms.txt/Speakable — robots.txt는 best-effort로 취득
+      let robotsTxt = '';
+      try {
+        const origin = new URL(url).origin;
+        const res = await fetch(`${origin}/robots.txt`, {
+          signal: AbortSignal.timeout(3000),
+        });
+        if (res.ok) robotsTxt = await res.text();
+      } catch {
+        // robots.txt 미존재/타임아웃 — 신호 없이 계속
+      }
+      modernAISignals = analyzeModernAISignals({ $, robotsTxt, llmsTxt: null });
+
+      const pageTitle = ($('title').text() || $('h1').first().text() || '').trim();
+
+      // (#8) 의미 관련도 — 비용 발생하므로 명시적 opt-in
+      if (process.env.ENABLE_SEMANTIC_SCORING === 'true') {
+        const sections: string[] = [];
+        $('h1, h2, h3').each((_, el) => {
+          const t = $(el).text().trim();
+          if (t) sections.push(t);
+        });
+        $('p').slice(0, 12).each((_, el) => {
+          const t = $(el).text().trim();
+          if (t.length > 40) sections.push(t);
+        });
+        const queries = pageTitle ? [pageTitle, `${pageTitle} 방법`, `${pageTitle} 란`] : [];
+        const rel = await computeSemanticRelevance(sections, queries);
+        if (rel) semanticRelevance = rel;
+      }
+
+      // (#7) 실제 검색 그라운딩 인용 검증 — opt-in
+      if (isGroundingEnabled() && pageTitle) {
+        citationGrounding = await verifyCitationGrounding({
+          url,
+          title: pageTitle,
+          questions: [pageTitle, `${pageTitle}에 대해 알려줘`],
+        });
+      }
+    } catch (subError) {
+      console.warn('⚠️ [Analyzer] 2026 AI 신호 보강 중 오류 (계속 진행):', subError);
+    }
+
     return {
       ...baseResult,
       aioAnalysis,
@@ -552,6 +615,9 @@ export async function analyzeContent(url: string): Promise<AnalysisResult> {
       qualityIssues,
       improvementPriorities,
       contentGuidelines,
+      modernAISignals,
+      semanticRelevance,
+      citationGrounding,
     };
   } catch (error) {
     // 더 상세한 에러 메시지 제공
